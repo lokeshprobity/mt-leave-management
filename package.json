@@ -1,0 +1,48 @@
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
+    "preview": "vite preview",
+    "clean": "rm -rf dist server.js",
+    "test": "tsx src/test/leave-foundation.test.ts && tsx src/test/leave-engine.runner.ts && tsx src/test/approval-engine.test.ts && tsx src/test/deep-audit.test.ts && tsx src/test/step6-regression.test.ts && tsx src/test/step7-shift-regression.test.ts && tsx src/test/step8-user-shift-ot.test.ts && tsx src/test/step9-dept-holiday.test.ts && tsx src/test/final-business-rules.test.ts && tsx src/test/super-admin-profile-operate.test.ts && tsx src/test/logout-photo-logo.test.ts && tsx src/test/team-leader-rotation.test.ts && tsx src/test/authoritative-business-ids.test.ts && tsx src/test/mobile-shell.test.ts && tsx src/test/mobile-viewport-responsiveness.test.ts && tsx src/test/login-password-show-hide.test.ts",
+    "lint": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.2",
+    "express": "^4.21.2",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "pdfjs-dist": "^6.3.289",
+    "pg": "^8.23.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^8.3.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.21",
+    "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2",
+    "vite-plugin-pwa": "^1.3.0"
+  }
+}

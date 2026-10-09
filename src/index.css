@@ -1,0 +1,561 @@
+@import "tailwindcss";
+
+/**
+ * ============================================================================
+ * MT LEAVE MANAGEMENT — UNIFIED ENTERPRISE COLOUR SPECIFICATION
+ * ============================================================================
+ * 1. Global Application Base:
+ *    - Primary page background: WHITE (#ffffff)
+ *    - Main content areas: WHITE (#ffffff)
+ *    - Cards / panels: WHITE (#ffffff)
+ *    - Modal / dialog surface: WHITE (#ffffff)
+ *    - Primary font / headings / important values: BLACK / Near-Black (#111827)
+ *    - Secondary text: Dark Slate / Charcoal (#374151)
+ *    - Muted text: #6b7280
+ *
+ * 2. Corporate Brand Colours:
+ *    - Primary Corporate Red: #c8102e (Hover: #991b1b, Active: #7f1d1d)
+ *    - Dark Corporate Structural Colour: Deep Navy / Charcoal (#0f172a)
+ *
+ * 3. Borders / Dividers:
+ *    - Default border: #d1d5db
+ *    - Strong border: #9ca3af
+ *    - Corporate / active border: #c8102e
+ *
+ * 4. Status / Alert Colour System:
+ *    - SUCCESS: Main #16a34a, Light bg #f0fdf4, Text #166534
+ *    - WARNING: Main #d97706, Light bg #fffbeb, Text #92400e
+ *    - ERROR / REJECTED: Main #dc2626, Light bg #fef2f2, Text #991b1b
+ *    - INFO: Main #2563eb, Light bg #eff6ff, Text #1e40af
+ * ============================================================================
+ */
+
+:root {
+  /* 1. Primary Corporate Brand Red */
+  --mt-color-primary: #c8102e;
+  --mt-color-primary-hover: #991b1b;
+  --mt-color-primary-active: #7f1d1d;
+  --mt-color-primary-subtle: #fef2f2;
+  --mt-color-primary-muted: #fee2e2;
+  --mt-color-primary-border: #c8102e;
+  --mt-color-primary-foreground: #ffffff;
+
+  /* 2. Dark Corporate Structural Colour (Header & Executive Chrome) */
+  --mt-color-structural: #0f172a;
+  --mt-color-structural-hover: #1e293b;
+  --mt-color-structural-foreground: #ffffff;
+
+  /* 3. Secondary */
+  --mt-color-secondary: #ffffff;
+  --mt-color-secondary-hover: #f9fafb;
+  --mt-color-secondary-active: #f3f4f6;
+  --mt-color-secondary-foreground: #111827;
+  --mt-color-secondary-border: #d1d5db;
+
+  /* 4. Accent (Corporate Red Highlight & Selected State) */
+  --mt-color-accent: #c8102e;
+  --mt-color-accent-hover: #991b1b;
+  --mt-color-accent-active: #7f1d1d;
+  --mt-color-accent-subtle: #fef2f2;
+  --mt-color-accent-border: #fecaca;
+  --mt-color-accent-foreground: #991b1b;
+
+  /* 5. Page & Content Background (Mandatory WHITE) */
+  --mt-color-bg-page: #ffffff;
+  --mt-color-bg-canvas: #ffffff;
+
+  /* 6. Card / Surface / Modal Background (Mandatory WHITE) */
+  --mt-color-bg-surface: #ffffff;
+  --mt-color-bg-surface-muted: #f9fafb;
+  --mt-color-bg-surface-subtle: #fef2f2;
+  --mt-color-bg-surface-elevated: #ffffff;
+
+  /* 6.5. Neutral Scale */
+  --mt-color-neutral-50: #f9fafb;
+  --mt-color-neutral-100: #f3f4f6;
+  --mt-color-neutral-200: #e5e7eb;
+  --mt-color-neutral-300: #d1d5db;
+  --mt-color-neutral-400: #9ca3af;
+  --mt-color-neutral-500: #6b7280;
+  --mt-color-neutral-600: #4b5563;
+  --mt-color-neutral-700: #374151;
+  --mt-color-neutral-800: #1f2937;
+  --mt-color-neutral-900: #111827;
+
+  /* 7. Borders & Dividers (#d1d5db default, #9ca3af strong, #c8102e corporate) */
+  --mt-color-border: #d1d5db;
+  --mt-color-border-subtle: #e5e7eb;
+  --mt-color-border-strong: #9ca3af;
+  --mt-color-border-brand: #c8102e;
+  --mt-color-divider: #d1d5db;
+
+  /* 8 & 9. Text Hierarchy (#111827 primary, #374151 secondary, #6b7280 muted) */
+  --mt-color-text-primary: #111827;
+  --mt-color-text-body: #111827;
+  --mt-color-text-label: #111827;
+  --mt-color-text-secondary: #374151;
+  --mt-color-text-muted: #6b7280;
+  --mt-color-text-placeholder: #9ca3af;
+  --mt-color-text-brand: #c8102e;
+  --mt-color-text-inverse: #ffffff;
+
+  /* 10. Success (#16a34a main, #f0fdf4 light bg, #166534 text) */
+  --mt-color-success: #16a34a;
+  --mt-color-success-hover: #15803d;
+  --mt-color-success-bg: #f0fdf4;
+  --mt-color-success-badge-bg: #dcfce7;
+  --mt-color-success-border: #bbf7d0;
+  --mt-color-success-text: #166534;
+  --mt-color-success-text-strong: #14532d;
+
+  /* 11. Warning (#d97706 main, #fffbeb light bg, #92400e text) */
+  --mt-color-warning: #d97706;
+  --mt-color-warning-hover: #b45309;
+  --mt-color-warning-bg: #fffbeb;
+  --mt-color-warning-badge-bg: #fef3c7;
+  --mt-color-warning-border: #fde68a;
+  --mt-color-warning-text: #92400e;
+  --mt-color-warning-text-strong: #78350f;
+
+  /* 12. Error / Rejected / Danger (#dc2626 main, #fef2f2 light bg, #991b1b text) */
+  --mt-color-danger: #dc2626;
+  --mt-color-danger-hover: #b91c1c;
+  --mt-color-danger-bg: #fef2f2;
+  --mt-color-danger-badge-bg: #fee2e2;
+  --mt-color-danger-border: #fecaca;
+  --mt-color-danger-text: #991b1b;
+  --mt-color-danger-text-strong: #7f1d1d;
+
+  --mt-color-error: #dc2626;
+  --mt-color-error-hover: #b91c1c;
+  --mt-color-error-bg: #fef2f2;
+  --mt-color-error-badge-bg: #fee2e2;
+  --mt-color-error-border: #fecaca;
+  --mt-color-error-text: #991b1b;
+  --mt-color-error-text-strong: #7f1d1d;
+
+  /* 13. Info (#2563eb main, #eff6ff light bg, #1e40af text) */
+  --mt-color-info: #2563eb;
+  --mt-color-info-hover: #1d4ed8;
+  --mt-color-info-bg: #eff6ff;
+  --mt-color-info-badge-bg: #dbeafe;
+  --mt-color-info-border: #bfdbfe;
+  --mt-color-info-text: #1e40af;
+  --mt-color-info-text-strong: #1e3a8a;
+
+  /* 13.5. Workflow Status Tokens */
+  --mt-status-pending: #d97706;
+  --mt-status-pending-bg: #fffbeb;
+  --mt-status-pending-border: #fde68a;
+  --mt-status-pending-text: #92400e;
+
+  --mt-status-approved: #16a34a;
+  --mt-status-approved-bg: #f0fdf4;
+  --mt-status-approved-border: #bbf7d0;
+  --mt-status-approved-text: #166534;
+
+  --mt-status-rejected: #dc2626;
+  --mt-status-rejected-bg: #fef2f2;
+  --mt-status-rejected-border: #fecaca;
+  --mt-status-rejected-text: #991b1b;
+
+  --mt-status-cancelled: #6b7280;
+  --mt-status-cancelled-bg: #f5f5f4;
+  --mt-status-cancelled-border: #d6d3d1;
+  --mt-status-cancelled-text: #44403c;
+
+  --mt-status-completed: #0d9488;
+  --mt-status-completed-bg: #f0fdfa;
+  --mt-status-completed-border: #99f6e4;
+  --mt-status-completed-text: #134e4a;
+
+  /* 13.6. Leave Type Semantic Tokens (CL, SL, EL, Emergency, LWP) */
+  --mt-leave-cl: #0284c7;
+  --mt-leave-cl-bg: #e0f2fe;
+  --mt-leave-cl-border: #38bdf8;
+  --mt-leave-cl-text: #0c4a6e;
+
+  --mt-leave-sl: #d97706;
+  --mt-leave-sl-bg: #fef3c7;
+  --mt-leave-sl-border: #fbbf24;
+  --mt-leave-sl-text: #78350f;
+
+  --mt-leave-el: #16a34a;
+  --mt-leave-el-bg: #d1fae5;
+  --mt-leave-el-border: #6ee7b7;
+  --mt-leave-el-text: #064e3b;
+
+  --mt-leave-emergency: #dc2626;
+  --mt-leave-emergency-bg: #ffe4e6;
+  --mt-leave-emergency-border: #fb7185;
+  --mt-leave-emergency-text: #881337;
+
+  --mt-leave-lwp: #9333ea;
+  --mt-leave-lwp-bg: #f3e8ff;
+  --mt-leave-lwp-border: #c084fc;
+  --mt-leave-lwp-text: #581c87;
+
+  /* 14. Disabled States */
+  --mt-color-disabled-bg: #f3f4f6;
+  --mt-color-disabled-text: #6b7280;
+  --mt-color-disabled-border: #d1d5db;
+  --mt-opacity-disabled: 0.55;
+
+  /* 15. Focus States (Corporate Red Ring) */
+  --mt-color-focus-ring: #c8102e;
+  --mt-color-focus-ring-accent: #991b1b;
+  --mt-color-focus-border: #c8102e;
+}
+
+@theme {
+  --color-mt-primary: var(--mt-color-primary);
+  --color-mt-primary-hover: var(--mt-color-primary-hover);
+  --color-mt-primary-active: var(--mt-color-primary-active);
+  --color-mt-primary-subtle: var(--mt-color-primary-subtle);
+  --color-mt-primary-muted: var(--mt-color-primary-muted);
+  --color-mt-primary-border: var(--mt-color-primary-border);
+  --color-mt-primary-fg: var(--mt-color-primary-foreground);
+
+  --color-mt-structural: var(--mt-color-structural);
+  --color-mt-structural-hover: var(--mt-color-structural-hover);
+  --color-mt-structural-fg: var(--mt-color-structural-foreground);
+
+  --color-mt-secondary: var(--mt-color-secondary);
+  --color-mt-secondary-hover: var(--mt-color-secondary-hover);
+  --color-mt-secondary-fg: var(--mt-color-secondary-foreground);
+  --color-mt-secondary-border: var(--mt-color-secondary-border);
+
+  --color-mt-accent: var(--mt-color-accent);
+  --color-mt-accent-hover: var(--mt-color-accent-hover);
+  --color-mt-accent-subtle: var(--mt-color-accent-subtle);
+  --color-mt-accent-border: var(--mt-color-accent-border);
+  --color-mt-accent-fg: var(--mt-color-accent-foreground);
+
+  --color-mt-page: var(--mt-color-bg-page);
+  --color-mt-canvas: var(--mt-color-bg-canvas);
+  --color-mt-surface: var(--mt-color-bg-surface);
+  --color-mt-surface-muted: var(--mt-color-bg-surface-muted);
+  --color-mt-surface-subtle: var(--mt-color-bg-surface-subtle);
+
+  --color-mt-border: var(--mt-color-border);
+  --color-mt-border-subtle: var(--mt-color-border-subtle);
+  --color-mt-border-strong: var(--mt-color-border-strong);
+  --color-mt-divider: var(--mt-color-divider);
+
+  --color-mt-text-primary: var(--mt-color-text-primary);
+  --color-mt-text-body: var(--mt-color-text-body);
+  --color-mt-text-label: var(--mt-color-text-label);
+  --color-mt-text-secondary: var(--mt-color-text-secondary);
+  --color-mt-text-muted: var(--mt-color-text-muted);
+  --color-mt-text-placeholder: var(--mt-color-text-placeholder);
+
+  --color-mt-success: var(--mt-color-success);
+  --color-mt-success-bg: var(--mt-color-success-bg);
+  --color-mt-success-border: var(--mt-color-success-border);
+  --color-mt-success-text: var(--mt-color-success-text);
+
+  --color-mt-warning: var(--mt-color-warning);
+  --color-mt-warning-bg: var(--mt-color-warning-bg);
+  --color-mt-warning-border: var(--mt-color-warning-border);
+  --color-mt-warning-text: var(--mt-color-warning-text);
+
+  --color-mt-danger: var(--mt-color-danger);
+  --color-mt-danger-bg: var(--mt-color-danger-bg);
+  --color-mt-danger-border: var(--mt-color-danger-border);
+  --color-mt-danger-text: var(--mt-color-danger-text);
+
+  --color-mt-info: var(--mt-color-info);
+  --color-mt-info-bg: var(--mt-color-info-bg);
+  --color-mt-info-border: var(--mt-color-info-border);
+  --color-mt-info-text: var(--mt-color-info-text);
+
+  --color-mt-disabled-bg: var(--mt-color-disabled-bg);
+  --color-mt-disabled-text: var(--mt-color-disabled-text);
+  --color-mt-disabled-border: var(--mt-color-disabled-border);
+  --color-mt-focus: var(--mt-color-focus-ring);
+}
+
+/* ============================================================================
+ * 1. LAYERED APPLICATION CANVAS & TYPOGRAPHY HIERARCHY
+ *    PAGE/CANVAS -> light neutral/slate surface (#f1f5f9)
+ *    CARD -> light semantic colour tint
+ *    CARD TOP -> strong 5px semantic colour strip
+ * ============================================================================ */
+html,
+body,
+#root,
+#app-root,
+#app-container {
+  background-color: #f1f5f9;
+  color: #111827;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+*, ::before, ::after {
+  box-sizing: border-box;
+}
+
+img, svg, video, canvas, audio, iframe, embed, object {
+  max-width: 100%;
+}
+
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Mobile safe area padding utilities */
+.pb-safe {
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Thick Top Colour Strip Utilities (4px - 6px) matching My Schedule visual language */
+.border-t-3 {
+  border-top-width: 5px;
+}
+
+.border-t-4 {
+  border-top-width: 5px;
+}
+
+.border-t-5 {
+  border-top-width: 5px;
+}
+
+.border-t-6 {
+  border-top-width: 6px;
+}
+
+/* Mobile App Shell & Safe Area Utilities */
+.mt-bottom-nav-safe {
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
+}
+
+.mt-mobile-content-safe {
+  padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .mt-mobile-content-safe {
+    padding-bottom: 2rem;
+  }
+}
+
+/* Reusable semantic component classes for Desktop & Mobile */
+.mt-page {
+  background-color: #f1f5f9;
+  color: var(--mt-color-text-primary);
+}
+
+.mt-header {
+  background-color: var(--mt-color-structural);
+  color: var(--mt-color-structural-foreground);
+  border-bottom: 3px solid var(--mt-color-primary);
+}
+
+.mt-nav {
+  background-color: var(--mt-color-bg-surface);
+  border-color: var(--mt-color-border);
+}
+
+.mt-sidebar {
+  background-color: var(--mt-color-bg-surface);
+  border-color: var(--mt-color-border);
+}
+
+.mt-card {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  border-top-width: 5px;
+  border-top-color: #475569;
+}
+
+.mt-card-muted {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* Semantic Tinted Card Variants (Tinted BG + Matching Border + 5px Top Strip) */
+.mt-card-sky {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-top: 5px solid #0284c7;
+}
+
+.mt-card-emerald {
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-top: 5px solid #059669;
+}
+
+.mt-card-amber {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-top: 5px solid #d97706;
+}
+
+.mt-card-purple {
+  background-color: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-top: 5px solid #9333ea;
+}
+
+.mt-card-rose {
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-top: 5px solid #e11d48;
+}
+
+.mt-card-teal {
+  background-color: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-top: 5px solid #0d9488;
+}
+
+.mt-card-indigo {
+  background-color: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-top: 5px solid #4f46e5;
+}
+
+.mt-card-slate {
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-top: 5px solid #475569;
+}
+
+.mt-card-stone {
+  background-color: #f5f5f4;
+  border: 1px solid #d6d3d1;
+  border-top: 5px solid #78716c;
+}
+
+.mt-btn-primary {
+  background-color: var(--mt-color-primary);
+  color: var(--mt-color-primary-foreground);
+}
+.mt-btn-primary:hover:not(:disabled) {
+  background-color: var(--mt-color-primary-hover);
+}
+.mt-btn-primary:active:not(:disabled) {
+  background-color: var(--mt-color-primary-active);
+}
+
+.mt-btn-secondary {
+  background-color: var(--mt-color-secondary);
+  color: var(--mt-color-secondary-foreground);
+  border-color: var(--mt-color-secondary-border);
+}
+.mt-btn-secondary:hover:not(:disabled) {
+  background-color: var(--mt-color-secondary-hover);
+}
+
+.mt-btn-accent {
+  background-color: var(--mt-color-accent);
+  color: #ffffff;
+}
+.mt-btn-accent:hover:not(:disabled) {
+  background-color: var(--mt-color-accent-hover);
+}
+
+.mt-btn-danger {
+  background-color: var(--mt-color-danger);
+  color: #ffffff;
+}
+.mt-btn-danger:hover:not(:disabled) {
+  background-color: var(--mt-color-danger-hover);
+}
+
+.mt-badge-success {
+  background-color: var(--mt-color-success-bg);
+  color: var(--mt-color-success-text);
+  border-color: var(--mt-color-success-border);
+}
+
+.mt-badge-warning {
+  background-color: var(--mt-color-warning-bg);
+  color: var(--mt-color-warning-text);
+  border-color: var(--mt-color-warning-border);
+}
+
+.mt-badge-danger {
+  background-color: var(--mt-color-danger-bg);
+  color: var(--mt-color-danger-text);
+  border-color: var(--mt-color-danger-border);
+}
+
+.mt-badge-info {
+  background-color: var(--mt-color-info-bg);
+  color: var(--mt-color-info-text);
+  border-color: var(--mt-color-info-border);
+}
+
+.mt-badge-accent {
+  background-color: var(--mt-color-accent-subtle);
+  color: var(--mt-color-accent-foreground);
+  border-color: var(--mt-color-accent-border);
+}
+
+.mt-alert-success {
+  background-color: var(--mt-color-success-bg);
+  border-color: var(--mt-color-success-border);
+  color: var(--mt-color-success-text);
+}
+
+.mt-alert-warning {
+  background-color: var(--mt-color-warning-bg);
+  border-color: var(--mt-color-warning-border);
+  color: var(--mt-color-warning-text);
+}
+
+.mt-alert-danger {
+  background-color: var(--mt-color-danger-bg);
+  border-color: var(--mt-color-danger-border);
+  color: var(--mt-color-danger-text);
+}
+
+.mt-alert-info {
+  background-color: var(--mt-color-info-bg);
+  border-color: var(--mt-color-info-border);
+  color: var(--mt-color-info-text);
+}
+
+/* Hide scrollbars on horizontal touch-scroll strips while keeping scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mobile-First (<768px) Touch Ergonomics & Keyboard-Safe Form Controls */
+@media (max-width: 767px) {
+  #app-container input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  #app-container select,
+  #main-content-area input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  #main-content-area select {
+    min-height: 44px;
+    font-size: max(14px, 0.875rem);
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  #app-container textarea,
+  #main-content-area textarea {
+    font-size: max(14px, 0.875rem);
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+/* Clean table readability without overriding module card colours */
+#app-container table thead th {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}

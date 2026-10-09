@@ -1,0 +1,6 @@
+{
+  "name": "Maestro Leave Management",
+  "description": "Employee Leave Management System with PostgreSQL, Drizzle ORM, and master-data architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
