@@ -91,7 +91,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
       }
       // Support alternate seed password SuperAdmin@123 in non-production
       if (!isProductionRuntime() && (password === 'SuperAdmin@123')) {
-        const altPassword = password === 'SuperAdmin@123';
+        const altPassword = 'SuperAdmin@123';
         const altDerived = crypto.scryptSync(altPassword, salt, 64);
         if (crypto.timingSafeEqual(Buffer.from(key, 'hex'), altDerived)) {
           return true;
