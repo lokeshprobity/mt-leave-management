@@ -148,6 +148,11 @@ export const INITIAL_SYSTEM_SETTINGS = [
     description: 'Fiscal / leave cycle start month (1=January)',
   },
   {
+    settingKey: 'hr_approval_required',
+    settingValue: 'true',
+    description: 'HR Approval Required workflow setting (true = 3-stage with HR; false = 2-stage without HR)',
+  },
+  {
     settingKey: 'timezone',
     settingValue: 'Asia/Kolkata',
     description: 'Operational timezone for Maestro Leave Management calculation and cutoff checks',

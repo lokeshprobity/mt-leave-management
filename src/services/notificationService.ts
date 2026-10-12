@@ -442,20 +442,39 @@ export class NotificationService {
       eventKey: `TL_DECIDED_${req.id}_EMP_${req.employeeId}`,
     });
 
-    // If approved by Team Leader, notify HR that request is now HR Pending
+    // If approved by Team Leader, notify next approvers based on hr_approval_required
     if (isApproved) {
-      const hrUsers = await this.getUserIdsForRole('HR');
-      const hrMsg = `Team Leader (${leaderName || 'Team Leader'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Now pending HR review.${remarks ? ` TL Remarks: "${remarks}"` : ''}`;
-      for (const uid of hrUsers) {
-        await this.createNotification({
-          recipientUserId: uid,
-          recipientRole: 'HR',
-          type: 'TEAM_LEADER_DECIDED',
-          title: `Ready for HR Review: ${req.requestNumber}`,
-          message: hrMsg,
-          relatedLeaveRequestId: req.id,
-          eventKey: `TL_DECIDED_${req.id}_HR_${uid}`,
-        });
+      const { UserService } = await import('./userService.ts');
+      const isHrReq = UserService.isHrApprovalRequired();
+      if (isHrReq) {
+        const hrUsers = await this.getUserIdsForRole('HR');
+        const hrMsg = `Team Leader (${leaderName || 'Team Leader'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Now pending HR review.${remarks ? ` TL Remarks: "${remarks}"` : ''}`;
+        for (const uid of hrUsers) {
+          await this.createNotification({
+            recipientUserId: uid,
+            recipientRole: 'HR',
+            type: 'TEAM_LEADER_DECIDED',
+            title: `Ready for HR Review: ${req.requestNumber}`,
+            message: hrMsg,
+            relatedLeaveRequestId: req.id,
+            eventKey: `TL_DECIDED_${req.id}_HR_${uid}`,
+          });
+        }
+      } else {
+        // Workflow OFF: routed directly to Top Management
+        const mgmtUsers = await this.getUserIdsForRole('TOP_MANAGEMENT');
+        const mgmtMsg = `Team Leader (${leaderName || 'Team Leader'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Awaiting Top Management final decision.${remarks ? ` TL Remarks: "${remarks}"` : ''}`;
+        for (const uid of mgmtUsers) {
+          await this.createNotification({
+            recipientUserId: uid,
+            recipientRole: 'TOP_MANAGEMENT',
+            type: 'TEAM_LEADER_DECIDED',
+            title: `Action Required: Leave ${req.requestNumber}`,
+            message: mgmtMsg,
+            relatedLeaveRequestId: req.id,
+            eventKey: `TL_DECIDED_${req.id}_MGMT_${uid}`,
+          });
+        }
       }
     }
   }

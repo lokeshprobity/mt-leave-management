@@ -118,10 +118,10 @@ export function AdminSystemSettings() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-neutral-900">
-              <span>System Rules & Organizational Settings</span>
+              <span>Leave Workflow Settings & System Rules</span>
             </h1>
             <p className="text-xs text-slate-700 mt-0.5">
-              Global leave management rules, policies, cut-offs, and administrative behavior flags.
+              Configure leave approval workflow routing (HR Approval Required: ON/OFF), global cutoff rules, and administrative policy parameters.
             </p>
           </div>
         </div>
@@ -148,6 +148,107 @@ export function AdminSystemSettings() {
         </div>
       )}
 
+      {/* HR Approval Workflow Mode Highlight Card */}
+      {(() => {
+        const hrSetting = settings.find((s) => s.settingKey === 'hr_approval_required');
+        const currentVal = editedValues['hr_approval_required'] ?? hrSetting?.settingValue ?? 'true';
+        const isHrOn = currentVal === 'true' || currentVal === 'on' || currentVal === '1';
+
+        return (
+          <div
+            id="hr-workflow-mode-card"
+            className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-neutral-900 to-indigo-950 text-white shadow-md border border-neutral-800 space-y-4"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-600 text-white">
+                    Core Rule Engine
+                  </span>
+                  <span className="text-xs font-mono text-neutral-300">setting: hr_approval_required</span>
+                </div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>HR Approval Required Workflow:</span>
+                  <span className={isHrOn ? 'text-emerald-400 font-extrabold' : 'text-amber-400 font-extrabold'}>
+                    {isHrOn ? 'ON (3-Stage Workflow)' : 'OFF (2-Stage Workflow)'}
+                  </span>
+                </h2>
+                <p className="text-xs text-neutral-300 max-w-2xl leading-relaxed">
+                  {isHrOn
+                    ? 'Active 3-Stage Workflow: Employee submits leave → Assigned Team Leader reviews → HR conducts verification/policy check → Top Management grants final decision. Deductions occur only after Top Management final authorization.'
+                    : 'Active 2-Stage Workflow: Employee submits leave → Assigned Team Leader reviews → Request routes DIRECTLY to Top Management for final decision. The HR review stage is bypassed entirely.'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  id="btn-toggle-hr-workflow"
+                  type="button"
+                  disabled={savingKey === 'hr_approval_required' || !isSuperAdmin}
+                  onClick={() => {
+                    const nextVal = isHrOn ? 'false' : 'true';
+                    setEditedValues((prev) => ({ ...prev, hr_approval_required: nextVal }));
+                    // Directly save for immediate user feedback
+                    (async () => {
+                      setSavingKey('hr_approval_required');
+                      setError(null);
+                      try {
+                        const res = await fetch(`/api/settings/hr_approval_required`, {
+                          method: 'PUT',
+                          headers: {
+                            ...getAuthHeaders(),
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({ settingValue: nextVal }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Failed to update setting');
+                        setSuccessMsg(`HR Approval Required successfully switched to ${nextVal === 'true' ? 'ON' : 'OFF'}.`);
+                        setTimeout(() => setSuccessMsg(null), 4000);
+                        loadSettings();
+                      } catch (err: any) {
+                        setError(err.message || 'Error updating setting');
+                      } finally {
+                        setSavingKey(null);
+                      }
+                    })();
+                  }}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
+                    isHrOn
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-amber-600 hover:bg-amber-700 text-white'
+                  } ${savingKey === 'hr_approval_required' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <Sliders className="w-4 h-4" />
+                  <span>
+                    {savingKey === 'hr_approval_required'
+                      ? 'Saving Change...'
+                      : isHrOn
+                      ? 'Switch to OFF (2-Stage)'
+                      : 'Switch to ON (3-Stage)'}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/10 text-[11px] text-neutral-300 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Changes persist in PostgreSQL &amp; memory cache &bull; Full audit logged as SETTING_UPDATED</span>
+              </div>
+              <div className="font-mono text-neutral-400">
+                Super Admin Authorized Control
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      <div className="pt-2">
+        <h3 className="text-sm font-bold text-neutral-800">All System &amp; Timing Configuration Parameters</h3>
+        <p className="text-xs text-neutral-500">Fine-tune organizational cutoff times, working schedules, and policy keys.</p>
+      </div>
+
       {/* Settings Grid / List */}
       <div className="grid grid-cols-1 gap-3.5">
         {settings.length > 0 ? (
@@ -172,7 +273,21 @@ export function AdminSystemSettings() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {item.settingValue === 'true' || item.settingValue === 'false' ? (
+                  {item.settingKey === 'hr_approval_required' ? (
+                    <div className="flex items-center gap-2">
+                      <select
+                        id="select-setting-hr-approval-required"
+                        value={editedValues[item.settingKey] ?? item.settingValue}
+                        onChange={(e) =>
+                          setEditedValues((prev) => ({ ...prev, [item.settingKey]: e.target.value }))
+                        }
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-neutral-900 bg-white shadow-2xs"
+                      >
+                        <option value="true">ON (3-Stage Workflow: Applicant → Team Leader → HR → Top Management)</option>
+                        <option value="false">OFF (2-Stage Workflow: Applicant → Team Leader → Top Management)</option>
+                      </select>
+                    </div>
+                  ) : item.settingValue === 'true' || item.settingValue === 'false' ? (
                     <select
                       value={editedValues[item.settingKey] ?? item.settingValue}
                       onChange={(e) =>

@@ -379,7 +379,7 @@ export class ApprovalService {
           approvalStageLabel: req.approvalStageLabel,
           nextStep:
             decision === 'APPROVED'
-              ? req.approvalStageLabel || 'Forwarded to HR Review Stage'
+              ? req.approvalStageLabel || (UserService.isHrApprovalRequired() ? 'Forwarded to HR Review Stage' : 'Forwarded to Top Management Final Decision Stage')
               : 'Rejected at Stage 1 (Team Leader) — Final Status: REJECTED',
         },
         ipAddress: auditMeta?.ipAddress,
@@ -534,7 +534,7 @@ export class ApprovalService {
       );
     }
 
-    if (req.hrDecision === 'NOT_REQUIRED') {
+    if (req.hrDecision === 'NOT_REQUIRED' || !UserService.isHrApprovalRequired()) {
       throw new Error('Forbidden: HR approval is not required for this leave request');
     }
 
@@ -820,7 +820,8 @@ export class ApprovalService {
         'Forbidden: Top Management cannot approve or reject a leave request while Team Leader approval is still pending'
       );
     }
-    if ((req.hrDecision || 'PENDING') === 'PENDING') {
+    const hrApprovalRequired = UserService.isHrApprovalRequired();
+    if (hrApprovalRequired && (req.hrDecision || 'PENDING') === 'PENDING') {
       throw new ValidationError(
         'Forbidden: Top Management cannot approve or reject a leave request while HR review is still pending'
       );
@@ -1146,8 +1147,8 @@ export class ApprovalService {
 
     for (const r of requests) {
       const routing = await this.resolveRequestRoutingInfo(r);
-      // Top Management or HR leave requests where HR stage is NOT_REQUIRED never enter the HR queue
-      if (routing.isTopMgmt || r.hrDecision === 'NOT_REQUIRED') {
+      // Top Management or HR leave requests where HR stage is NOT_REQUIRED or HR approval is globally OFF never enter the HR queue
+      if (routing.isTopMgmt || r.hrDecision === 'NOT_REQUIRED' || !UserService.isHrApprovalRequired()) {
         continue;
       }
 
@@ -1236,10 +1237,13 @@ export class ApprovalService {
 
       const tlReadyForMgmt =
         r.teamLeaderDecision === 'APPROVED' || r.teamLeaderDecision === 'NOT_REQUIRED';
+      const isHrReq = UserService.isHrApprovalRequired();
       const hrReadyForMgmt =
+        !isHrReq ||
         r.hrDecision === 'APPROVED' ||
         r.hrDecision === 'REJECTED' ||
-        r.hrDecision === 'NOT_REQUIRED';
+        r.hrDecision === 'NOT_REQUIRED' ||
+        r.hrDecision === 'SKIPPED';
 
       if (
         filter.status === 'PENDING' &&

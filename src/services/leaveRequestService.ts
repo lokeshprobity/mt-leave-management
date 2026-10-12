@@ -314,6 +314,25 @@ export class LeaveRequestService {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
+  /**
+   * Top Management Leave Overview (for HR & Super Admin visibility)
+   * Read-only overview of leave requests for Top Management personnel.
+   */
+  public static async getTopManagementLeaveOverview(
+    actor: AuthContext
+  ): Promise<LeaveRequestDto[]> {
+    if (actor.role !== 'SUPER_ADMIN' && actor.role !== 'HR') {
+      throw new Error('Forbidden: Access denied. Only HR and Super Admin can view the Top Management leave overview.');
+    }
+    const all = await this.getAllLeaveRequests();
+    return all.filter((r) => {
+      const isTop =
+        r.applicantOperationalRole === 'TOP_MANAGEMENT' ||
+        r.applicantRole === 'TOP_MANAGEMENT';
+      return isTop;
+    });
+  }
+
   public static async getAllRequests(): Promise<LeaveRequestDto[]> {
     return this.getAllLeaveRequests();
   }
@@ -875,6 +894,10 @@ export class LeaveRequestService {
     }
 
     if (operationalRole === 'TEAM_LEADER') {
+      const isHrReq = UserService.isHrApprovalRequired();
+      const tlHrDecision: 'PENDING' | 'NOT_REQUIRED' = isHrReq ? 'PENDING' : 'NOT_REQUIRED';
+      const tlStageLabel = isHrReq ? 'Pending HR' : 'Pending Top Management';
+
       if (
         empHierarchy.employeeExists &&
         empHierarchy.reportingManagerId &&
@@ -885,8 +908,8 @@ export class LeaveRequestService {
           empHierarchy,
           resolvedTeamLeader: null,
           initialTlDecision: 'NOT_REQUIRED',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending HR',
+          initialHrDecision: tlHrDecision,
+          initialStageLabel: tlStageLabel,
           validationError:
             'Leave request cannot be submitted: The configured Reporting Manager does not exist or is inactive.',
           validationFields: {
@@ -894,7 +917,7 @@ export class LeaveRequestService {
           },
         };
       }
-      if (!UserService.hasActiveApproverForRole('HR', employeeId, applicantUserId)) {
+      if (isHrReq && !UserService.hasActiveApproverForRole('HR', employeeId, applicantUserId)) {
         return {
           operationalRole,
           empHierarchy,
@@ -915,8 +938,8 @@ export class LeaveRequestService {
           empHierarchy,
           resolvedTeamLeader: null,
           initialTlDecision: 'NOT_REQUIRED',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending HR',
+          initialHrDecision: tlHrDecision,
+          initialStageLabel: tlStageLabel,
           validationError:
             'Leave request cannot be submitted: No active Top Management approver is configured for final approval.',
           validationFields: {
@@ -924,14 +947,13 @@ export class LeaveRequestService {
           },
         };
       }
-
       return {
         operationalRole,
         empHierarchy,
         resolvedTeamLeader: null,
         initialTlDecision: 'NOT_REQUIRED',
-        initialHrDecision: 'PENDING',
-        initialStageLabel: 'Pending HR',
+        initialHrDecision: tlHrDecision,
+        initialStageLabel: tlStageLabel,
         validationError: null,
       };
     }
@@ -1061,7 +1083,10 @@ export class LeaveRequestService {
       }
     }
 
-    if (!UserService.hasActiveApproverForRole('HR', employeeId, applicantUserId)) {
+    const isHrRequiredForEmployee = UserService.isHrApprovalRequired();
+    const effectiveEmpHrDecision: 'PENDING' | 'NOT_REQUIRED' = isHrRequiredForEmployee ? 'PENDING' : 'NOT_REQUIRED';
+
+    if (isHrRequiredForEmployee && !UserService.hasActiveApproverForRole('HR', employeeId, applicantUserId)) {
       return {
         operationalRole: 'EMPLOYEE',
         empHierarchy,
@@ -1076,14 +1101,13 @@ export class LeaveRequestService {
         },
       };
     }
-
     if (!UserService.hasActiveApproverForRole('TOP_MANAGEMENT', employeeId, applicantUserId)) {
       return {
         operationalRole: 'EMPLOYEE',
         empHierarchy,
         resolvedTeamLeader,
         initialTlDecision: 'PENDING',
-        initialHrDecision: 'PENDING',
+        initialHrDecision: effectiveEmpHrDecision,
         initialStageLabel: 'Pending Team Leader',
         validationError:
           'Leave request cannot be submitted: No active Top Management approver is configured in the system.',
@@ -1092,13 +1116,12 @@ export class LeaveRequestService {
         },
       };
     }
-
     return {
       operationalRole: 'EMPLOYEE',
       empHierarchy,
       resolvedTeamLeader,
       initialTlDecision: 'PENDING',
-      initialHrDecision: 'PENDING',
+      initialHrDecision: effectiveEmpHrDecision,
       initialStageLabel: 'Pending Team Leader',
       validationError: null,
     };
@@ -2246,6 +2269,181 @@ export class LeaveRequestService {
   /**
    * Authoritative Super Admin deletion of leave request records
    */
+  /**
+   * Super Admin Administrative Edit of Leave Request
+   * Revalidates dates, leave type, reason, duration, and re-routes approvals if needed.
+   * Preserves historical decision records in audit log.
+   */
+  public static async adminEditLeaveRequest(
+    id: number,
+    input: {
+      startDate?: string;
+      endDate?: string;
+      reason?: string;
+      leaveTypeId?: number;
+      dayType?: 'FULL_DAY' | 'HALF_DAY';
+      halfDayPeriod?: 'FIRST_HALF' | 'SECOND_HALF' | null;
+      adminNotes?: string;
+    },
+    actor: AuthContext,
+    auditMeta?: { ipAddress?: string; userAgent?: string }
+  ): Promise<LeaveRequestDto> {
+    if (actor.role !== 'SUPER_ADMIN') {
+      throw new Error('Forbidden: Only Super Admin can administratively edit leave requests');
+    }
+
+    const details = await this.getLeaveRequestById(id, actor);
+    if (!details || !details.request) {
+      throw new ValidationError(`Leave request #${id} not found`);
+    }
+
+    const current = details.request;
+    const now = new Date();
+
+    const newStartDate = input.startDate || current.startDate;
+    const newEndDate = input.endDate || current.endDate;
+    const newLeaveTypeId = input.leaveTypeId !== undefined ? Number(input.leaveTypeId) : current.leaveTypeId;
+    const newDayType = input.dayType || current.dayType || 'FULL_DAY';
+    const newHalfDayPeriod = newDayType === 'HALF_DAY' ? (input.halfDayPeriod ?? current.halfDayPeriod) : null;
+    const newReason = input.reason?.trim() || current.reason;
+
+    // Calculate days
+    const workingDaysResult = await WorkingDaysService.calculateWorkingDays(
+      newStartDate,
+      newEndDate,
+      newDayType,
+      { employeeId: current.employeeId }
+    );
+    const totalDaysNum = workingDaysResult.totalDays > 0 ? workingDaysResult.totalDays : Number(current.totalDays);
+
+    // If request was already APPROVED and balancePosted was true, and dates/days changed, adjust balance
+    const previousDays = Number(current.totalDays);
+    const dayDifference = totalDaysNum - previousDays;
+    const reqYear = parseInt(newStartDate.substring(0, 4), 10) || now.getFullYear();
+
+    if ((current.finalStatus === 'APPROVED' || current.balancePosted) && dayDifference !== 0) {
+      if (dayDifference > 0) {
+        // Need to deduct additional days
+        await LeaveService.deductApprovedLeave(
+          current.employeeId,
+          newLeaveTypeId,
+          reqYear,
+          dayDifference,
+          current.id,
+          actor.userId
+        );
+      } else if (dayDifference < 0) {
+        // Need to revert the difference
+        await LeaveService.revertApprovedLeave(
+          current.employeeId,
+          current.leaveTypeId,
+          reqYear,
+          Math.abs(dayDifference),
+          current.id,
+          actor.userId
+        );
+      }
+    }
+
+    // Prepare updated fields
+    const updatedDto: LeaveRequestDto = {
+      ...current,
+      startDate: newStartDate,
+      endDate: newEndDate,
+      leaveTypeId: newLeaveTypeId,
+      dayType: newDayType,
+      halfDayPeriod: newHalfDayPeriod,
+      totalDays: String(totalDaysNum),
+      reason: newReason,
+      updatedAt: now.toISOString(),
+    };
+
+    if (isDbConfigured()) {
+      const db = getDb();
+      if (db) {
+        await db
+          .update(leaveRequests)
+          .set({
+            startDate: newStartDate,
+            endDate: newEndDate,
+            leaveTypeId: newLeaveTypeId,
+            dayType: newDayType,
+            halfDayPeriod: newHalfDayPeriod,
+            totalDays: String(totalDaysNum),
+            reason: newReason,
+            updatedAt: now,
+          })
+          .where(eq(leaveRequests.id, id));
+
+        await db.insert(leaveRequestEvents).values({
+          leaveRequestId: id,
+          eventType: 'ADMIN_EDITED',
+          action: 'ADMIN_EDITED',
+          previousDecision: current.finalStatus || 'PENDING',
+          newDecision: updatedDto.finalStatus || 'PENDING',
+          actorId: actor.userId || null,
+          actorRole: actor.role,
+          remarks: input.adminNotes || `Administratively edited by Super Admin ${actor.username}`,
+          ipAddress: auditMeta?.ipAddress || null,
+          userAgent: auditMeta?.userAgent || null,
+        });
+      }
+    }
+
+    const memIdx = memoryLeaveRequests.findIndex((r) => r.id === id);
+    if (memIdx !== -1) {
+      memoryLeaveRequests[memIdx] = updatedDto;
+    }
+
+    this.addMemoryEvent({
+      leaveRequestId: id,
+      eventType: 'ADMIN_EDITED',
+      action: 'ADMIN_EDITED',
+      previousDecision: current.finalStatus || 'PENDING',
+      newDecision: updatedDto.finalStatus || 'PENDING',
+      actorId: actor.userId || null,
+      actorRole: actor.role,
+      actorName: actor.username,
+      remarks: input.adminNotes || `Administratively edited by Super Admin ${actor.username}`,
+      ipAddress: auditMeta?.ipAddress,
+      userAgent: auditMeta?.userAgent,
+      createdAt: now.toISOString(),
+    });
+
+    try {
+      const { AuditService } = await import('./auditService.ts');
+      await AuditService.logEvent({
+        actorId: actor.userId || null,
+        actorRole: actor.role,
+        action: 'LEAVE_REQUEST_EDITED',
+        targetEntity: 'leave_requests',
+        targetId: String(id),
+        metadata: {
+          requestNumber: current.requestNumber,
+          employeeId: current.employeeId,
+          previous: {
+            startDate: current.startDate,
+            endDate: current.endDate,
+            totalDays: current.totalDays,
+            leaveTypeId: current.leaveTypeId,
+            reason: current.reason,
+          },
+          updated: {
+            startDate: newStartDate,
+            endDate: newEndDate,
+            totalDays: String(totalDaysNum),
+            leaveTypeId: newLeaveTypeId,
+            reason: newReason,
+          },
+          editedBy: actor.username,
+          adminNotes: input.adminNotes || 'Administrative modification by Super Admin',
+        },
+      });
+    } catch {}
+
+    return updatedDto;
+  }
+
   public static async deleteLeaveRequest(
     id: number,
     actor: AuthContext,

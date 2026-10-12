@@ -30,6 +30,7 @@ export function AdminSettingsModal({
     leave_cutoff_time: '18:00',
     working_days_per_week: '6',
     standard_daily_work_hours: '9',
+    hr_approval_required: 'true',
     fiscal_year_start_month: '1',
   });
   const [branding, setBranding] = useState<CompanyBrandingDto>({
@@ -370,6 +371,27 @@ export function AdminSettingsModal({
             <div className="py-8 text-center text-neutral-500">Loading system parameters...</div>
           ) : (
             <div className="space-y-3.5">
+              <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200 space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-800">
+                  Leave Workflow: HR Approval Required
+                </label>
+                <select
+                  id="modal-setting-hr-approval-required"
+                  disabled={!isAdmin}
+                  value={settings.hr_approval_required ?? 'true'}
+                  onChange={(e) =>
+                    setSettings({ ...settings, hr_approval_required: e.target.value })
+                  }
+                  className="w-full px-3 py-2 text-xs font-semibold bg-white border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-700/20 focus:border-red-700 disabled:bg-neutral-100 disabled:text-neutral-500"
+                >
+                  <option value="true">ON — 3-Stage Routing (Applicant → Team Leader → HR Review → Top Management)</option>
+                  <option value="false">OFF — 2-Stage Routing (Applicant → Team Leader → Top Management Direct)</option>
+                </select>
+                <p className="text-[11px] text-neutral-500">
+                  When OFF, HR stage is bypassed. Team Leader approved requests move directly to Top Management for final decision.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-neutral-700 mb-1">

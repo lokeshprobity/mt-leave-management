@@ -133,6 +133,7 @@ export interface MemoryUserRecord {
   designationName?: string | null;
   reportingManagerId?: number | null;
   reportingManagerCode?: string | null;
+  reportingManagerName?: string | null;
   joiningDate?: string | null;
   employmentType?: string | null;
   employmentStatus?: string | null;
@@ -1214,6 +1215,27 @@ export class UserService {
           } catch {}
         }
       }
+    }
+
+    // 4b. System Settings (PostgreSQL to memorySystemSettings sync)
+    try {
+      const dbSettingsRows = await db.select().from(systemSettings);
+      for (const row of dbSettingsRows) {
+        if (
+          row.settingKey &&
+          row.settingKey !== 'company_logo' &&
+          !row.settingKey.startsWith('user_profile_photo_')
+        ) {
+          memorySystemSettings.set(row.settingKey, {
+            settingKey: row.settingKey,
+            settingValue: row.settingValue,
+            description: row.description ?? undefined,
+            updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : new Date().toISOString(),
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[UserService.syncFromDatabase] Warning syncing systemSettings:', err);
     }
 
     // 5. Password reset tokens
@@ -7455,6 +7477,13 @@ export class UserService {
       });
     }
 
+    if (!mergedMap.has('hr_approval_required')) {
+      mergedMap.set('hr_approval_required', {
+        settingKey: 'hr_approval_required',
+        settingValue: 'true',
+        description: 'Leave Workflow: HR Approval Required (true = ON, false = OFF)',
+      });
+    }
     if (!mergedMap.has('standard_daily_work_hours')) {
       mergedMap.set('standard_daily_work_hours', {
         settingKey: 'standard_daily_work_hours',
@@ -7485,6 +7514,11 @@ export class UserService {
       if (isNaN(num) || num < 1 || num > 24) {
         throw new ValidationError('Daily Work Hours must be a number between 1 and 24.');
       }
+    } else if (cleanKey === 'hr_approval_required') {
+      const lower = cleanVal.toLowerCase();
+      if (lower !== 'true' && lower !== 'false' && lower !== 'on' && lower !== 'off') {
+        throw new ValidationError('HR Approval Required must be boolean (true/false or ON/OFF).');
+      }
     } else if (cleanKey === 'working_days_per_week') {
       const num = Number(cleanVal);
       if (isNaN(num) || num < 1 || num > 7) {
@@ -7504,7 +7538,20 @@ export class UserService {
     return record;
   }
 
-  public static async deleteSystemSetting(
+  /**
+   * Authoritative check whether HR approval is currently required in leave workflow.
+   * Defaults to true (ON).
+   */
+  public static isHrApprovalRequired(): boolean {
+    const rec = memorySystemSettings.get('hr_approval_required');
+    if (!rec || !rec.settingValue) {
+      return true; // Default ON
+    }
+    const val = rec.settingValue.trim().toLowerCase();
+    return val === 'true' || val === 'on' || val === '1';
+  }
+
+    public static async deleteSystemSetting(
     settingKey: string,
     actor: AuthContext
   ): Promise<{ success: boolean; settingKey: string; message: string }> {

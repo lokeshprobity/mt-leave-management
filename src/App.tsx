@@ -47,6 +47,8 @@ import { MyProfile } from './components/MyProfile.tsx';
 import { OvertimeAdmin } from './components/OvertimeAdmin.tsx';
 import { SystemAuditAdmin } from './components/SystemAuditAdmin.tsx';
 import { AdminLeaveBalance } from './components/AdminLeaveBalance.tsx';
+import { AdminSystemSettings } from './components/AdminSystemSettings.tsx';
+import { AdminLeaveRequests } from './components/AdminLeaveRequests.tsx';
 import {
   clearEmployee360ProfileState,
   getPersistedEmployee360ProfileState,
@@ -109,6 +111,8 @@ type AdminTab =
   | 'leave-policies'
   | 'holidays'
   | 'leave-balances'
+  | 'leave-requests'
+  | 'workflow-settings'
   | 'system-overview';
 
 interface SystemSettingItem {
@@ -153,6 +157,8 @@ const VALID_ADMIN_TABS: AdminTab[] = [
   'leave-policies',
   'holidays',
   'leave-balances',
+  'leave-requests',
+  'workflow-settings',
   'system-overview',
 ];
 
@@ -865,8 +871,10 @@ export default function App() {
     { id: 'audit', label: 'System Audit', icon: ShieldCheck },
     { id: 'leave-types', label: 'Leave Types', icon: FileSpreadsheet },
     { id: 'leave-policies', label: 'Leave Policies', icon: Sliders },
+    { id: 'leave-requests', label: 'Leave Request Management', icon: FileSpreadsheet },
     { id: 'leave-balances', label: 'Leave Balances', icon: Wallet },
     { id: 'holidays', label: 'Holidays', icon: Calendar },
+    { id: 'workflow-settings', label: 'Leave Workflow Settings', icon: Sliders },
     { id: 'system-overview', label: 'System Overview', icon: Layers },
   ];
 
@@ -1541,18 +1549,46 @@ export default function App() {
                   </button>
 
                   {activeRole === 'SUPER_ADMIN' && (
-                    <button
-                      id="menu-btn-company-branding"
-                      type="button"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsSettingsOpen(true);
-                      }}
-                      className="w-full min-h-[44px] px-3.5 py-2.5 text-left text-neutral-700 hover:bg-neutral-50 flex items-center gap-2.5 font-medium cursor-pointer"
-                    >
-                      <ImageIcon className="w-4 h-4 text-neutral-500" />
-                      <span>Company Logo &amp; Branding</span>
-                    </button>
+                    <>
+                      <button
+                        id="menu-btn-leave-workflow-settings"
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setActiveModule('administration');
+                          setAdminTab('workflow-settings');
+                        }}
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-left text-neutral-700 hover:bg-neutral-50 flex items-center gap-2.5 font-medium cursor-pointer"
+                      >
+                        <Sliders className="w-4 h-4 text-neutral-500" />
+                        <span>Leave Workflow Settings (HR ON/OFF)</span>
+                      </button>
+                      <button
+                        id="menu-btn-leave-requests"
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setActiveModule('administration');
+                          setAdminTab('leave-requests');
+                        }}
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-left text-neutral-700 hover:bg-neutral-50 flex items-center gap-2.5 font-medium cursor-pointer"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-neutral-500" />
+                        <span>Leave Request Management (Edit/Delete)</span>
+                      </button>
+                      <button
+                        id="menu-btn-company-branding"
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsSettingsOpen(true);
+                        }}
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-left text-neutral-700 hover:bg-neutral-50 flex items-center gap-2.5 font-medium cursor-pointer"
+                      >
+                        <ImageIcon className="w-4 h-4 text-neutral-500" />
+                        <span>Company Logo &amp; Branding</span>
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -2309,6 +2345,34 @@ export default function App() {
                 </button>
               )}
 
+              {canAccessAdminTab('leave-requests', activeRole) && (
+                <button
+                  id="tab-leave-requests"
+                  onClick={() => setAdminTab('leave-requests')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    adminTab === 'leave-requests'
+                      ? MT_THEME.pillTabActive
+                      : MT_THEME.pillTabInactive
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Leave Request Management</span>
+                </button>
+              )}
+              {canAccessAdminTab('workflow-settings', activeRole) && (
+                <button
+                  id="tab-workflow-settings"
+                  onClick={() => setAdminTab('workflow-settings')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    adminTab === 'workflow-settings'
+                      ? MT_THEME.pillTabActive
+                      : MT_THEME.pillTabInactive
+                  }`}
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Leave Workflow Settings</span>
+                </button>
+              )}
               {canAccessAdminTab('system-overview', activeRole) && (
                 <button
                   id="tab-system-overview"
@@ -2386,6 +2450,12 @@ export default function App() {
 
             {/* Tab: Holidays & Working Calendar Administration */}
             {isCurrentAdminTabAuthorized && adminTab === 'holidays' && <HolidayCalendarAdmin />}
+
+            {/* Tab: Leave Request Management */}
+            {isCurrentAdminTabAuthorized && adminTab === 'leave-requests' && <AdminLeaveRequests />}
+
+            {/* Tab: Leave Workflow Settings */}
+            {isCurrentAdminTabAuthorized && adminTab === 'workflow-settings' && <AdminSystemSettings />}
 
             {/* Tab 5: System Overview & Schemas */}
             {isCurrentAdminTabAuthorized && adminTab === 'system-overview' && (

@@ -39,6 +39,8 @@ export function HrApprovalDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('PENDING');
+  const [topMgmtLeaves, setTopMgmtLeaves] = useState<LeaveRequestDto[]>([]);
+  const [loadingTopMgmt, setLoadingTopMgmt] = useState(false);
 
   // Review Modal State
   const [activeDetails, setActiveDetails] = useState<{
@@ -50,6 +52,21 @@ export function HrApprovalDashboard() {
   const [decisionComment, setDecisionComment] = useState('');
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+
+  const fetchTopMgmtLeaves = async () => {
+    setLoadingTopMgmt(true);
+    try {
+      const res = await apiFetch('/api/hr/top-management-leaves');
+      const data = await res.json();
+      if (res.ok) {
+        setTopMgmtLeaves(data.leaveRequests || []);
+      }
+    } catch {
+      // silently handle
+    } finally {
+      setLoadingTopMgmt(false);
+    }
+  };
 
   const fetchHrRequests = async () => {
     setLoading(true);
@@ -73,7 +90,11 @@ export function HrApprovalDashboard() {
   };
 
   useEffect(() => {
-    fetchHrRequests();
+    if (filterStatus === 'TOP_MGMT_OVERVIEW') {
+      fetchTopMgmtLeaves();
+    } else {
+      fetchHrRequests();
+    }
   }, [filterStatus]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -207,6 +228,7 @@ export function HrApprovalDashboard() {
             { id: 'PENDING', label: 'Pending HR Review' },
             { id: 'REVIEWED', label: 'Reviewed' },
             { id: 'ALL', label: 'All Requests' },
+            { id: 'TOP_MGMT_OVERVIEW', label: 'Top Management Leaves (Overview)' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -242,6 +264,88 @@ export function HrApprovalDashboard() {
         </form>
       </div>
 
+      {/* Top Management Leave Overview (Read-Only) Tab View */}
+      {filterStatus === 'TOP_MGMT_OVERVIEW' ? (
+        <div className="space-y-4">
+          <div className="p-4 bg-sky-50 border border-sky-200 rounded-xl text-xs text-sky-900 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Top Management Leave Schedule (Read-Only Calendar/Overview):</span>
+              {" "}This overview allows HR to view leave dates, durations, and status of Top Management personnel for organizational planning. In accordance with governance rules, Top Management leaves are decided by their assigned reporting manager or Super Admin.
+            </div>
+          </div>
+
+          {loadingTopMgmt ? (
+            <div className="p-12 text-center text-neutral-500 bg-white rounded-xl border border-neutral-200/80">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-neutral-500" />
+              <span className="text-xs">Loading Top Management leave overview...</span>
+            </div>
+          ) : topMgmtLeaves.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-neutral-300">
+              <Users className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
+              <h3 className="text-sm font-semibold text-neutral-800">No Top Management Leave Records</h3>
+              <p className="text-xs text-neutral-500 mt-1">No leave applications found for Top Management personnel.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-neutral-50 text-neutral-600 font-semibold border-b border-neutral-200">
+                    <tr>
+                      <th className="px-4 py-3">Request #</th>
+                      <th className="px-4 py-3">Executive</th>
+                      <th className="px-4 py-3">Leave Type</th>
+                      <th className="px-4 py-3">Duration</th>
+                      <th className="px-4 py-3">Leave Dates</th>
+                      <th className="px-4 py-3">Status / Stage</th>
+                      <th className="px-4 py-3">Approver Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 font-medium">
+                    {topMgmtLeaves.map((r) => (
+                      <tr key={"tm-" + r.id} className="hover:bg-neutral-50/50">
+                        <td className="px-4 py-3 font-mono font-bold text-neutral-900">
+                          {r.requestNumber}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-neutral-900">{r.employeeName || ("Employee #" + r.employeeId)}</div>
+                          <div className="text-[11px] text-neutral-500 font-mono">{r.employeeCode || ("EMP" + r.employeeId)} &bull; Top Management</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={"px-2 py-0.5 rounded text-[11px] font-bold " + getLeaveTypeBadgeClasses(r.leaveTypeCode || r.leaveTypeName)}>
+                            {r.leaveTypeName || r.leaveTypeCode}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold text-neutral-900">
+                          {Number(r.totalDays)} Day{Number(r.totalDays) === 1 ? '' : 's'} ({r.dayType === 'HALF_DAY' ? 'Half Day' : 'Full Day'})
+                        </td>
+                        <td className="px-4 py-3 text-neutral-700">
+                          {formatDate(r.startDate)} {r.startDate !== r.endDate ? ("→ " + formatDate(r.endDate)) : ''}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={"px-2 py-0.5 rounded text-[11px] font-bold " + getStatusBadgeClasses(r.finalStatus || r.status)}>
+                            {r.approvalStageLabel || r.finalStatus || r.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-neutral-600">
+                          {r.managementDecision !== 'PENDING' ? (
+                            <span className="font-semibold text-neutral-900">
+                              {r.managementDecision}: {r.managementDecidedByName || 'Management'}
+                            </span>
+                          ) : (
+                            <span className="text-amber-700 font-medium italic">Pending Approver Decision</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       {/* Queue List */}
       {loading ? (
         <div className="p-12 text-center text-neutral-500 bg-white rounded-xl border border-neutral-200/80">
@@ -486,6 +590,8 @@ export function HrApprovalDashboard() {
           </div>
         </div>
         </>
+      )}
+      </>
       )}
 
       {/* Review Drawer / Modal */}

@@ -1071,6 +1071,36 @@ export function registerApiRoutes(app: express.Express) {
     }
   );
 
+  // 10e. Super Admin Edit Leave Request (Administrative Update with Audit Trail)
+  app.put(
+    '/api/leave-requests/:id',
+    requireRole(['SUPER_ADMIN']),
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (isNaN(id) || id <= 0) {
+          return res.status(400).json({ error: 'Invalid leave request ID' });
+        }
+        const auditMeta = {
+          ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent'],
+        };
+        const updated = await LeaveRequestService.adminEditLeaveRequest(
+          id,
+          req.body || {},
+          req.user!,
+          auditMeta
+        );
+        res.json({ success: true, leaveRequest: updated });
+      } catch (err: any) {
+        if (err instanceof ValidationError) {
+          return res.status(400).json({ error: err.message, fieldErrors: err.fieldErrors });
+        }
+        res.status(err.message?.includes('Forbidden') ? 403 : 500).json({ error: err.message });
+      }
+    }
+  );
+
   // 10f. Super Admin Delete Leave Request (Administrative Deletion with Balance Reversal)
   app.delete(
     '/api/leave-requests/:id',
@@ -1278,6 +1308,21 @@ export function registerApiRoutes(app: express.Express) {
         const search = req.query.search as string | undefined;
         const list = await ApprovalService.getRequestsForHr({ status, search }, req.user!);
         res.json({ leaveRequests: list });
+      } catch (err: any) {
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message });
+      }
+    }
+  );
+
+  // 15b. HR Top Management Leave Overview (Read-Only)
+  app.get(
+    '/api/hr/top-management-leaves',
+    requireRole(['SUPER_ADMIN', 'HR']),
+    async (req: Request, res: Response) => {
+      try {
+        const overview = await LeaveRequestService.getTopManagementLeaveOverview(req.user!);
+        res.json({ leaveRequests: overview });
       } catch (err: any) {
         if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
         res.status(500).json({ error: err.message });
@@ -1897,6 +1942,25 @@ export function registerApiRoutes(app: express.Express) {
                 },
               });
           }
+        }
+
+        try {
+          const { AuditService } = await import('./src/services/auditService.ts');
+          await AuditService.logEvent({
+            actorId: req.user?.userId || null,
+            actorRole: req.user?.role || 'SUPER_ADMIN',
+            action: 'SETTING_UPDATED',
+            targetEntity: 'system_settings',
+            targetId: saved.settingKey,
+            metadata: {
+              settingKey: saved.settingKey,
+              settingValue: saved.settingValue,
+              updatedBy: req.user?.username || 'Super Administrator',
+              timestamp: new Date().toISOString(),
+            },
+          });
+        } catch (auditErr) {
+          console.warn('Failed to audit log SETTING_UPDATED:', auditErr);
         }
 
         res.json({

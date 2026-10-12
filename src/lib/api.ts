@@ -920,6 +920,9 @@ export function canAccessAdminTab(
       return !builtIn && perms.includes('AUDIT_LOG_VIEW');
     case 'leave-types':
     case 'leave-policies':
+    case 'leave-requests':
+    case 'workflow-settings':
+      return role === 'SUPER_ADMIN';
     case 'system-overview':
       return false;
     default:
