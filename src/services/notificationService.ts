@@ -418,6 +418,7 @@ export class NotificationService {
       employeeId: number;
       employeeName?: string | null;
       totalDays?: string | number;
+      hrDecision?: string | null;
     },
     decision: 'APPROVED' | 'REJECTED',
     remarks?: string | null,
@@ -428,7 +429,9 @@ export class NotificationService {
       ? `Team Leader Approved: ${req.requestNumber}`
       : `Rejected by Team Leader: ${req.requestNumber}`;
     const empMsg = isApproved
-      ? `Team Leader (${leaderName || 'Team Leader'}) approved your leave request ${req.requestNumber}. It has moved to HR Pending.${remarks ? ` Remarks: "${remarks}"` : ''}`
+      ? (req.hrDecision === 'NOT_REQUIRED'
+          ? `Team Leader (${leaderName || 'Team Leader'}) approved your leave request ${req.requestNumber}. It has moved directly to Top Management for final decision.${remarks ? ` Remarks: "${remarks}"` : ''}`
+          : `Team Leader (${leaderName || 'Team Leader'}) approved your leave request ${req.requestNumber}. It has moved to HR Pending.${remarks ? ` Remarks: "${remarks}"` : ''}`)
       : `Your leave request ${req.requestNumber} was REJECTED by Team Leader (${leaderName || 'Team Leader'}).${remarks ? ` Reason: "${remarks}"` : ''}`;
 
     // Notify Employee
@@ -445,7 +448,7 @@ export class NotificationService {
     // If approved by Team Leader, notify next approvers based on hr_approval_required
     if (isApproved) {
       const { UserService } = await import('./userService.ts');
-      const isHrReq = UserService.isHrApprovalRequired();
+      const isHrReq = req.hrDecision !== 'NOT_REQUIRED' && UserService.isHrApprovalRequired(req.employeeId);
       if (isHrReq) {
         const hrUsers = await this.getUserIdsForRole('HR');
         const hrMsg = `Team Leader (${leaderName || 'Team Leader'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Now pending HR review.${remarks ? ` TL Remarks: "${remarks}"` : ''}`;

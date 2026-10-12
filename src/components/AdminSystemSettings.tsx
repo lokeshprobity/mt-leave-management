@@ -7,6 +7,7 @@ import {
   AlertCircle,
   HelpCircle,
   Trash2,
+  User,
 } from 'lucide-react';
 import { getAuthHeaders, getActiveRole } from '../lib/api.ts';
 import { MT_COLOR_CARDS } from '../utils/theme.ts';
@@ -148,101 +149,58 @@ export function AdminSystemSettings() {
         </div>
       )}
 
-      {/* HR Approval Workflow Mode Highlight Card */}
-      {(() => {
-        const hrSetting = settings.find((s) => s.settingKey === 'hr_approval_required');
-        const currentVal = editedValues['hr_approval_required'] ?? hrSetting?.settingValue ?? 'true';
-        const isHrOn = currentVal === 'true' || currentVal === 'on' || currentVal === '1';
-
-        return (
-          <div
-            id="hr-workflow-mode-card"
-            className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-neutral-900 to-indigo-950 text-white shadow-md border border-neutral-800 space-y-4"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-600 text-white">
-                    Core Rule Engine
-                  </span>
-                  <span className="text-xs font-mono text-neutral-300">setting: hr_approval_required</span>
-                </div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <span>HR Approval Required Workflow:</span>
-                  <span className={isHrOn ? 'text-emerald-400 font-extrabold' : 'text-amber-400 font-extrabold'}>
-                    {isHrOn ? 'ON (3-Stage Workflow)' : 'OFF (2-Stage Workflow)'}
-                  </span>
-                </h2>
-                <p className="text-xs text-neutral-300 max-w-2xl leading-relaxed">
-                  {isHrOn
-                    ? 'Active 3-Stage Workflow: Employee submits leave → Assigned Team Leader reviews → HR conducts verification/policy check → Top Management grants final decision. Deductions occur only after Top Management final authorization.'
-                    : 'Active 2-Stage Workflow: Employee submits leave → Assigned Team Leader reviews → Request routes DIRECTLY to Top Management for final decision. The HR review stage is bypassed entirely.'}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 shrink-0">
-                <button
-                  id="btn-toggle-hr-workflow"
-                  type="button"
-                  disabled={savingKey === 'hr_approval_required' || !isSuperAdmin}
-                  onClick={() => {
-                    const nextVal = isHrOn ? 'false' : 'true';
-                    setEditedValues((prev) => ({ ...prev, hr_approval_required: nextVal }));
-                    // Directly save for immediate user feedback
-                    (async () => {
-                      setSavingKey('hr_approval_required');
-                      setError(null);
-                      try {
-                        const res = await fetch(`/api/settings/hr_approval_required`, {
-                          method: 'PUT',
-                          headers: {
-                            ...getAuthHeaders(),
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({ settingValue: nextVal }),
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error || 'Failed to update setting');
-                        setSuccessMsg(`HR Approval Required successfully switched to ${nextVal === 'true' ? 'ON' : 'OFF'}.`);
-                        setTimeout(() => setSuccessMsg(null), 4000);
-                        loadSettings();
-                      } catch (err: any) {
-                        setError(err.message || 'Error updating setting');
-                      } finally {
-                        setSavingKey(null);
-                      }
-                    })();
-                  }}
-                  className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
-                    isHrOn
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : 'bg-amber-600 hover:bg-amber-700 text-white'
-                  } ${savingKey === 'hr_approval_required' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <Sliders className="w-4 h-4" />
-                  <span>
-                    {savingKey === 'hr_approval_required'
-                      ? 'Saving Change...'
-                      : isHrOn
-                      ? 'Switch to OFF (2-Stage)'
-                      : 'Switch to ON (3-Stage)'}
-                  </span>
-                </button>
-              </div>
+      {/* Employee-Specific HR Approval Workflow Guidance Card */}
+      <div
+        id="hr-workflow-mode-card"
+        className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-neutral-900 to-indigo-950 text-white shadow-md border border-neutral-800 space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-600 text-white">
+                Employee-Specific Workflow
+              </span>
+              <span className="text-xs font-mono text-neutral-300">Workflow Routing Engine</span>
             </div>
-
-            <div className="pt-3 border-t border-white/10 text-[11px] text-neutral-300 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Changes persist in PostgreSQL &amp; memory cache &bull; Full audit logged as SETTING_UPDATED</span>
-              </div>
-              <div className="font-mono text-neutral-400">
-                Super Admin Authorized Control
-              </div>
-            </div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <span>HR Approval Required Workflow: Configured Per Employee</span>
+            </h2>
+            <p className="text-xs text-neutral-300 max-w-2xl leading-relaxed">
+              Super Admin controls <strong>HR Approval Required</strong> individually for each employee in the <strong>Employee Management</strong> and <strong>Employee 360° Profile</strong> screens.
+              <br />
+              &bull; <strong className="text-emerald-400">ON (3-Stage):</strong> Team Leader &rarr; HR &rarr; Top Management
+              <br />
+              &bull; <strong className="text-amber-400">OFF (2-Stage):</strong> Team Leader &rarr; Top Management (bypassing HR)
+            </p>
           </div>
-        );
-      })()}
+
+          <div className="flex items-center gap-3 shrink-0">
+            <a
+              id="link-go-to-employees-config"
+              href="#administration/employees"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.hash = '#administration/employees';
+                window.dispatchEvent(new HashChangeEvent('hashchange'));
+              }}
+              className="px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white transition-all cursor-pointer shadow-sm"
+            >
+              <User className="w-4 h-4" />
+              <span>Configure Employees</span>
+            </a>
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-white/10 text-[11px] text-neutral-300 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Persisted directly on each employee record &bull; Independent per-employee workflow routing</span>
+          </div>
+          <div className="font-mono text-neutral-400">
+            Super Admin Authorized Control
+          </div>
+        </div>
+      </div>
 
       <div className="pt-2">
         <h3 className="text-sm font-bold text-neutral-800">All System &amp; Timing Configuration Parameters</h3>
@@ -251,8 +209,8 @@ export function AdminSystemSettings() {
 
       {/* Settings Grid / List */}
       <div className="grid grid-cols-1 gap-3.5">
-        {settings.length > 0 ? (
-          settings.map((item, idx) => {
+        {settings.filter((s) => s.settingKey !== 'hr_approval_required').length > 0 ? (
+          settings.filter((s) => s.settingKey !== 'hr_approval_required').map((item, idx) => {
             const cardPalette = [
               MT_COLOR_CARDS.sky,
               MT_COLOR_CARDS.teal,
@@ -273,21 +231,7 @@ export function AdminSystemSettings() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {item.settingKey === 'hr_approval_required' ? (
-                    <div className="flex items-center gap-2">
-                      <select
-                        id="select-setting-hr-approval-required"
-                        value={editedValues[item.settingKey] ?? item.settingValue}
-                        onChange={(e) =>
-                          setEditedValues((prev) => ({ ...prev, [item.settingKey]: e.target.value }))
-                        }
-                        className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-neutral-900 bg-white shadow-2xs"
-                      >
-                        <option value="true">ON (3-Stage Workflow: Applicant → Team Leader → HR → Top Management)</option>
-                        <option value="false">OFF (2-Stage Workflow: Applicant → Team Leader → Top Management)</option>
-                      </select>
-                    </div>
-                  ) : item.settingValue === 'true' || item.settingValue === 'false' ? (
+                  {item.settingValue === 'true' || item.settingValue === 'false' ? (
                     <select
                       value={editedValues[item.settingKey] ?? item.settingValue}
                       onChange={(e) =>

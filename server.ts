@@ -2880,6 +2880,35 @@ export function registerApiRoutes(app: express.Express) {
     }
   });
 
+  // 57b2. Update Employee HR Approval Workflow Setting (Super Admin Only)
+  app.put(
+    '/api/employees/:id/hr-approval-workflow',
+    requireRole(['SUPER_ADMIN']),
+    async (req: Request, res: Response) => {
+      try {
+        const id = parseIdOrCode(req.params.id)!;
+        const { hrApprovalRequired } = req.body;
+        if (typeof hrApprovalRequired !== 'boolean') {
+          return res.status(400).json({ error: 'hrApprovalRequired must be a boolean (true or false).' });
+        }
+        const updated = await UserService.setEmployeeHrApprovalRequired(id, hrApprovalRequired, req.user!);
+        res.json({
+          success: true,
+          employee: updated,
+          message: `HR Approval Required workflow setting updated to ${hrApprovalRequired ? 'ON (3-Stage)' : 'OFF (2-Stage)'} for employee ${updated.employeeName || updated.employeeCode}.`,
+        });
+      } catch (err: any) {
+        if (err.message?.includes('Forbidden')) {
+          return res.status(403).json({ error: err.message });
+        }
+        if (err instanceof ValidationError) {
+          return res.status(400).json({ error: err.message });
+        }
+        res.status(400).json({ error: err.message });
+      }
+    }
+  );
+
   // 57c. Toggle Employee Status (Admin/HR)
   app.patch(
     '/api/employees/:id/status',

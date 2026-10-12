@@ -72,6 +72,7 @@ export function EmployeeAdmin({
     shiftId: '',
     effectiveFrom: new Date().toISOString().split('T')[0],
     remarks: '',
+    hrApprovalRequired: true,
   });
 
   const activeRole = getActiveRole();
@@ -132,6 +133,7 @@ export function EmployeeAdmin({
         weeklyOffDays: formData.weeklyOff ? [Number(formData.weeklyOff)] : undefined,
         shiftId: formData.shiftId ? Number(formData.shiftId) : undefined,
         remarks: formData.remarks || undefined,
+        hrApprovalRequired: formData.hrApprovalRequired,
       };
 
       const res = await apiFetch('/api/employees', {
@@ -187,6 +189,7 @@ export function EmployeeAdmin({
         weeklyOffDays: formData.weeklyOff !== '' ? [Number(formData.weeklyOff)] : undefined,
         shiftId: formData.shiftId ? Number(formData.shiftId) : undefined,
         remarks: formData.remarks || undefined,
+        hrApprovalRequired: formData.hrApprovalRequired,
       };
 
       const res = await apiFetch(`/api/employees/${selectedEmp.id}`, {
@@ -277,6 +280,7 @@ export function EmployeeAdmin({
       shiftId: emp.currentShiftId ? String(emp.currentShiftId) : '',
       effectiveFrom: new Date().toISOString().split('T')[0],
       remarks: '',
+      hrApprovalRequired: emp.hrApprovalRequired !== undefined ? Boolean(emp.hrApprovalRequired) : true,
     });
     setIsEditModalOpen(true);
   };
@@ -303,6 +307,7 @@ export function EmployeeAdmin({
       shiftId: '',
       effectiveFrom: new Date().toISOString().split('T')[0],
       remarks: '',
+      hrApprovalRequired: true,
     });
   };
 
@@ -509,6 +514,7 @@ export function EmployeeAdmin({
                 <th className="py-3 px-4">Reporting Manager</th>
                 <th className="py-3 px-4">Employment Type</th>
                 <th className="py-3 px-4">Current Shift</th>
+                <th className="py-3 px-4">HR Approval Required</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -590,6 +596,48 @@ export function EmployeeAdmin({
                       <span className="font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                         {emp.currentShiftCode || 'GN'}
                       </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {isSuperAdmin ? (
+                        <button
+                          id={"toggle-emp-hr-approval-" + emp.id}
+                          type="button"
+                          onClick={async () => {
+                            const nextVal = !(emp.hrApprovalRequired ?? true);
+                            try {
+                              const res = await apiFetch("/api/employees/" + emp.id, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ hrApprovalRequired: nextVal }),
+                              });
+                              if (!res.ok) {
+                                const errData = await res.json().catch(() => ({}));
+                                throw new Error(errData.error || 'Failed to update HR approval setting');
+                              }
+                              setSuccessMsg("HR Approval Required for " + emp.employeeName + " set to " + (nextVal ? "ON (3-Stage: TL → HR → Mgmt)" : "OFF (2-Stage: TL → Mgmt)") + ".");
+                              loadData();
+                            } catch (err: any) {
+                              setError(err.message || 'Error updating HR approval setting');
+                            }
+                          }}
+                          className={"inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors cursor-pointer " + (
+                            (emp.hrApprovalRequired ?? true)
+                              ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                          )}
+                          title="Click to toggle HR Approval Stage (Super Admin)"
+                        >
+                          {(emp.hrApprovalRequired ?? true) ? "ON (3-Stage)" : "OFF (2-Stage)"}
+                        </button>
+                      ) : (
+                        <span className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border " + (
+                          (emp.hrApprovalRequired ?? true)
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        )}>
+                          {(emp.hrApprovalRequired ?? true) ? "ON (3-Stage)" : "OFF (2-Stage)"}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <span
@@ -871,6 +919,34 @@ export function EmployeeAdmin({
                 </div>
               </div>
 
+              {/* Employee-Specific HR Approval Workflow Setting */}
+              <div className="p-3.5 rounded-xl bg-purple-50/70 border border-purple-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-purple-700" />
+                    <span>HR Approval Required</span>
+                  </label>
+                  <span className={"text-[10px] font-bold px-2 py-0.5 rounded-full " + (
+                    formData.hrApprovalRequired ? "bg-purple-700 text-white" : "bg-amber-500 text-white"
+                  )}>
+                    {formData.hrApprovalRequired ? "3-Stage Active" : "2-Stage Active"}
+                  </span>
+                </div>
+                <select
+                  id="input-emp-hr-approval-required-add"
+                  disabled={!isSuperAdmin}
+                  value={formData.hrApprovalRequired ? 'true' : 'false'}
+                  onChange={(e) => setFormData({ ...formData, hrApprovalRequired: e.target.value === 'true' })}
+                  className="w-full px-3 py-1.5 text-xs font-semibold bg-white border border-purple-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-700 disabled:bg-neutral-100"
+                >
+                  <option value="true">ON — 3-Stage Workflow (Team Leader → HR → Top Management)</option>
+                  <option value="false">OFF — 2-Stage Workflow (Team Leader → Top Management, Bypassing HR)</option>
+                </select>
+                <p className="text-[11px] text-purple-800/80">
+                  Controls whether this individual employee's leave requests require HR review. Only Super Admin can change this setting.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-neutral-700 font-medium mb-1">Remarks / Onboarding Notes</label>
                 <textarea
@@ -1008,6 +1084,36 @@ export function EmployeeAdmin({
                   </select>
                 </div>
 
+                {/* Employee-Specific HR Approval Workflow Setting (Edit Modal) */}
+                <div className="sm:col-span-2 p-3.5 rounded-xl bg-purple-50/70 border border-purple-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-purple-700" />
+                      <span>HR Approval Required</span>
+                    </label>
+                    <span className={"text-[10px] font-bold px-2 py-0.5 rounded-full " + (
+                      formData.hrApprovalRequired ? "bg-purple-700 text-white" : "bg-amber-500 text-white"
+                    )}>
+                      {formData.hrApprovalRequired ? "3-Stage Active" : "2-Stage Active"}
+                    </span>
+                  </div>
+                  <select
+                    id="input-emp-hr-approval-required-edit"
+                    disabled={!isSuperAdmin}
+                    value={formData.hrApprovalRequired ? 'true' : 'false'}
+                    onChange={(e) => setFormData({ ...formData, hrApprovalRequired: e.target.value === 'true' })}
+                    className="w-full px-3 py-1.5 text-xs font-semibold bg-white border border-purple-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-700 disabled:bg-neutral-100"
+                  >
+                    <option value="true">ON — 3-Stage Workflow (Team Leader → HR → Top Management)</option>
+                    <option value="false">OFF — 2-Stage Workflow (Team Leader → Top Management, Bypassing HR)</option>
+                  </select>
+                  <p className="text-[11px] text-purple-800/80">
+                    {isSuperAdmin
+                      ? "Super Admin control: Switching ON routes this employee's requests through HR. Switching OFF routes approved TL requests directly to Top Management."
+                      : "Read-only: Only Super Administrator can modify an employee's HR approval workflow."}
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-neutral-700 font-medium mb-1">Status</label>
                   <select
@@ -1092,6 +1198,12 @@ export function EmployeeAdmin({
                 <div className="p-2.5 rounded border border-neutral-100 bg-neutral-50/50">
                   <span className="text-neutral-500 block">Current Shift</span>
                   <span className="font-semibold text-emerald-800">{selectedEmp.currentShiftCode || 'GN'}</span>
+                </div>
+                <div className="p-2.5 rounded border border-neutral-100 bg-neutral-50/50">
+                  <span className="text-neutral-500 block">HR Approval Required</span>
+                  <span className={"font-bold " + ((selectedEmp.hrApprovalRequired ?? true) ? "text-purple-700" : "text-amber-700")}>
+                    {(selectedEmp.hrApprovalRequired ?? true) ? "ON (3-Stage: TL → HR → Mgmt)" : "OFF (2-Stage: TL → Mgmt)"}
+                  </span>
                 </div>
                 <div className="p-2.5 rounded border border-neutral-100 bg-neutral-50/50">
                   <span className="text-neutral-500 block">Mobile</span>

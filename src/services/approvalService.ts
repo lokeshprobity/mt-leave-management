@@ -279,6 +279,7 @@ export class ApprovalService {
               employeeId: tlResult.employeeId,
               employeeName: tlResult.employeeName,
               totalDays: tlResult.totalDays,
+              hrDecision: req.hrDecision,
             },
             decision,
             comments,
@@ -342,6 +343,7 @@ export class ApprovalService {
         employeeId: req.employeeId,
         employeeName: req.employeeName,
         totalDays: req.totalDays,
+        hrDecision: req.hrDecision,
       },
       decision,
       comments,
@@ -379,7 +381,7 @@ export class ApprovalService {
           approvalStageLabel: req.approvalStageLabel,
           nextStep:
             decision === 'APPROVED'
-              ? req.approvalStageLabel || (UserService.isHrApprovalRequired() ? 'Forwarded to HR Review Stage' : 'Forwarded to Top Management Final Decision Stage')
+              ? req.approvalStageLabel || (req.hrDecision !== 'NOT_REQUIRED' ? 'Forwarded to HR Review Stage' : 'Forwarded to Top Management Final Decision Stage')
               : 'Rejected at Stage 1 (Team Leader) — Final Status: REJECTED',
         },
         ipAddress: auditMeta?.ipAddress,
@@ -534,7 +536,7 @@ export class ApprovalService {
       );
     }
 
-    if (req.hrDecision === 'NOT_REQUIRED' || !UserService.isHrApprovalRequired()) {
+    if (req.hrDecision === 'NOT_REQUIRED') {
       throw new Error('Forbidden: HR approval is not required for this leave request');
     }
 
@@ -820,7 +822,7 @@ export class ApprovalService {
         'Forbidden: Top Management cannot approve or reject a leave request while Team Leader approval is still pending'
       );
     }
-    const hrApprovalRequired = UserService.isHrApprovalRequired();
+    const hrApprovalRequired = req.hrDecision !== 'NOT_REQUIRED' && req.hrDecision !== 'SKIPPED';
     if (hrApprovalRequired && (req.hrDecision || 'PENDING') === 'PENDING') {
       throw new ValidationError(
         'Forbidden: Top Management cannot approve or reject a leave request while HR review is still pending'
@@ -1147,8 +1149,8 @@ export class ApprovalService {
 
     for (const r of requests) {
       const routing = await this.resolveRequestRoutingInfo(r);
-      // Top Management or HR leave requests where HR stage is NOT_REQUIRED or HR approval is globally OFF never enter the HR queue
-      if (routing.isTopMgmt || r.hrDecision === 'NOT_REQUIRED' || !UserService.isHrApprovalRequired()) {
+      // Top Management or leave requests where HR stage is NOT_REQUIRED never enter the HR queue
+      if (routing.isTopMgmt || r.hrDecision === 'NOT_REQUIRED') {
         continue;
       }
 
@@ -1237,7 +1239,7 @@ export class ApprovalService {
 
       const tlReadyForMgmt =
         r.teamLeaderDecision === 'APPROVED' || r.teamLeaderDecision === 'NOT_REQUIRED';
-      const isHrReq = UserService.isHrApprovalRequired();
+      const isHrReq = r.hrDecision !== 'NOT_REQUIRED' && r.hrDecision !== 'SKIPPED';
       const hrReadyForMgmt =
         !isHrReq ||
         r.hrDecision === 'APPROVED' ||

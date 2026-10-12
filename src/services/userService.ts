@@ -91,7 +91,11 @@ export function verifyPassword(password: string, storedHash: string): boolean {
       }
       // Support alternate seed password SuperAdmin@123 in non-production
       if (!isProductionRuntime() && (password === 'SuperAdmin@123')) {
+<<<<<<< HEAD
         const altPassword = 'SuperAdmin@123';
+=======
+        const altPassword = 'SuperAdmin@123';
+>>>>>>> 0833983 (Update leave management workflow and settings)
         const altDerived = crypto.scryptSync(altPassword, salt, 64);
         if (crypto.timingSafeEqual(Buffer.from(key, 'hex'), altDerived)) {
           return true;
@@ -139,6 +143,7 @@ export interface MemoryUserRecord {
   employmentStatus?: string | null;
   officeLocation?: string | null;
   remarks?: string | null;
+  hrApprovalRequired?: boolean;
   profilePhoto?: ProfilePhotoMetadataDto | null;
   mustChangePassword?: boolean;
   credentialEmail?: CredentialEmailDeliveryDto | null;
@@ -1155,6 +1160,7 @@ export class UserService {
           joiningDate: formattedJoiningDate,
           officeLocation: emp ? emp.officeLocation : null,
           remarks: emp ? emp.remarks : null,
+          hrApprovalRequired: emp ? (emp.hrApprovalRequired ?? true) : true,
           employmentType: emp ? (emp.employmentType as any) : 'FULL_TIME',
           employmentStatus: emp ? (emp.employmentStatus as any) : u.isActive ? 'ACTIVE' : 'INACTIVE',
           profilePhoto: photoMeta,
@@ -1192,6 +1198,7 @@ export class UserService {
           joiningDate: orphanJoinDate,
           officeLocation: emp.officeLocation ?? null,
           remarks: emp.remarks ?? null,
+          hrApprovalRequired: emp.hrApprovalRequired ?? true,
           employmentType: (emp.employmentType as any) || 'FULL_TIME',
           employmentStatus: (emp.employmentStatus as any) || 'ACTIVE',
           mustChangePassword: true,
@@ -1395,6 +1402,7 @@ export class UserService {
           joiningDate: joinDateObj,
           officeLocation: record.officeLocation ?? null,
           remarks: record.remarks ?? null,
+          hrApprovalRequired: record.hrApprovalRequired ?? true,
           employmentType: empType,
           employmentStatus: empStatus,
           updatedAt: new Date(),
@@ -1413,6 +1421,7 @@ export class UserService {
             joiningDate: joinDateObj,
             officeLocation: record.officeLocation ?? null,
             remarks: record.remarks ?? null,
+            hrApprovalRequired: record.hrApprovalRequired ?? true,
             employmentType: empType,
             employmentStatus: empStatus,
             updatedAt: new Date(),
@@ -3957,6 +3966,7 @@ export class UserService {
         joiningDate: u.joiningDate,
         officeLocation: u.officeLocation ?? null,
         remarks: u.remarks ?? null,
+        hrApprovalRequired: u.hrApprovalRequired ?? true,
         role: u.roleName,
         operationalRole: this.resolveOperationalRoleForRecord(u),
         currentShiftId,
@@ -4300,12 +4310,17 @@ export class UserService {
       joiningDate: user.joiningDate ?? null,
       officeLocation: user.officeLocation ?? null,
       remarks: user.remarks ?? null,
+      hrApprovalRequired: user.hrApprovalRequired ?? true,
       role: user.roleName,
       operationalRole: this.resolveOperationalRoleForRecord(user),
       isActive: user.isActive,
     };
 
     // Role-based & permission-based authorization
+    if (input.hrApprovalRequired !== undefined && actor.role !== 'SUPER_ADMIN') {
+      throw new Error('Forbidden: Only Super Administrator can configure an employee’s HR Approval Required workflow setting.');
+    }
+
     if (!hasFullEditPerm) {
       if (!isSelf) {
         throw new Error('Forbidden: Employees can only view and update their own personal details.');
@@ -4423,6 +4438,12 @@ export class UserService {
       if (input.joiningDate !== undefined) user.joiningDate = input.joiningDate;
       if (input.officeLocation !== undefined) user.officeLocation = input.officeLocation;
       if (input.remarks !== undefined) user.remarks = input.remarks;
+      if (input.hrApprovalRequired !== undefined) {
+        if (actor.role !== 'SUPER_ADMIN') {
+          throw new Error('Forbidden: Only Super Administrator can configure the employee HR Approval Required workflow setting.');
+        }
+        user.hrApprovalRequired = Boolean(input.hrApprovalRequired);
+      }
       if (input.isActive !== undefined) {
         user.isActive = input.isActive;
         if (!input.isActive && user.employmentStatus === 'ACTIVE') {
@@ -4549,6 +4570,7 @@ export class UserService {
       joiningDate: user.joiningDate ?? null,
       officeLocation: user.officeLocation ?? null,
       remarks: user.remarks ?? null,
+      hrApprovalRequired: user.hrApprovalRequired ?? true,
       role: user.roleName,
       operationalRole: this.resolveOperationalRoleForRecord(user),
       isActive: user.isActive,
@@ -5362,6 +5384,12 @@ export class UserService {
     if (input.joiningDate !== undefined) record.joiningDate = input.joiningDate;
     if (input.officeLocation !== undefined) record.officeLocation = input.officeLocation;
     if (input.remarks !== undefined) record.remarks = input.remarks;
+    if (input.hrApprovalRequired !== undefined) {
+      if (actor.role !== 'SUPER_ADMIN') {
+        throw new Error('Forbidden: Only Super Administrator can configure an employee’s HR Approval Required workflow setting.');
+      }
+      record.hrApprovalRequired = Boolean(input.hrApprovalRequired);
+    }
     if (input.employmentType !== undefined) record.employmentType = input.employmentType;
     if (input.employmentStatus !== undefined) {
       record.employmentStatus = input.employmentStatus;
@@ -6749,6 +6777,7 @@ export class UserService {
       roleId?: number;
       role?: UserRole;
       operationalRole?: OperationalRole | null;
+      hrApprovalRequired?: boolean;
       remarks?: string | null;
       reason?: string | null;
       // Optional effective-dated shift assignment
@@ -6846,6 +6875,7 @@ export class UserService {
       input.roleId !== undefined ||
       input.role !== undefined ||
       input.operationalRole !== undefined ||
+      input.hrApprovalRequired !== undefined ||
       input.remarks !== undefined;
 
     const isLinkedUser = memoryUsers.some((u) => u.id === record.id);
@@ -6872,6 +6902,7 @@ export class UserService {
             roleId: input.roleId,
             role: input.role,
             operationalRole: input.operationalRole,
+            hrApprovalRequired: input.hrApprovalRequired,
             remarks: effectiveRemarks ?? undefined,
           },
           actor
@@ -6897,6 +6928,7 @@ export class UserService {
             isActive: input.isActive,
             role: input.role,
             operationalRole: input.operationalRole,
+            hrApprovalRequired: input.hrApprovalRequired,
             remarks: effectiveRemarks ?? undefined,
           },
           actor
@@ -7477,13 +7509,6 @@ export class UserService {
       });
     }
 
-    if (!mergedMap.has('hr_approval_required')) {
-      mergedMap.set('hr_approval_required', {
-        settingKey: 'hr_approval_required',
-        settingValue: 'true',
-        description: 'Leave Workflow: HR Approval Required (true = ON, false = OFF)',
-      });
-    }
     if (!mergedMap.has('standard_daily_work_hours')) {
       mergedMap.set('standard_daily_work_hours', {
         settingKey: 'standard_daily_work_hours',
@@ -7539,16 +7564,40 @@ export class UserService {
   }
 
   /**
-   * Authoritative check whether HR approval is currently required in leave workflow.
-   * Defaults to true (ON).
+   * Authoritative check whether HR approval is required for a specific employee.
+   * Super Admin controls this setting per-employee:
+   * ON (true): 3-stage workflow (Team Leader → HR → Top Management)
+   * OFF (false): 2-stage workflow (Team Leader → Top Management, bypassing HR)
+   *
+   * If employeeIdOrCode is provided, evaluates that specific employee's setting.
+   * Default for any employee is true (ON).
    */
-  public static isHrApprovalRequired(): boolean {
-    const rec = memorySystemSettings.get('hr_approval_required');
-    if (!rec || !rec.settingValue) {
-      return true; // Default ON
+  public static isHrApprovalRequired(employeeIdOrCode?: number | string | null): boolean {
+    if (employeeIdOrCode !== undefined && employeeIdOrCode !== null && employeeIdOrCode !== '') {
+      const emp = this.resolveEmployeeRecordSync(employeeIdOrCode);
+      if (emp && emp.hrApprovalRequired !== undefined) {
+        return Boolean(emp.hrApprovalRequired);
+      }
     }
-    const val = rec.settingValue.trim().toLowerCase();
-    return val === 'true' || val === 'on' || val === '1';
+    return true; // Safe default for all employees (ON / 3-stage)
+  }
+
+  /**
+   * Super Admin authoritative updater for an employee's HR Approval Required workflow setting.
+   */
+  public static async setEmployeeHrApprovalRequired(
+    employeeIdOrCode: number | string,
+    required: boolean,
+    actor: AuthContext
+  ): Promise<EmployeeDto> {
+    if (!actor || actor.role !== 'SUPER_ADMIN') {
+      throw new Error('Forbidden: Only Super Administrator can configure an employee’s HR Approval Required workflow setting.');
+    }
+    return this.updateEmployee(
+      employeeIdOrCode,
+      { hrApprovalRequired: Boolean(required) },
+      actor
+    );
   }
 
     public static async deleteSystemSetting(

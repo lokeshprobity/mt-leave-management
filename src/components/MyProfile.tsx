@@ -133,6 +133,7 @@ export const MyProfile: React.FC<MyProfileProps> = ({
     joiningDate: '',
     officeLocation: '',
     remarks: '',
+    hrApprovalRequired: true,
     isActive: true,
   });
   const [savingProfile, setSavingProfile] = useState(false);
@@ -207,6 +208,7 @@ export const MyProfile: React.FC<MyProfileProps> = ({
       joiningDate: emp?.joiningDate || u.joiningDate || u.employee?.joiningDate || '',
       officeLocation: emp?.officeLocation || u.officeLocation || '',
       remarks: emp?.remarks || u.remarks || '',
+      hrApprovalRequired: emp?.hrApprovalRequired !== undefined ? Boolean(emp.hrApprovalRequired) : (u.hrApprovalRequired !== undefined ? Boolean(u.hrApprovalRequired) : true),
       isActive: u.isActive,
     });
 
@@ -458,6 +460,7 @@ export const MyProfile: React.FC<MyProfileProps> = ({
             joiningDate: editForm.joiningDate || null,
             officeLocation: editForm.officeLocation.trim() || null,
             remarks: editForm.remarks.trim() || null,
+            hrApprovalRequired: editForm.hrApprovalRequired,
             isActive: editForm.isActive,
           }),
         });
@@ -1062,6 +1065,19 @@ export const MyProfile: React.FC<MyProfileProps> = ({
               {(profile.operationalRole || employee?.operationalRole || 'Standard').replace(/_/g, ' ')}
             </div>
           </div>
+          <div id="card-hr-workflow-status" className={`${(employee?.hrApprovalRequired ?? profile.hrApprovalRequired ?? true) ? MT_COLOR_CARDS.purple : MT_COLOR_CARDS.amber} p-2.5 sm:p-3 min-w-0 overflow-hidden`}>
+            <div className="text-[11px] font-bold uppercase break-words text-neutral-900 flex items-center justify-between gap-1">
+              <span>HR Approval Required</span>
+            </div>
+            <div className="text-xs font-bold text-neutral-900 mt-0.5 break-words flex items-center gap-1.5">
+              <span>{(employee?.hrApprovalRequired ?? profile.hrApprovalRequired ?? true) ? 'ON (3-Stage Workflow)' : 'OFF (2-Stage Workflow)'}</span>
+            </div>
+            <div className="text-[10px] text-neutral-600 mt-0.5">
+              {(employee?.hrApprovalRequired ?? profile.hrApprovalRequired ?? true)
+                ? 'Applicant → Team Leader → HR → Top Management'
+                : 'Applicant → Team Leader → Top Management (HR Bypassed)'}
+            </div>
+          </div>
           <div className={`${profile.isActive ? MT_COLOR_CARDS.emerald : MT_COLOR_CARDS.rose} p-2.5 sm:p-3 min-w-0 overflow-hidden`}>
             <div className={`text-[11px] font-bold uppercase break-words ${profile.isActive ? 'text-emerald-900' : 'text-rose-900'}`}>Employment Status</div>
             <div className="text-xs font-semibold text-neutral-900 mt-0.5 break-words">
@@ -1596,6 +1612,37 @@ export const MyProfile: React.FC<MyProfileProps> = ({
                       placeholder="e.g. Head Office / CFS Terminal"
                       className="w-full max-w-full min-w-0 px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-700/20 focus:border-red-700"
                     />
+                  </div>
+
+                  {/* HR Approval Workflow Setting */}
+                  <div className="sm:col-span-2 p-3.5 rounded-xl bg-purple-50/70 border border-purple-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                        <Shield className="w-3.5 h-3.5 text-purple-700" />
+                        <span>HR Approval Required</span>
+                      </label>
+                      <span className={"text-[10px] font-bold px-2.5 py-0.5 rounded-full " + (
+                        editForm.hrApprovalRequired ? "bg-purple-700 text-white" : "bg-amber-500 text-white"
+                      )}>
+                        {editForm.hrApprovalRequired ? "ON (3-Stage Workflow)" : "OFF (2-Stage Workflow)"}
+                      </span>
+                    </div>
+                    <select
+                      id="select-profile-hr-approval-required"
+                      value={editForm.hrApprovalRequired ? 'true' : 'false'}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, hrApprovalRequired: e.target.value === 'true' })
+                      }
+                      className="w-full px-3 py-2 text-xs font-bold text-neutral-900 bg-white border border-purple-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-700 shadow-2xs"
+                    >
+                      <option value="true">ON — 3-Stage Routing (Team Leader → HR Review → Top Management Final)</option>
+                      <option value="false">OFF — 2-Stage Routing (Team Leader → Top Management Final, Bypassing HR)</option>
+                    </select>
+                    <p className="text-[11px] text-purple-800/80 leading-relaxed">
+                      {editForm.hrApprovalRequired
+                        ? "Active: Requests submitted by this employee follow the standard 3-stage process through Team Leader, HR recommendation, and Top Management."
+                        : "Active: Requests submitted by this employee bypass the HR stage entirely upon Team Leader approval and route directly to Top Management for final decision."}
+                    </p>
                   </div>
 
                   <div className="min-w-0">
