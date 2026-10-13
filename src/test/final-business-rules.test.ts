@@ -687,6 +687,27 @@ async function runFinalBusinessRulesTests() {
     '9.2.4 Emergency Full-Day leave for 26/09/2026 at 14:10 (2:10 PM) -> NOT ALLOWED'
   );
 
+  // Emergency Exception checkbox allows a selected Emergency Full Day request after shift start.
+  const emg1410Waived = await LeaveRequestService.submitLeaveRequest(
+    {
+      leaveTypeId: 4,
+      startDate: '2026-09-26',
+      endDate: '2026-09-26',
+      dayType: 'FULL_DAY',
+      reasonCategory: 'MEDICAL_EMERGENCY',
+      reason: 'Emergency full day with Emergency Exception waiver at 14:10',
+      emergencyException: true,
+      isEmergency: true,
+      applicationTimestampOverride: '2026-09-26T14:10:00+05:30',
+    },
+    EMP_ALICE
+  );
+  assert(
+    Boolean(emg1410Waived?.id) && Number(emg1410Waived.totalDays) === 1.0,
+    '9.2.4a Emergency Full-Day after shift start with Emergency Exception checkbox -> ALLOWED'
+  );
+  await LeaveRequestService.cancelLeaveRequest(emg1410Waived.id, 'Reset after Emergency Exception waiver test', EMP_ALICE);
+
   // 26/09/2026 14:10 -> Emergency Half Day ALLOWED
   const emg1410Half = await LeaveRequestService.submitLeaveRequest(
     {
