@@ -896,10 +896,13 @@ export function EmployeeAdmin({
                     onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value })}
                     className="w-full px-3 py-1.5 border border-neutral-200 rounded-lg"
                   >
-                    <option value="0">Sunday OFF</option>
-                    <option value="6">Saturday OFF</option>
-                    <option value="5">Friday OFF</option>
-                    <option value="1">Monday OFF</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                    <option value="0">Sunday</option>
                   </select>
                 </div>
 
@@ -1112,6 +1115,24 @@ export function EmployeeAdmin({
                       ? "Super Admin control: Switching ON routes this employee's requests through HR. Switching OFF routes approved TL requests directly to Top Management."
                       : "Read-only: Only Super Administrator can modify an employee's HR approval workflow."}
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-neutral-700 font-medium mb-1">Weekly Off Schedule</label>
+                  <select
+                    id="input-emp-weekly-off-edit"
+                    value={formData.weeklyOff}
+                    onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-neutral-200 rounded-lg"
+                  >
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                    <option value="0">Sunday</option>
+                  </select>
                 </div>
 
                 <div>

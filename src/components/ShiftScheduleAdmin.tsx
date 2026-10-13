@@ -1682,14 +1682,14 @@ export function ShiftScheduleAdmin({
                     onChange={(e) => setShiftWeeklyOff(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-neutral-300 bg-white"
                   >
-                    <option value="Sunday">Sunday</option>
-                    <option value="Saturday, Sunday">Saturday & Sunday</option>
-                    <option value="Saturday">Saturday</option>
-                    <option value="Friday">Friday</option>
                     <option value="Monday">Monday</option>
                     <option value="Tuesday">Tuesday</option>
                     <option value="Wednesday">Wednesday</option>
                     <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                    <option value="Saturday, Sunday">Saturday & Sunday</option>
                     <option value="None">None</option>
                   </select>
                 </div>
@@ -2006,14 +2006,14 @@ export function ShiftScheduleAdmin({
                     onChange={(e) => setEditShiftWeeklyOff(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-neutral-300 bg-white"
                   >
-                    <option value="Sunday">Sunday</option>
-                    <option value="Saturday, Sunday">Saturday & Sunday</option>
-                    <option value="Saturday">Saturday</option>
-                    <option value="Friday">Friday</option>
                     <option value="Monday">Monday</option>
                     <option value="Tuesday">Tuesday</option>
                     <option value="Wednesday">Wednesday</option>
                     <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                    <option value="Saturday, Sunday">Saturday & Sunday</option>
                     <option value="None">None</option>
                   </select>
                 </div>
