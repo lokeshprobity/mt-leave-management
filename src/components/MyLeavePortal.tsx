@@ -805,7 +805,7 @@ export function MyLeavePortal() {
         <div className={`p-3.5 ${MT_COLOR_CARDS.sky} text-xs text-sky-900 flex items-start gap-2.5`}>
           <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
           <div>
-            <span className="font-semibold text-sky-950">Approval Workflow (Employee &rarr; Team Leader &rarr; HR &rarr; Top Management):</span> Stage 1: Assigned Team Leader reviews your request. Stage 2: HR conducts policy verification (if HR rejects, the request is still sent to Top Management with HR remarks). Stage 3: Top Management grants final approval or rejection. Half-Day Leave equals <span className="font-semibold">0.5 day</span> and Full-Day Leave equals <span className="font-semibold">1.0 day</span> per working day. Leave balances are deducted only after Top Management final approval.
+            <span className="font-semibold text-sky-950">Approval Workflow (Employee &rarr; Team Leader &rarr; HR &rarr; Top Management):</span> Stage 1: Assigned Team Leader reviews your request. Stage 2: HR conducts policy verification (if HR rejects, the request is still sent to Top Management with HR remarks). Stage 3: Top Management grants final approval or rejection. Half-Day Leave equals <span className="font-semibold">0.5 day</span> and Full-Day Leave equals <span className="font-semibold">1.0 day</span> per working day. Leave balances are deducted only after Top Management final approval. <span className="font-semibold">Note: One half-day leave per calendar month will be allowed without any salary deduction.</span>
           </div>
         </div>
 
