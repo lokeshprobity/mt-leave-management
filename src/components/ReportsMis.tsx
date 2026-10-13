@@ -119,7 +119,7 @@ export function ReportsMis() {
   const exportToExcel = (filename: string, rows: (string | number)[][]) => {
     const worksheet = XLSX.utils.aoa_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    const sheetName = filename.replace(/[_\\W]+/g, ' ').trim().slice(0, 31) || 'Report';
+    const sheetName = filename.replace(/[_\W]+/g, ' ').trim().slice(0, 31) || 'Report';
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
