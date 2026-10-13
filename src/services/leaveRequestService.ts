@@ -423,6 +423,36 @@ export class LeaveRequestService {
   }
 
   /**
+   * Checks whether the given leave type is an Emergency Leave type (code 'EL', 'EMERGENCY', or name contains 'emergency').
+   */
+  public static isEmergencyLeaveType(
+    leaveType?: { id?: number; code?: string; name?: string } | null
+  ): boolean {
+    if (!leaveType) return false;
+    const code = (leaveType.code || '').trim().toUpperCase();
+    const name = (leaveType.name || '').trim().toLowerCase();
+    return code === 'EL' || code === 'EMERGENCY' || name.includes('emergency');
+  }
+
+  /**
+   * Determines if the Emergency Exception advance notice & zero-balance waiver is applicable.
+   * Only applies when:
+   * 1. The selected leave type is specifically Emergency Leave (not CL, SL, AL, etc.).
+   * 2. The employee explicitly ticked the advance notice waiver under Emergency Exception clause checkbox.
+   * 3. The applicable policy permits the emergency exception.
+   */
+  public static isEmergencyWaiverApplicable(
+    input: { emergencyException?: boolean },
+    leaveType?: { id?: number; code?: string; name?: string } | null,
+    policy?: { emergencyExceptionAllowed?: boolean } | null
+  ): boolean {
+    const isWaiverTicked = Boolean(input.emergencyException);
+    const isEl = this.isEmergencyLeaveType(leaveType);
+    const policyAllows = Boolean(policy?.emergencyExceptionAllowed);
+    return isEl && isWaiverTicked && policyAllows;
+  }
+
+  /**
    * Evaluates preview calculation without persisting (used by UI for instant feedback)
    */
   public static async calculatePreview(
@@ -564,7 +594,9 @@ export class LeaveRequestService {
             );
           }
         } else {
-          if (!classificationResult.isBeforeShiftStart && !(input.emergencyException === true && Boolean(leaveType && (leaveType.code?.toUpperCase() === 'EMERGENCY' || leaveType.name.toLowerCase().includes('emergency'))))) {
+          const emergencyWaiver = this.isEmergencyWaiverApplicable(input, leaveType, policy);
+          if (!classificationResult.isBeforeShiftStart && !emergencyWaiver) {
+
             validationErrors.push(
               `Emergency Full Day leave for ${input.startDate} is not allowed at or after your applicable office/shift start time (${classificationResult.shiftStartTimeUsed || '08:30'}). Only Emergency Half Day leave is allowed.`
             );
@@ -604,10 +636,14 @@ export class LeaveRequestService {
     const available = balance ? Number(balance.available) : 0;
     const remaining = available - workingDaysResult.totalDays;
 
+    const emergencyWaiver = this.isEmergencyWaiverApplicable(input, leaveType, policy);
+
     if (policy && !policy.negativeBalanceAllowed && workingDaysResult.totalDays > available) {
-      validationErrors.push(
-        `Insufficient balance: Requested ${workingDaysResult.totalDays} day(s), but only ${available} day(s) available`
-      );
+      if (!emergencyWaiver) {
+        validationErrors.push(
+          `Insufficient balance: Requested ${workingDaysResult.totalDays} day(s), but only ${available} day(s) available`
+        );
+      }
     }
 
     const requiresDoc = Boolean(leaveType?.requiresDocument || policy?.documentRequired);
@@ -894,7 +930,7 @@ export class LeaveRequestService {
     }
 
     if (operationalRole === 'TEAM_LEADER') {
-      const isHrReq = UserService.isHrApprovalRequired();
+      const isHrReq = UserService.isHrApprovalRequired(employeeId);
       const tlHrDecision: 'PENDING' | 'NOT_REQUIRED' = isHrReq ? 'PENDING' : 'NOT_REQUIRED';
       const tlStageLabel = isHrReq ? 'Pending HR' : 'Pending Top Management';
 
@@ -1083,7 +1119,7 @@ export class LeaveRequestService {
       }
     }
 
-    const isHrRequiredForEmployee = UserService.isHrApprovalRequired();
+    const isHrRequiredForEmployee = UserService.isHrApprovalRequired(employeeId);
     const effectiveEmpHrDecision: 'PENDING' | 'NOT_REQUIRED' = isHrRequiredForEmployee ? 'PENDING' : 'NOT_REQUIRED';
 
     if (isHrRequiredForEmployee && !UserService.hasActiveApproverForRole('HR', employeeId, applicantUserId)) {
@@ -1270,11 +1306,15 @@ export class LeaveRequestService {
     const balance = balances.find((b) => b.leaveTypeId === input.leaveTypeId);
     const available = balance ? Number(balance.available) : 0;
 
+    const emergencyWaiverApplicable = this.isEmergencyWaiverApplicable(input, leaveType, policy);
+
     if (!policy.negativeBalanceAllowed && workingDaysResult.totalDays > available) {
-      throw new ValidationError(
-        `Insufficient leave balance: Requested ${workingDaysResult.totalDays} day(s), but only ${available} day(s) available for ${leaveType.name}`,
-        { balance: `Available balance is ${available} day(s)` }
-      );
+      if (!emergencyWaiverApplicable) {
+        throw new ValidationError(
+          `Insufficient leave balance: Requested ${workingDaysResult.totalDays} day(s), but only ${available} day(s) available for ${leaveType.name}`,
+          { balance: `Available balance is ${available} day(s)` }
+        );
+      }
     }
 
     // 7. Validate overlap (Check against existing active requests for this employee)
@@ -1381,8 +1421,10 @@ export class LeaveRequestService {
       } else {
         // 2. EMERGENCY FULL-DAY LEAVE:
         // Allowed BEFORE the employee's applicable office/shift start time for date D.
-        // NOT ALLOWED at or after the employee's applicable office/shift start time for date D.
-        if (!classificationResult.isBeforeShiftStart && !(input.emergencyException === true && Boolean(leaveType && (leaveType.code?.toUpperCase() === 'EMERGENCY' || leaveType.name.toLowerCase().includes('emergency'))))) {
+        // NOT ALLOWED at or after the employee's applicable office/shift start time for date D,
+        // UNLESS the employee explicitly requested advance notice waiver under Emergency Exception clause and policy permits it.
+        if (!classificationResult.isBeforeShiftStart && !emergencyWaiverApplicable) {
+
           throw new ValidationError(
             `Emergency Full Day leave cannot be submitted after the employee's shift start time (${classificationResult.shiftStartTimeUsed || '08:30'}). Half Day Emergency Leave may be submitted.`,
             {
@@ -1702,7 +1744,9 @@ export class LeaveRequestService {
             actorEmployeeCode: actor.employeeCode || resolvedEmpCode || null,
             actorRole: actor.role,
             actorName: actor.username || resolvedEmpName || 'Applicant',
-            remarks: `Submitted leave request for ${workingDaysResult.totalDays} day(s) [${classification}]`,
+            remarks: emergencyWaiverApplicable
+              ? `Submitted emergency leave request for ${workingDaysResult.totalDays} day(s) [${classification}] with advance notice waiver requested under Emergency Exception clause`
+              : `Submitted leave request for ${workingDaysResult.totalDays} day(s) [${classification}]`,
             comments: input.reason.trim(),
             ipAddress: auditMeta?.ipAddress || null,
             userAgent: auditMeta?.userAgent || null,
@@ -1767,6 +1811,8 @@ export class LeaveRequestService {
               classification,
               stage: initialStageLabel,
               hasAttachment: resultDto.hasAttachment,
+              emergencyExceptionClause: emergencyWaiverApplicable,
+              advanceNoticeWaiverRequested: Boolean(input.emergencyException),
             },
             ipAddress: auditMeta?.ipAddress,
             userAgent: auditMeta?.userAgent,
@@ -1790,7 +1836,9 @@ export class LeaveRequestService {
       actorId: actor.userId || null,
       actorRole: actor.role,
       actorName: actor.username,
-      remarks: `Submitted leave request for ${workingDaysResult.totalDays} day(s) [${classification}]`,
+      remarks: emergencyWaiverApplicable
+        ? `Submitted emergency leave request for ${workingDaysResult.totalDays} day(s) [${classification}] with advance notice waiver requested under Emergency Exception clause`
+        : `Submitted leave request for ${workingDaysResult.totalDays} day(s) [${classification}]`,
       ipAddress: auditMeta?.ipAddress,
       userAgent: auditMeta?.userAgent,
       createdAt: new Date().toISOString(),
@@ -1846,6 +1894,8 @@ export class LeaveRequestService {
           assignedTeamLeaderName: newRecord.assignedTeamLeaderName,
           approvalStageLabel: newRecord.approvalStageLabel,
           nextStep: newRecord.approvalStageLabel || 'Awaiting Approval Review',
+          emergencyExceptionClause: emergencyWaiverApplicable,
+          advanceNoticeWaiverRequested: Boolean(input.emergencyException),
         },
         ipAddress: auditMeta?.ipAddress,
         userAgent: auditMeta?.userAgent,

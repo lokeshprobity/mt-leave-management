@@ -1059,6 +1059,61 @@ export class ApprovalService {
   }
 
   /**
+   * Convenience alias for Team Leader decision processing
+   */
+  public static async processTeamLeaderDecision(
+    leaveRequestId: number,
+    decision: 'APPROVED' | 'REJECTED',
+    comments: string,
+    actor: AuthContext,
+    auditMeta?: { ipAddress?: string; userAgent?: string }
+  ): Promise<LeaveRequestDto> {
+    return this.submitTeamLeaderDecision(leaveRequestId, { decision, comments }, actor, auditMeta);
+  }
+
+  /**
+   * Convenience alias for HR review processing
+   */
+  public static async processHrReview(
+    leaveRequestId: number,
+    decision: 'APPROVED' | 'REJECTED',
+    comments: string,
+    actor: AuthContext,
+    auditMeta?: { ipAddress?: string; userAgent?: string }
+  ): Promise<LeaveRequestDto> {
+    return this.submitHrDecision(leaveRequestId, { decision, comments }, actor, auditMeta);
+  }
+
+  /**
+   * Convenience alias for Top Management decision processing
+   */
+  public static async processTopManagementDecision(
+    leaveRequestId: number,
+    decision: 'APPROVED' | 'REJECTED',
+    comments: string,
+    actor: AuthContext,
+    auditMeta?: { ipAddress?: string; userAgent?: string }
+  ): Promise<LeaveRequestDto> {
+    return this.submitManagementDecision(leaveRequestId, { decision, comments }, actor, auditMeta);
+  }
+
+  /**
+   * Convenience alias to retrieve pending requests for the given actor role
+   */
+  public static async getPendingRequestsForActor(actor: AuthContext): Promise<LeaveRequestDto[]> {
+    if (actor.role === 'HR') {
+      return this.getRequestsForHr({ status: 'PENDING' }, actor);
+    }
+    if (actor.role === 'TOP_MANAGEMENT' || actor.role === 'SUPER_ADMIN') {
+      return this.getRequestsForManagement({ status: 'PENDING' }, actor);
+    }
+    if (actor.role === 'TEAM_LEADER') {
+      return this.getRequestsForTeamLeader({ status: 'PENDING' }, actor);
+    }
+    return [];
+  }
+
+  /**
    * Aggregates employee leave history for HR and Management approval reviews
    */
   public static async getEmployeeApprovalHistory(

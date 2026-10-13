@@ -9,7 +9,7 @@ async function runEmployeeSpecificHrApprovalSuite() {
   console.log('============================================================\n');
 
   // Reset stores to default state
-  UserService.resetMemoryStores({ preservePersistedMedia: true });
+  UserService.resetMemoryStores({ preservePersistedMedia: false });
   LeaveRequestService.resetMemoryStores();
 
   const superAdmin = {
@@ -28,28 +28,32 @@ async function runEmployeeSpecificHrApprovalSuite() {
   };
 
   const teamLeader = {
-    userId: 3,
-    username: 'teamleader1',
+    userId: 5,
+    username: 'tl_robert',
     role: 'TEAM_LEADER' as const,
     operationalRole: 'TEAM_LEADER' as const,
-    employeeId: 3,
+    employeeId: 5,
   };
 
   const emp1Actor = {
     userId: 4,
-    username: 'employee1',
+    username: 'alice_emp',
     role: 'EMPLOYEE' as const,
     operationalRole: 'EMPLOYEE' as const,
     employeeId: 4,
   };
 
   const emp2Actor = {
-    userId: 5,
-    username: 'employee2',
+    userId: 10,
+    username: 'kiran_imp',
     role: 'EMPLOYEE' as const,
     operationalRole: 'EMPLOYEE' as const,
-    employeeId: 5,
+    employeeId: 10,
   };
+
+  // Configure both employees to report to Team Leader 5 (Robert Chen) in non-rotating Department 2
+  await UserService.updateEmployee(4, { departmentId: 2, reportingManagerId: 5 }, superAdmin);
+  await UserService.updateEmployee(10, { departmentId: 2, reportingManagerId: 5 }, superAdmin);
 
   // ----------------------------------------------------
   // TEST 1: Default Setting for Employees is ON (true)
@@ -61,9 +65,9 @@ async function runEmployeeSpecificHrApprovalSuite() {
     'Default setting for Employee 1 (id: 4) must be ON (true)'
   );
   assert.strictEqual(
-    UserService.isHrApprovalRequired(5),
+    UserService.isHrApprovalRequired(10),
     true,
-    'Default setting for Employee 2 (id: 5) must be ON (true)'
+    'Default setting for Employee 2 (id: 10) must be ON (true)'
   );
   console.log('   [PASS] Both employees default safely to ON (3-Stage Workflow).');
 
@@ -121,7 +125,7 @@ async function runEmployeeSpecificHrApprovalSuite() {
   // Set Employee 1: ON (true)
   await UserService.setEmployeeHrApprovalRequired(4, true, superAdmin);
   // Set Employee 2: OFF (false)
-  await UserService.setEmployeeHrApprovalRequired(5, false, superAdmin);
+  await UserService.setEmployeeHrApprovalRequired(10, false, superAdmin);
 
   // Verify settings are independent
   assert.strictEqual(
@@ -130,14 +134,14 @@ async function runEmployeeSpecificHrApprovalSuite() {
     'Employee 1 setting must remain ON (true)'
   );
   assert.strictEqual(
-    UserService.isHrApprovalRequired(5),
+    UserService.isHrApprovalRequired(10),
     false,
     'Employee 2 setting must be OFF (false)'
   );
 
   // Verify Employee DTO reflects the setting
   const emp1Dto = await UserService.getEmployeeById(4);
-  const emp2Dto = await UserService.getEmployeeById(5);
+  const emp2Dto = await UserService.getEmployeeById(10);
   assert.strictEqual(emp1Dto?.hrApprovalRequired, true, 'Employee 1 DTO must show hrApprovalRequired: true');
   assert.strictEqual(emp2Dto?.hrApprovalRequired, false, 'Employee 2 DTO must show hrApprovalRequired: false');
 
@@ -425,7 +429,7 @@ async function runEmployeeSpecificHrApprovalSuite() {
   // TEST 12: Clean Up / Restore Default Settings
   // ----------------------------------------------------
   await UserService.setEmployeeHrApprovalRequired(4, true, superAdmin);
-  await UserService.setEmployeeHrApprovalRequired(5, true, superAdmin);
+  await UserService.setEmployeeHrApprovalRequired(10, true, superAdmin);
 
   console.log('\n============================================================');
   console.log('[ALL 12 TESTS PASSED] EMPLOYEE-SPECIFIC HR WORKFLOW VERIFIED!');
