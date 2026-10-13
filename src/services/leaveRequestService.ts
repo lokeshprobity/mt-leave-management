@@ -564,7 +564,7 @@ export class LeaveRequestService {
             );
           }
         } else {
-          if (!classificationResult.isBeforeShiftStart) {
+          if (!classificationResult.isBeforeShiftStart && !(input.emergencyException === true && Boolean(leaveType && (leaveType.code?.toUpperCase() === 'EMERGENCY' || leaveType.name.toLowerCase().includes('emergency'))))) {
             validationErrors.push(
               `Emergency Full Day leave for ${input.startDate} is not allowed at or after your applicable office/shift start time (${classificationResult.shiftStartTimeUsed || '08:30'}). Only Emergency Half Day leave is allowed.`
             );
@@ -1382,7 +1382,7 @@ export class LeaveRequestService {
         // 2. EMERGENCY FULL-DAY LEAVE:
         // Allowed BEFORE the employee's applicable office/shift start time for date D.
         // NOT ALLOWED at or after the employee's applicable office/shift start time for date D.
-        if (!classificationResult.isBeforeShiftStart) {
+        if (!classificationResult.isBeforeShiftStart && !(input.emergencyException === true && Boolean(leaveType && (leaveType.code?.toUpperCase() === 'EMERGENCY' || leaveType.name.toLowerCase().includes('emergency'))))) {
           throw new ValidationError(
             `Emergency Full Day leave cannot be submitted after the employee's shift start time (${classificationResult.shiftStartTimeUsed || '08:30'}). Half Day Emergency Leave may be submitted.`,
             {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import {
   BarChart3,
   Download,
@@ -114,18 +115,13 @@ export function ReportsMis() {
 
   const empMap = new Map(data.employees.map((e) => [e.id, e]));
 
-  // Helper: Export to CSV
-  const exportToCsv = (filename: string, rows: (string | number)[][]) => {
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      rows.map((e) => e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${filename}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Helper: Export report rows as a native Excel workbook (.xlsx).
+  const exportToExcel = (filename: string, rows: (string | number)[][]) => {
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    const sheetName = filename.replace(/[_\W]+/g, ' ').trim().slice(0, 31) || 'Report';
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   // Filtered Leave Requests
@@ -379,12 +375,12 @@ export function ReportsMis() {
                     r.finalStatus,
                   ];
                 });
-                exportToCsv('Employee_Leave_Report', [header, ...rows]);
+                exportToExcel('Employee_Leave_Report', [header, ...rows]);
               }}
               className="flex items-center justify-center gap-1.5 px-3.5 py-2 min-h-[44px] sm:min-h-0 bg-red-700 text-white rounded-xl sm:rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -591,12 +587,12 @@ export function ReportsMis() {
                   data.approved,
                   data.days,
                 ]);
-                exportToCsv('Department_Leave_Report', [header, ...rows]);
+                exportToExcel('Department_Leave_Report', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -669,12 +665,12 @@ export function ReportsMis() {
                   val.count,
                   val.days,
                 ]);
-                exportToCsv('Leave_Type_Summary', [header, ...rows]);
+                exportToExcel('Leave_Type_Summary', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -763,12 +759,12 @@ export function ReportsMis() {
                   d.approved,
                   d.days,
                 ]);
-                exportToCsv('Monthly_Leave_Summary', [header, ...rows]);
+                exportToExcel('Monthly_Leave_Summary', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -850,12 +846,12 @@ export function ReportsMis() {
                     auth,
                   ];
                 });
-                exportToCsv('Pending_Approvals_Report', [header, ...rows]);
+                exportToExcel('Pending_Approvals_Report', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -971,12 +967,12 @@ export function ReportsMis() {
                     (b as any).carryForward ?? b.carriedForward ?? '0.00',
                   ];
                 });
-                exportToCsv('Leave_Balance_Ledger', [header, ...rows]);
+                exportToExcel('Leave_Balance_Ledger', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -1063,12 +1059,12 @@ export function ReportsMis() {
                   h.departmentName || (h.departmentId ? `Dept #${h.departmentId}` : 'All Departments'),
                   h.isHalfDay ? 'Yes' : 'No',
                 ]);
-                exportToCsv('Holiday_Calendar_Report', [header, ...rows]);
+                exportToExcel('Holiday_Calendar_Report', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -1139,12 +1135,12 @@ export function ReportsMis() {
                     s.timingConfigured ? 'Yes' : 'No',
                   ];
                 });
-                exportToCsv('Shift_Roster_Report', [header, ...rows]);
+                exportToExcel('Shift_Roster_Report', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
@@ -1230,12 +1226,12 @@ export function ReportsMis() {
                     ot.status,
                   ];
                 });
-                exportToCsv('Overtime_Summary_Report', [header, ...rows]);
+                exportToExcel('Overtime_Summary_Report', [header, ...rows]);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export to CSV</span>
+              <span>Export to Excel</span>
             </button>
           </div>
 
