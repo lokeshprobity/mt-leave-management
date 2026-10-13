@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+import { strToU8, zipSync } from 'fflate';
 import {
   BarChart3,
   Download,
@@ -117,11 +117,81 @@ export function ReportsMis() {
 
   // Helper: Export report rows as a native Excel workbook (.xlsx).
   const exportToExcel = (filename: string, rows: (string | number)[][]) => {
-    const worksheet = XLSX.utils.aoa_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
+    const escapeXml = (value: unknown) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    const columnName = (index: number) => {
+      let number = index + 1;
+      let name = '';
+      while (number > 0) {
+        const remainder = (number - 1) % 26;
+        name = String.fromCharCode(65 + remainder) + name;
+        number = Math.floor((number - 1) / 26);
+      }
+      return name;
+    };
     const sheetName = filename.replace(/[_\W]+/g, ' ').trim().slice(0, 31) || 'Report';
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const worksheetRows = rows.map((row, rowIndex) => {
+      const cells = row.map((value, columnIndex) => {
+        const reference = columnName(columnIndex) + String(rowIndex + 1);
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return '<c r="' + reference + '" t="n"><v>' + String(value) + '</v></c>';
+        }
+        return '<c r="' + reference + '" t="inlineStr"><is><t xml:space="preserve">' +
+          escapeXml(value) + '</t></is></c>';
+      }).join('');
+      return '<row r="' + String(rowIndex + 1) + '">' + cells + '</row>';
+    }).join('');
+    const worksheetXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<sheetData>' + worksheetRows + '</sheetData></worksheet>';
+    const workbookXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheets><sheet name="' + escapeXml(sheetName) + '" sheetId="1" r:id="rId1"/></sheets></workbook>';
+    const files = {
+      '[Content_Types].xml': strToU8(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+        '</Types>'
+      ),
+      '_rels/.rels': strToU8(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+        '</Relationships>'
+      ),
+      'xl/workbook.xml': strToU8(workbookXml),
+      'xl/_rels/workbook.xml.rels': strToU8(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+        '</Relationships>'
+      ),
+      'xl/worksheets/sheet1.xml': strToU8(worksheetXml),
+    };
+    const workbookBytes = zipSync(files);
+    const workbookBlob = new Blob([workbookBytes.buffer as ArrayBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const downloadUrl = URL.createObjectURL(workbookBlob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
   };
 
   // Filtered Leave Requests
