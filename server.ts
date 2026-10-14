@@ -1240,7 +1240,7 @@ export function registerApiRoutes(app: express.Express) {
   // 14a. Team Leader Leave Requests Queue (Stage 1)
   app.get(
     ['/api/team-leader/leave-requests', '/api/approvals/team-leader/requests'],
-    requireRole(['SUPER_ADMIN', 'TEAM_LEADER']),
+    requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
     async (req: Request, res: Response) => {
       try {
         const status = req.query.status as string | undefined;
@@ -1257,7 +1257,7 @@ export function registerApiRoutes(app: express.Express) {
   // 14b. Team Leader Leave Request Details
   app.get(
     '/api/team-leader/leave-requests/:id',
-    requireRole(['SUPER_ADMIN', 'TEAM_LEADER']),
+    requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
     async (req: Request, res: Response) => {
       try {
         const id = Number(req.params.id);
@@ -1275,7 +1275,7 @@ export function registerApiRoutes(app: express.Express) {
   // 14c. Team Leader Decision Endpoint (Stage 1)
   app.post(
     ['/api/team-leader/leave-requests/:id/decision', '/api/approvals/team-leader/:id/decision'],
-    requireRole(['SUPER_ADMIN', 'TEAM_LEADER']),
+    requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
     async (req: Request, res: Response) => {
       try {
         const id = Number(req.params.id);
