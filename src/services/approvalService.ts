@@ -1343,16 +1343,6 @@ export class ApprovalService {
         'Forbidden: Reporting Person approval is not required for this leave request'
       );
     }
-    if (
-      !isOwnRequest &&
-      details.request.hrDecision === 'NOT_REQUIRED' &&
-      actor.role === 'HR'
-    ) {
-      throw new Error(
-        'Forbidden: HR cannot access leave requests that do not require HR approval'
-      );
-    }
-
     if (!isOwnRequest && actor.role !== 'SUPER_ADMIN') {
       const employee = await UserService.getEmployeeById(details.request.employeeId);
       const reportingManagerId =
