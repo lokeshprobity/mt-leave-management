@@ -416,7 +416,75 @@ async function runEngineTests() {
     assert(false, '15. Half-day calculation', e.message);
   }
 
-  // 16. Half-day leave rejected when leave type does not support
+  // 16. Same-day half-day is allowed even when the full same-day policy toggle is disabled.
+  resetState();
+  try {
+    const policies = await LeaveService.getLeavePolicies({ leaveTypeId: 1 });
+    await LeaveService.updateLeavePolicy(policies[0].id, { sameDayAllowed: false }, ADMIN_AUTH);
+    const req = await LeaveRequestService.submitLeaveRequest(
+      {
+        leaveTypeId: 1,
+        startDate: '2026-06-10',
+        endDate: '2026-06-10',
+        dayType: 'HALF_DAY',
+        halfDayPeriod: 'FIRST_HALF',
+        reason: 'Same-day appointment before cutoff',
+        applicationTimestampOverride: '2026-06-10T06:59:00Z',
+      },
+      EMP_1_AUTH
+    );
+    assert(req.dayType === 'HALF_DAY' && Number(req.totalDays) === 0.5,
+      '16. Same-day half-day allowed before cutoff even if sameDayAllowed is false');
+  } catch (e: any) {
+    assert(false, '16. Same-day half-day policy exception', e.message);
+  }
+
+  // 17. Half-day request exactly 30 calendar days ahead is allowed.
+  resetState();
+  try {
+    const req = await LeaveRequestService.submitLeaveRequest(
+      {
+        leaveTypeId: 1,
+        startDate: '2026-07-01',
+        endDate: '2026-07-01',
+        dayType: 'HALF_DAY',
+        halfDayPeriod: 'FIRST_HALF',
+        reason: 'Appointment planned in advance',
+        applicationTimestampOverride: '2026-06-01T06:00:00Z',
+      },
+      EMP_1_AUTH
+    );
+    assert(req.dayType === 'HALF_DAY' && Number(req.totalDays) === 0.5,
+      '17. Half-day request at the 30-day limit is allowed');
+  } catch (e: any) {
+    assert(false, '17. Half-day 30-day boundary', e.message);
+  }
+
+  // 18. Half-day request 31 calendar days ahead is rejected.
+  resetState();
+  try {
+    await LeaveRequestService.submitLeaveRequest(
+      {
+        leaveTypeId: 1,
+        startDate: '2026-07-02',
+        endDate: '2026-07-02',
+        dayType: 'HALF_DAY',
+        halfDayPeriod: 'FIRST_HALF',
+        reason: 'Appointment planned too far ahead',
+        applicationTimestampOverride: '2026-06-01T06:00:00Z',
+      },
+      EMP_1_AUTH
+    );
+    assert(false, '18. Half-day request 31 days ahead is rejected', 'Did not throw');
+  } catch (e: any) {
+    assert(
+      /within 30 days in advance/i.test(e.message),
+      '18. Half-day request 31 days ahead is rejected',
+      e.message
+    );
+  }
+
+  // 19. Half-day leave rejected when leave type does not support
   resetState();
   try {
     const customType = await LeaveService.createLeaveType(
