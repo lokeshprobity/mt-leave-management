@@ -62,7 +62,7 @@ export function TeamLeaderApprovalDashboard() {
       const res = await apiFetch(`/api/team-leader/leave-requests?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to load Team Leader leave requests');
+        throw new Error(data.error || 'Failed to load Reporting Person leave requests');
       }
       setRequests(data.leaveRequests || data.requests || []);
     } catch (err: any) {
@@ -99,7 +99,7 @@ export function TeamLeaderApprovalDashboard() {
     setDecisionError(null);
 
     if (decision === 'REJECTED' && !remarks.trim()) {
-      setDecisionError('Team Leader remarks are required when rejecting a leave request.');
+      setDecisionError('Reporting Person remarks are required when rejecting a leave request.');
       return;
     }
 
@@ -117,7 +117,7 @@ export function TeamLeaderApprovalDashboard() {
       );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit Team Leader decision');
+        throw new Error(data.error || 'Failed to submit Reporting Person decision');
       }
       setSelectedRequest(null);
       setRemarks('');
@@ -172,11 +172,11 @@ export function TeamLeaderApprovalDashboard() {
               <Users className="w-5 h-5 text-teal-700" />
             </div>
             <h2 className="text-xl font-bold text-teal-950">
-              Team Leader Approval Queue (Stage 1)
+              Reporting Person Approval Queue (Stage 1)
             </h2>
           </div>
           <p className="text-xs text-teal-900/80 mt-1">
-            Review leave requests from your assigned team members. Approved requests forward to HR (Stage 2); rejected requests stop here.
+            Review leave requests from employees assigned to you as Reporting Person. Approved requests forward to HR (Stage 2); rejected requests stop here.
           </p>
         </div>
 
@@ -193,7 +193,7 @@ export function TeamLeaderApprovalDashboard() {
                     : 'text-teal-900 hover:text-teal-800 hover:bg-teal-50'
                 }`}
               >
-                {st === 'PENDING' ? 'Pending Team Leader' : st === 'REVIEWED' ? 'TL Reviewed' : 'All'}
+                {st === 'PENDING' ? 'Pending Reporting Person' : st === 'REVIEWED' ? 'Reviewed' : 'All'}
               </button>
             ))}
           </div>
@@ -216,21 +216,21 @@ export function TeamLeaderApprovalDashboard() {
           <span className="text-[11px] text-teal-800">Visible requests</span>
         </div>
         <div className={`${MT_COLOR_CARDS.amber} p-3.5`}>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 block">Pending TL</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 block">Pending Reporting Person</span>
           <span className="text-2xl font-black text-amber-950 mt-1 block">
             {requests.filter((r) => (r.teamLeaderDecision || 'PENDING') === 'PENDING').length}
           </span>
           <span className="text-[11px] text-amber-800">Awaiting Stage 1</span>
         </div>
         <div className={`${MT_COLOR_CARDS.emerald} p-3.5`}>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block">TL Approved</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block">Approved by Reporting Person</span>
           <span className="text-2xl font-black text-emerald-950 mt-1 block">
             {requests.filter((r) => r.teamLeaderDecision === 'APPROVED').length}
           </span>
           <span className="text-[11px] text-emerald-800">Forwarded to HR</span>
         </div>
         <div className={`${MT_COLOR_CARDS.rose} p-3.5`}>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-rose-900 block">TL Rejected</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-rose-900 block">Rejected by Reporting Person</span>
           <span className="text-2xl font-black text-rose-950 mt-1 block">
             {requests.filter((r) => r.teamLeaderDecision === 'REJECTED').length}
           </span>
@@ -242,7 +242,7 @@ export function TeamLeaderApprovalDashboard() {
       <div className={`${MT_COLOR_CARDS.cyan} p-3.5 text-xs text-cyan-950 flex items-start gap-2.5`}>
         <Info className="w-4 h-4 text-cyan-700 shrink-0 mt-0.5" />
         <div>
-          <span className="font-semibold">Stage 1 — Team Leader Authority:</span> You are the first approval stage for employees assigned to you. If you <span className="font-semibold">Approve</span>, the request moves to <span className="font-semibold">Team Leader Approved &rarr; HR Pending</span>. If you <span className="font-semibold">Reject</span>, the status becomes <span className="font-semibold">Team Leader Rejected</span> and the request stops here.
+          <span className="font-semibold">Stage 1 — Reporting Person Authority:</span> You are the first approval stage for employees assigned to you. If you <span className="font-semibold">Approve</span>, the request moves to <span className="font-semibold">Reporting Person Approved &rarr; HR Pending</span>. If you <span className="font-semibold">Reject</span>, the status becomes <span className="font-semibold">Reporting Person Rejected</span> and the request stops here.
         </div>
       </div>
 
@@ -271,7 +271,7 @@ export function TeamLeaderApprovalDashboard() {
       {loading ? (
         <div className="p-12 text-center bg-white rounded-xl border border-neutral-200/80 text-neutral-500">
           <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-          <span className="text-xs">Loading Team Leader approval queue...</span>
+          <span className="text-xs">Loading Reporting Person approval queue...</span>
         </div>
       ) : error ? (
         <div className="p-6 bg-rose-50 rounded-xl border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
@@ -316,7 +316,7 @@ export function TeamLeaderApprovalDashboard() {
                   <div className="shrink-0">
                     {getStatusBadge(
                       r.teamLeaderDecision || 'PENDING',
-                      `TL: ${r.teamLeaderDecision || 'PENDING'}`
+                      `Reporting Person: ${r.teamLeaderDecision || 'PENDING'}`
                     )}
                   </div>
                 </div>
@@ -376,7 +376,7 @@ export function TeamLeaderApprovalDashboard() {
                   <th className="py-3 px-4">Request #</th>
                   <th className="py-3 px-4">Employee</th>
                   <th className="py-3 px-4">Leave Type & Dates</th>
-                  <th className="py-3 px-4">Stage 1 (Team Leader)</th>
+                  <th className="py-3 px-4">Stage 1 (Reporting Person)</th>
                   <th className="py-3 px-4">Stage 2 (HR)</th>
                   <th className="py-3 px-4">Stage 3 (Final)</th>
                   <th className="py-3 px-4 text-right">Action</th>
@@ -439,7 +439,7 @@ export function TeamLeaderApprovalDashboard() {
                     <td className="py-3.5 px-4">
                       {getStatusBadge(
                         r.teamLeaderDecision || 'PENDING',
-                        `TL: ${r.teamLeaderDecision || 'PENDING'}`
+                        `Reporting Person: ${r.teamLeaderDecision || 'PENDING'}`
                       )}
                       {r.assignedTeamLeaderName && (
                         <div className="text-[10px] text-neutral-600 font-medium mt-1">
@@ -502,7 +502,7 @@ export function TeamLeaderApprovalDashboard() {
                     {selectedRequest.request.requestNumber}
                   </span>
                   <h3 className="text-base font-semibold text-neutral-900">
-                    Stage 1: Team Leader Review & Decision
+                    Stage 1: Reporting Person Review & Decision
                   </h3>
                 </div>
                 <p className="text-xs text-neutral-500 mt-0.5">
@@ -557,13 +557,13 @@ export function TeamLeaderApprovalDashboard() {
                   <div>
                     <span className="text-neutral-500 block text-[11px]">Current Stage</span>
                     <span className="font-medium text-neutral-800">
-                      {selectedRequest.request.approvalStageLabel || 'Pending Team Leader'}
+                      {selectedRequest.request.approvalStageLabel || 'Pending Reporting Person'}
                     </span>
                   </div>
                   {selectedRequest.request.assignedTeamLeaderName && (
                     <div className="col-span-2">
                       <span className="text-neutral-500 block text-[11px]">
-                        Resolved Team Leader (Start Date {formatDate(selectedRequest.request.startDate)})
+                        Resolved Reporting Person (Start Date {formatDate(selectedRequest.request.startDate)})
                       </span>
                       <span className="font-semibold text-neutral-900">
                         {selectedRequest.request.assignedTeamLeaderName}
@@ -690,17 +690,17 @@ export function TeamLeaderApprovalDashboard() {
               </div>
             </div>
 
-            {/* Team Leader Decision Form */}
+            {/* Reporting Person Decision Form */}
             {selectedRequest.request.finalStatus === 'PENDING' ? (
               <div className="p-4 rounded-xl bg-sky-50/50 border border-sky-200 space-y-3">
                 <label className="block text-xs font-semibold text-neutral-900">
-                  Team Leader Remarks (Mandatory if Rejecting)
+                  Reporting Person Remarks (Mandatory if Rejecting)
                 </label>
                 <textarea
                   rows={2}
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  placeholder="Enter operational coverage notes or Team Leader approval/rejection remarks..."
+                  placeholder="Enter operational coverage notes or Reporting Person approval/rejection remarks..."
                   className="w-full text-sm sm:text-xs p-3 bg-white rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-red-700/20 focus:border-red-700"
                 />
                 <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-1">
