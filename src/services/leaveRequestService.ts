@@ -219,7 +219,7 @@ export class LeaveRequestService {
     if (finalStatus === 'CANCELLED') return 'Cancelled';
     if (finalStatus === 'APPROVED') return 'Approved';
     if (finalStatus === 'REJECTED') {
-      if (tl === 'REJECTED') return 'Team Leader Rejected';
+      if (tl === 'REJECTED') return 'Reporting Person Rejected';
       return 'Rejected';
     }
     if (
@@ -229,7 +229,7 @@ export class LeaveRequestService {
     ) {
       return 'Pending Top Management';
     }
-    if (tl === 'PENDING') return 'Pending Team Leader';
+    if (tl === 'PENDING') return 'Pending Reporting Person';
     if ((tl === 'APPROVED' || tl === 'NOT_REQUIRED' || tl === 'SKIPPED') && hr === 'PENDING' && mgmt === 'PENDING') {
       return 'Pending HR';
     }
@@ -811,7 +811,7 @@ export class LeaveRequestService {
         resolvedTeamLeader: null,
         initialTlDecision: 'PENDING',
         initialHrDecision: 'PENDING',
-        initialStageLabel: 'Pending Team Leader',
+        initialStageLabel: 'Pending Reporting Person',
         validationError:
           'Leave approval routing cannot be determined: Super Admin applicant must have a configured operational role/designation and reporting hierarchy before submitting leave.',
         validationFields: {
@@ -1068,7 +1068,7 @@ export class LeaveRequestService {
         resolvedTeamLeader,
         initialTlDecision: 'PENDING',
         initialHrDecision: 'PENDING',
-        initialStageLabel: 'Pending Team Leader',
+        initialStageLabel: 'Pending Reporting Person',
         validationError:
           'Leave request cannot be submitted: No active HR approver is configured in the system.',
         validationFields: {
@@ -1083,7 +1083,7 @@ export class LeaveRequestService {
         resolvedTeamLeader,
         initialTlDecision: 'PENDING',
         initialHrDecision: effectiveEmpHrDecision,
-        initialStageLabel: 'Pending Team Leader',
+        initialStageLabel: 'Pending Reporting Person',
         validationError:
           'Leave request cannot be submitted: No active Top Management approver is configured in the system.',
         validationFields: {
@@ -1097,7 +1097,7 @@ export class LeaveRequestService {
       resolvedTeamLeader,
       initialTlDecision: 'PENDING',
       initialHrDecision: effectiveEmpHrDecision,
-      initialStageLabel: 'Pending Team Leader',
+      initialStageLabel: 'Pending Reporting Person',
       validationError: null,
     };
   }
