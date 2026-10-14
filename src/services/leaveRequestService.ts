@@ -1666,7 +1666,8 @@ export class LeaveRequestService {
       if (!db) {
         throw new Error('Database connection is not available while database is configured');
       }
-      return await db.transaction(async (tx) => {
+      let submittedNotification: Parameters<typeof NotificationService.notifyLeaveSubmitted>[0] | null = null;
+      const submittedResult = await db.transaction(async (tx) => {
         const now = new Date();
         const inserted = await tx
           .insert(leaveRequests)
@@ -1765,26 +1766,25 @@ export class LeaveRequestService {
           memoryLeaveRequestEvents.push(this.mapEventRowToDto(insertedEvents[0]));
         }
 
-        // Dispatch in-app notifications to Team Leader, HR, and Top Management
-        try {
-          await NotificationService.notifyLeaveSubmitted({
-            id: resultDto.id,
-            requestNumber: resultDto.requestNumber,
-            employeeId,
-            employeeName: resultDto.employeeName,
-            applicantRole: resultDto.applicantRole,
-            applicantOperationalRole: resultDto.applicantOperationalRole,
-            reportingManagerId: empHierarchy.reportingManagerId,
-            reportingManagerUserId: empHierarchy.reportingManagerUserId,
-            totalDays: resultDto.totalDays,
-            leaveTypeName: resultDto.leaveTypeName,
-            startDate: resultDto.startDate,
-            endDate: resultDto.endDate,
-            classification: resultDto.requestClassification,
-          });
-        } catch (err) {
-          console.warn('Notification error on submit:', err);
-        }
+        // Defer notification dispatch until the request transaction commits.
+        // Otherwise the notification's FK to the new leave request can fail on another DB connection.
+        submittedNotification = {
+          id: resultDto.id,
+          requestNumber: resultDto.requestNumber,
+          employeeId,
+          employeeName: resultDto.employeeName,
+          applicantRole: resultDto.applicantRole,
+          applicantOperationalRole: resultDto.applicantOperationalRole,
+          reportingManagerId: empHierarchy.reportingManagerId,
+          reportingManagerUserId: empHierarchy.reportingManagerUserId,
+          assignedTeamLeaderId: resultDto.assignedTeamLeaderId,
+          assignedTeamLeaderUserId: resultDto.assignedTeamLeaderUserId,
+          totalDays: resultDto.totalDays,
+          leaveTypeName: resultDto.leaveTypeName,
+          startDate: resultDto.startDate,
+          endDate: resultDto.endDate,
+          classification: resultDto.requestClassification,
+        };
 
         try {
           const { AuditService } = await import('./auditService.ts');
@@ -1821,6 +1821,16 @@ export class LeaveRequestService {
 
         return resultDto;
       });
+
+      // The request is now committed, so notifications can safely reference it.
+      if (submittedNotification) {
+        try {
+          await NotificationService.notifyLeaveSubmitted(submittedNotification);
+        } catch (err) {
+          console.warn('Notification error on submit after commit:', err);
+        }
+      }
+      return submittedResult;
     }
 
     // In-memory fallback
