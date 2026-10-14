@@ -849,7 +849,7 @@ export default function App() {
     { id: 'leave-balance' as NavModule, label: 'Leave Balance', mobileLabel: 'Balances', icon: PieChart },
     { id: 'my-schedule' as NavModule, label: 'My Schedule', mobileLabel: 'Schedule', icon: Clock },
     { id: 'my-profile' as NavModule, label: 'My Profile', mobileLabel: 'Profile', icon: User },
-    { id: 'team-leader' as NavModule, label: 'Team Leader', mobileLabel: 'Team Lead', icon: ShieldCheck },
+    { id: 'team-leader' as NavModule, label: 'Reporting Person Approval', mobileLabel: 'Approvals', icon: ShieldCheck },
     { id: 'hr' as NavModule, label: 'HR', mobileLabel: 'HR Desk', icon: Users },
     { id: 'management' as NavModule, label: 'Management', mobileLabel: 'Mgmt Desk', icon: Briefcase },
     { id: 'reports' as NavModule, label: 'Reports & MIS', mobileLabel: 'Reports', icon: FileSpreadsheet },
@@ -2063,7 +2063,7 @@ export default function App() {
           </section>
         )}
 
-        {/* Module: Team Leader (Stage 1 Approval Dashboard) */}
+        {/* Module: Reporting Person (Stage 1 Approval Dashboard) */}
         {!drillDownTarget && isCurrentModuleAuthorized && activeModule === 'team-leader' && (
           <section id="module-team-leader" className="space-y-6">
             <TeamLeaderApprovalDashboard key={`tl-${activeRole}`} />
