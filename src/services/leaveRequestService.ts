@@ -883,6 +883,18 @@ export class LeaveRequestService {
     }
 
     if (operationalRole === 'HR') {
+      if (!empHierarchy.reportingManagerId || !empHierarchy.reportingManagerIsActive) {
+        return {
+          operationalRole,
+          empHierarchy,
+          resolvedTeamLeader: null,
+          initialTlDecision: 'PENDING',
+          initialHrDecision: 'NOT_REQUIRED',
+          initialStageLabel: 'Pending Reporting Person',
+          validationError: 'Leave request cannot be submitted: An active Reporting Person must be assigned to this employee.',
+          validationFields: { reportingManagerId: 'Assign an active Reporting Person in the employee profile.' },
+        };
+      }
       if (
         empHierarchy.employeeExists &&
         empHierarchy.reportingManagerId &&
@@ -892,9 +904,9 @@ export class LeaveRequestService {
           operationalRole,
           empHierarchy,
           resolvedTeamLeader: null,
-          initialTlDecision: 'NOT_REQUIRED',
+          initialTlDecision: 'PENDING',
           initialHrDecision: 'NOT_REQUIRED',
-          initialStageLabel: 'Pending Top Management',
+          initialStageLabel: 'Pending Reporting Person',
           validationError:
             'Leave request cannot be submitted: The configured Reporting Manager does not exist or is inactive.',
           validationFields: {
@@ -907,9 +919,9 @@ export class LeaveRequestService {
           operationalRole,
           empHierarchy,
           resolvedTeamLeader: null,
-          initialTlDecision: 'NOT_REQUIRED',
+          initialTlDecision: 'PENDING',
           initialHrDecision: 'NOT_REQUIRED',
-          initialStageLabel: 'Pending Top Management',
+          initialStageLabel: 'Pending Reporting Person',
           validationError:
             'Leave request cannot be submitted: No active Top Management approver is configured to approve HR leave requests.',
           validationFields: {
@@ -922,14 +934,26 @@ export class LeaveRequestService {
         operationalRole,
         empHierarchy,
         resolvedTeamLeader: null,
-        initialTlDecision: 'NOT_REQUIRED',
+        initialTlDecision: 'PENDING',
         initialHrDecision: 'NOT_REQUIRED',
-        initialStageLabel: 'Pending Top Management',
+        initialStageLabel: 'Pending Reporting Person',
         validationError: null,
       };
     }
 
     if (operationalRole === 'TEAM_LEADER') {
+      if (!empHierarchy.reportingManagerId || !empHierarchy.reportingManagerIsActive) {
+        return {
+          operationalRole,
+          empHierarchy,
+          resolvedTeamLeader: null,
+          initialTlDecision: 'PENDING',
+          initialHrDecision: UserService.isHrApprovalRequired(employeeId) ? 'PENDING' : 'NOT_REQUIRED',
+          initialStageLabel: 'Pending Reporting Person',
+          validationError: 'Leave request cannot be submitted: An active Reporting Person must be assigned to this employee.',
+          validationFields: { reportingManagerId: 'Assign an active Reporting Person in the employee profile.' },
+        };
+      }
       const isHrReq = UserService.isHrApprovalRequired(employeeId);
       const tlHrDecision: 'PENDING' | 'NOT_REQUIRED' = isHrReq ? 'PENDING' : 'NOT_REQUIRED';
       const tlStageLabel = isHrReq ? 'Pending HR' : 'Pending Top Management';
@@ -943,9 +967,9 @@ export class LeaveRequestService {
           operationalRole,
           empHierarchy,
           resolvedTeamLeader: null,
-          initialTlDecision: 'NOT_REQUIRED',
+          initialTlDecision: 'PENDING',
           initialHrDecision: tlHrDecision,
-          initialStageLabel: tlStageLabel,
+          initialStageLabel: 'Pending Reporting Person',
           validationError:
             'Leave request cannot be submitted: The configured Reporting Manager does not exist or is inactive.',
           validationFields: {
@@ -958,9 +982,9 @@ export class LeaveRequestService {
           operationalRole,
           empHierarchy,
           resolvedTeamLeader: null,
-          initialTlDecision: 'NOT_REQUIRED',
+          initialTlDecision: 'PENDING',
           initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending HR',
+          initialStageLabel: 'Pending Reporting Person',
           validationError:
             'Leave request cannot be submitted: No active HR approver is configured to review Team Leader leave requests.',
           validationFields: {
@@ -973,9 +997,9 @@ export class LeaveRequestService {
           operationalRole,
           empHierarchy,
           resolvedTeamLeader: null,
-          initialTlDecision: 'NOT_REQUIRED',
+          initialTlDecision: 'PENDING',
           initialHrDecision: tlHrDecision,
-          initialStageLabel: tlStageLabel,
+          initialStageLabel: 'Pending Reporting Person',
           validationError:
             'Leave request cannot be submitted: No active Top Management approver is configured for final approval.',
           validationFields: {
@@ -987,136 +1011,51 @@ export class LeaveRequestService {
         operationalRole,
         empHierarchy,
         resolvedTeamLeader: null,
-        initialTlDecision: 'NOT_REQUIRED',
+        initialTlDecision: 'PENDING',
         initialHrDecision: tlHrDecision,
-        initialStageLabel: tlStageLabel,
+        initialStageLabel: 'Pending Reporting Person',
         validationError: null,
       };
     }
 
-    // Default: operationalRole === 'EMPLOYEE' (Employee -> Team Leader -> HR -> Top Management)
-    // Authoritative Date-Effective Team Leader Resolution using the leave application's start date:
-    const targetStartDate = leaveStartDate || new Date().toISOString().slice(0, 10);
-    const teamIdOnDate =
-      UserService.resolveEmployeeDepartmentOnDate(employeeId, targetStartDate) ??
-      empHierarchy.departmentId ??
-      null;
-    const resolvedTeamLeader = TeamLeaderRotationService.resolveTeamLeaderSync(
-      teamIdOnDate,
-      targetStartDate,
-      { fallbackEmployeeId: employeeId }
-    );
-
-    if (resolvedTeamLeader) {
-      if (Number(resolvedTeamLeader.teamLeaderEmployeeId) === Number(employeeId)) {
-        return {
-          operationalRole: 'EMPLOYEE',
-          empHierarchy,
-          resolvedTeamLeader,
-          initialTlDecision: 'PENDING',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending Team Leader',
-          validationError:
-            'Invalid reporting hierarchy: Applicant cannot be configured as their own Reporting Manager.',
-          validationFields: {
-            reportingManagerId: 'Self-approval is not permitted.',
-          },
-        };
-      }
-
-      // Update hierarchy snapshot with the date-resolved Team Leader for this leave application
-      empHierarchy.teamId = resolvedTeamLeader.teamId || teamIdOnDate;
-      empHierarchy.teamName = resolvedTeamLeader.teamName || empHierarchy.teamName;
-      empHierarchy.reportingManagerId = resolvedTeamLeader.teamLeaderEmployeeId;
-      empHierarchy.reportingManagerUserId = resolvedTeamLeader.teamLeaderUserId;
-      empHierarchy.reportingManagerName = resolvedTeamLeader.teamLeaderName;
-      empHierarchy.reportingManagerRole = 'TEAM_LEADER';
-      empHierarchy.reportingManagerOperationalRole = 'TEAM_LEADER';
-      empHierarchy.reportingManagerIsActive = true;
-    } else if (empHierarchy.employeeExists) {
-      // If the team has an active rotation rule or date-effective assignment on targetStartDate,
-      // then the configured Team Leader for that period is inactive/unavailable.
-      if (teamIdOnDate && TeamLeaderRotationService.hasTeamDateEffectiveConfig(teamIdOnDate)) {
-        return {
-          operationalRole: 'EMPLOYEE',
-          empHierarchy,
-          resolvedTeamLeader: null,
-          initialTlDecision: 'PENDING',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending Team Leader',
-          validationError:
-            `Leave request cannot be submitted: No active Team Leader is available for your team on ${targetStartDate} (the assigned Team Leader may be inactive). Please contact an administrator to configure an active Team Leader or temporary replacement.`,
-          validationFields: {
-            reportingManagerId:
-              'Assigned Team Leader for the selected leave start date is inactive or missing.',
-          },
-        };
-      }
-
-      if (!empHierarchy.reportingManagerId && !isSuperAdmin) {
-        return {
-          operationalRole: 'EMPLOYEE',
-          empHierarchy,
-          resolvedTeamLeader: null,
-          initialTlDecision: 'PENDING',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending Team Leader',
-          validationError:
-            'Leave request cannot be submitted: No Reporting Manager (Team Leader) is configured for this employee.',
-          validationFields: {
-            reportingManagerId:
-              'A configured Team Leader / Reporting Manager is required for Employee leave routing.',
-          },
-        };
-      }
-      if (Number(empHierarchy.reportingManagerId) === Number(employeeId)) {
-        return {
-          operationalRole: 'EMPLOYEE',
-          empHierarchy,
-          resolvedTeamLeader: null,
-          initialTlDecision: 'PENDING',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending Team Leader',
-          validationError:
-            'Invalid reporting hierarchy: Applicant cannot be configured as their own Reporting Manager.',
-          validationFields: {
-            reportingManagerId: 'Self-approval is not permitted.',
-          },
-        };
-      }
-      if (!empHierarchy.reportingManagerIsActive) {
-        return {
-          operationalRole: 'EMPLOYEE',
-          empHierarchy,
-          resolvedTeamLeader: null,
-          initialTlDecision: 'PENDING',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending Team Leader',
-          validationError:
-            'Leave request cannot be submitted: The configured Reporting Manager (Team Leader) does not exist or is inactive.',
-          validationFields: {
-            reportingManagerId: 'Configured Reporting Manager must be an active user.',
-          },
-        };
-      }
-      if (
-        empHierarchy.reportingManagerRole !== 'TEAM_LEADER' &&
-        empHierarchy.reportingManagerOperationalRole !== 'TEAM_LEADER'
-      ) {
-        return {
-          operationalRole: 'EMPLOYEE',
-          empHierarchy,
-          resolvedTeamLeader: null,
-          initialTlDecision: 'PENDING',
-          initialHrDecision: 'PENDING',
-          initialStageLabel: 'Pending Team Leader',
-          validationError:
-            'Leave request cannot be submitted: Employee leave workflow requires a valid Team Leader as the first-stage Reporting Manager.',
-          validationFields: {
-            reportingManagerId: 'Configured Reporting Manager must have the Team Leader operational role.',
-          },
-        };
-      }
+    // Default: operationalRole === 'EMPLOYEE'. Stage 1 always follows the employee profile's
+    // Reporting Person assignment; team-rotation schedules do not override this relationship.
+    const resolvedTeamLeader: ResolvedTeamLeaderDto | null = null;
+    if (!empHierarchy.reportingManagerId && !isSuperAdmin) {
+      return {
+        operationalRole: 'EMPLOYEE',
+        empHierarchy,
+        resolvedTeamLeader,
+        initialTlDecision: 'PENDING',
+        initialHrDecision: 'PENDING',
+        initialStageLabel: 'Pending Reporting Person',
+        validationError: 'Leave request cannot be submitted: No Reporting Person is configured for this employee.',
+        validationFields: { reportingManagerId: 'Assign a Reporting Person in the employee profile.' },
+      };
+    }
+    if (Number(empHierarchy.reportingManagerId) === Number(employeeId) && empHierarchy.reportingManagerId) {
+      return {
+        operationalRole: 'EMPLOYEE',
+        empHierarchy,
+        resolvedTeamLeader,
+        initialTlDecision: 'PENDING',
+        initialHrDecision: 'PENDING',
+        initialStageLabel: 'Pending Reporting Person',
+        validationError: 'Invalid reporting hierarchy: An employee cannot be their own Reporting Person.',
+        validationFields: { reportingManagerId: 'Self-approval is not permitted.' },
+      };
+    }
+    if (empHierarchy.reportingManagerId && !empHierarchy.reportingManagerIsActive) {
+      return {
+        operationalRole: 'EMPLOYEE',
+        empHierarchy,
+        resolvedTeamLeader,
+        initialTlDecision: 'PENDING',
+        initialHrDecision: 'PENDING',
+        initialStageLabel: 'Pending Reporting Person',
+        validationError: 'Leave request cannot be submitted: The configured Reporting Person is inactive or unavailable.',
+        validationFields: { reportingManagerId: 'Configured Reporting Person must be active.' },
+      };
     }
 
     const isHrRequiredForEmployee = UserService.isHrApprovalRequired(employeeId);
