@@ -1375,7 +1375,9 @@ export class LeaveRequestService {
     const isSameDay = classificationResult.isSameDay;
 
     // Check same-day policy
-    if (isSameDay && !policy.sameDayAllowed) {
+    // Same-day half-day requests are allowed; the dedicated half-day cutoff rule below still applies.
+    // Keep sameDayAllowed enforcement for full-day requests.
+    if (isSameDay && !policy.sameDayAllowed && input.dayType !== 'HALF_DAY') {
       throw new ValidationError(
         `Same-day leave is not permitted for policy '${policy.policyName}'`,
         { startDate: `Same-day leave is disallowed by policy '${policy.policyName}'` }
@@ -1441,6 +1443,13 @@ export class LeaveRequestService {
           {
             startDate: `Cannot submit leave for past date ${input.startDate}`,
           }
+        );
+      }
+      // Half-day applications are allowed only from today through 30 calendar days ahead (inclusive).
+      if (classificationResult.noticeDays > 30) {
+        throw new ValidationError(
+          'Half Day leave can only be applied for dates from today up to 30 days in advance.',
+          { startDate: 'Half-day leave must be within the next 30 calendar days.' }
         );
       }
       if (!isEmergency && classificationResult.isSameDay && (classificationResult.isLate || classificationResult.isPostStart)) {
