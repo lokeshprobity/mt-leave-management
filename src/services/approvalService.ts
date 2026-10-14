@@ -88,19 +88,21 @@ export class ApprovalService {
     req: LeaveRequestDto,
     applicantUserId: number | null,
     actor: AuthContext
-  ) {
+  ): boolean {
     const isSelfByEmp =
       Boolean(actor.employeeId) && Number(req.employeeId) === Number(actor.employeeId);
     const isSelfByUser =
       Boolean(actor.userId) &&
       Boolean(applicantUserId) &&
       Number(actor.userId) === Number(applicantUserId);
+    const isOwnRequest = isSelfByEmp || isSelfByUser;
 
-    if (isSelfByEmp || isSelfByUser) {
+    if (isOwnRequest && actor.role !== 'SUPER_ADMIN') {
       throw new Error(
-        'Forbidden: Self-approval is not permitted. You cannot approve or reject your own leave request'
+        'Forbidden: Only Super Admin may approve or reject their own leave request.'
       );
     }
+    return isOwnRequest && actor.role === 'SUPER_ADMIN';
   }
 
   /**
@@ -787,8 +789,8 @@ export class ApprovalService {
     const req = existing.request;
     const routingInfo = await this.resolveRequestRoutingInfo(req);
 
-    // Prevent self-approval
-    this.assertNotSelfApproval(req, routingInfo.applicantUserId, actor);
+    // Only Super Admin may self-approve; that self-approval is treated as a direct final decision.
+    const isSuperAdminSelfApproval = this.assertNotSelfApproval(req, routingInfo.applicantUserId, actor);
 
     // If applicant is Top Management, only their assigned reporting person or SUPER_ADMIN may decide
     if (routingInfo.isTopMgmt && actor.role !== 'SUPER_ADMIN') {
@@ -814,16 +816,16 @@ export class ApprovalService {
     if (req.finalStatus === 'CANCELLED' || req.status === 'CANCELLED') {
       throw new ValidationError('Cannot review or decide on a cancelled leave request');
     }
-    if (req.teamLeaderDecision === 'REJECTED') {
+    if (!isSuperAdminSelfApproval && req.teamLeaderDecision === 'REJECTED') {
       throw new ValidationError('Cannot decide on a leave request that was already rejected by the Team Leader');
     }
-    if ((req.teamLeaderDecision || 'PENDING') === 'PENDING') {
+    if (!isSuperAdminSelfApproval && (req.teamLeaderDecision || 'PENDING') === 'PENDING') {
       throw new ValidationError(
         'Forbidden: Top Management cannot approve or reject a leave request while Team Leader approval is still pending'
       );
     }
     const hrApprovalRequired = req.hrDecision !== 'NOT_REQUIRED' && req.hrDecision !== 'SKIPPED';
-    if (hrApprovalRequired && (req.hrDecision || 'PENDING') === 'PENDING') {
+    if (!isSuperAdminSelfApproval && hrApprovalRequired && (req.hrDecision || 'PENDING') === 'PENDING') {
       throw new ValidationError(
         'Forbidden: Top Management cannot approve or reject a leave request while HR review is still pending'
       );
