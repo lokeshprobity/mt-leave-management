@@ -1886,6 +1886,9 @@ export function registerApiRoutes(app: express.Express) {
         await NotificationService.markAsRead(id, req.user!);
         res.json({ success: true });
       } catch (err: any) {
+        if (err.message?.includes('Forbidden')) {
+          return res.status(403).json({ error: err.message });
+        }
         res.status(500).json({ error: err.message });
       }
     }
