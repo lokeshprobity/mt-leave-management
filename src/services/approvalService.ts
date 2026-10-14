@@ -1263,17 +1263,17 @@ export class ApprovalService {
 
     for (const r of requests) {
       const routing = await this.resolveRequestRoutingInfo(r);
+      const isSelfByEmp =
+        Boolean(actor.employeeId) && Number(r.employeeId) === Number(actor.employeeId);
+      const isSelfByUser =
+        Boolean(actor.userId) &&
+        Boolean(routing.applicantUserId) &&
+        Number(actor.userId) === Number(routing.applicantUserId);
+      const isSuperAdminSelfRequest =
+        actor.role === 'SUPER_ADMIN' && (isSelfByEmp || isSelfByUser);
 
-      // For Top Management applicant requests:
-      // 1. Self-requests are not actionable by the applicant themselves in the Management approval queue
-      // 2. If a reportingManagerId is assigned, only that reporting manager or SUPER_ADMIN sees it in their approval queue
+      // For Top Management applicant requests, only the assigned reporting manager or Super Admin sees the queue item.
       if (routing.isTopMgmt && actor.role !== 'SUPER_ADMIN') {
-        const isSelfByEmp =
-          Boolean(actor.employeeId) && Number(r.employeeId) === Number(actor.employeeId);
-        const isSelfByUser =
-          Boolean(actor.userId) &&
-          Boolean(routing.applicantUserId) &&
-          Number(actor.userId) === Number(routing.applicantUserId);
         if (isSelfByEmp || isSelfByUser) {
           continue;
         }
@@ -1307,9 +1307,8 @@ export class ApprovalService {
       if (
         filter.status === 'PENDING' &&
         (r.managementDecision !== 'PENDING' ||
-          !tlReadyForMgmt ||
-          !hrReadyForMgmt ||
-          r.finalStatus !== 'PENDING')
+          r.finalStatus !== 'PENDING' ||
+          (!isSuperAdminSelfRequest && (!tlReadyForMgmt || !hrReadyForMgmt)))
       ) {
         continue;
       }
