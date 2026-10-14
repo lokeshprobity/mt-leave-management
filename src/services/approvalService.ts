@@ -121,21 +121,10 @@ export class ApprovalService {
       throw new Error('Unauthorized: Authentication required');
     }
 
-    if (actor.role === 'EMPLOYEE') {
-      throw new Error('Forbidden: Employees cannot approve or reject leave requests');
-    }
-    if (actor.role === 'HR') {
-      throw new Error('Forbidden: HR cannot submit Team Leader Stage 1 decisions');
-    }
-    if (actor.role === 'TOP_MANAGEMENT') {
-      throw new Error('Forbidden: Top Management cannot submit Team Leader Stage 1 decisions');
-    }
-    if (actor.role !== 'TEAM_LEADER' && actor.role !== 'SUPER_ADMIN') {
-      throw new Error(`Forbidden: Access denied. Required role: TEAM_LEADER or SUPER_ADMIN. Active role: ${actor.role}`);
-    }
-
-    if (!(await UserService.hasPermission(actor, 'LEAVE_TEAM_LEADER_APPROVE'))) {
-      throw new Error('Forbidden: Role does not have LEAVE_TEAM_LEADER_APPROVE permission');
+    // Stage 1 is owned by the employee's assigned Reporting Person, regardless of their system role.
+    // Assignment verification below is the authorization boundary; role names do not determine approver.
+    if (!actor.userId && !actor.employeeId) {
+      throw new Error('Forbidden: An authenticated reporting-person identity is required');
     }
 
     const decision = input.decision;
@@ -170,26 +159,25 @@ export class ApprovalService {
       );
     }
 
-    // Verify Team Leader ownership for assigned employee (using historical date-resolved Team Leader on the request)
-    if (actor.role === 'TEAM_LEADER') {
-      const emp = await UserService.getEmployeeById(req.employeeId);
-      const effectiveLeaderEmpId =
-        req.assignedTeamLeaderId ?? req.reportingManagerId ?? emp?.reportingManagerId ?? null;
-      const effectiveLeaderUserId =
-        req.assignedTeamLeaderUserId ?? req.reportingManagerUserId ?? null;
-
-      if (effectiveLeaderEmpId || effectiveLeaderUserId) {
-        const matchesEmp =
-          Boolean(actor.employeeId) &&
-          Boolean(effectiveLeaderEmpId) &&
-          Number(effectiveLeaderEmpId) === Number(actor.employeeId);
-        const matchesUser =
-          Boolean(actor.userId) &&
-          Boolean(effectiveLeaderUserId) &&
-          Number(effectiveLeaderUserId) === Number(actor.userId);
-        if (!matchesEmp && !matchesUser) {
-          throw new Error('Forbidden: You can only review leave requests for employees assigned to your team');
-        }
+    // Enforce the employee's actual Reporting Person assignment (not a team-leader schedule/role).
+    if (actor.role !== 'SUPER_ADMIN') {
+      const employee = await UserService.getEmployeeById(req.employeeId);
+      const reportingManagerId = req.reportingManagerId ?? employee?.reportingManagerId ?? null;
+      const reportingManager = reportingManagerId
+        ? await UserService.getEmployeeById(reportingManagerId)
+        : null;
+      const reportingManagerUserId =
+        req.reportingManagerUserId ?? reportingManager?.userId ?? null;
+      const matchesEmployee =
+        Boolean(actor.employeeId) &&
+        Boolean(reportingManagerId) &&
+        Number(actor.employeeId) === Number(reportingManagerId);
+      const matchesUser =
+        Boolean(actor.userId) &&
+        Boolean(reportingManagerUserId) &&
+        Number(actor.userId) === Number(reportingManagerUserId);
+      if (!matchesEmployee && !matchesUser) {
+        throw new Error('Forbidden: Only the employee\'s assigned Reporting Person can approve or reject this request');
       }
     }
 
@@ -401,8 +389,8 @@ export class ApprovalService {
     filter: { status?: string; search?: string } = {},
     actor: AuthContext
   ): Promise<LeaveRequestDto[]> {
-    if (actor.role !== 'TEAM_LEADER' && actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Access denied. Required role: TEAM_LEADER or SUPER_ADMIN');
+    if (!actor || !actor.role) {
+      throw new Error('Unauthorized: Authentication required');
     }
 
     const requests = await LeaveRequestService.getAllLeaveRequests();
@@ -412,42 +400,34 @@ export class ApprovalService {
     const filtered: LeaveRequestDto[] = [];
     for (const r of requests) {
       const routing = await this.resolveRequestRoutingInfo(r);
-      // Top Management or requests where Team Leader stage is NOT_REQUIRED bypass Team Leader completely
+      // Top Management applicants bypass the reporting-person stage as before.
       if (routing.isTopMgmt || r.teamLeaderDecision === 'NOT_REQUIRED') {
         continue;
       }
 
-      // Prevent self-requests from appearing as actionable in Team Leader queue
       const isSelfRequest =
         (actor.employeeId && Number(r.employeeId) === Number(actor.employeeId)) ||
         (actor.userId &&
           routing.applicantUserId &&
           Number(actor.userId) === Number(routing.applicantUserId));
-      if (isSelfRequest && (actor.role === 'TEAM_LEADER' || filter.status === 'PENDING')) {
-        continue;
-      }
+      if (isSelfRequest) continue;
 
-      // If actor is TEAM_LEADER, filter to requests routed to this Team Leader (historical date-resolved Team Leader)
-      if (actor.role === 'TEAM_LEADER') {
-        const emp = empMap.get(r.employeeId);
-        const effectiveLeaderEmpId =
-          r.assignedTeamLeaderId ?? r.reportingManagerId ?? emp?.reportingManagerId ?? null;
-        const effectiveLeaderUserId =
-          r.assignedTeamLeaderUserId ?? r.reportingManagerUserId ?? null;
-
-        if (effectiveLeaderEmpId || effectiveLeaderUserId) {
-          const matchesEmp =
-            Boolean(actor.employeeId) &&
-            Boolean(effectiveLeaderEmpId) &&
-            Number(effectiveLeaderEmpId) === Number(actor.employeeId);
-          const matchesUser =
-            Boolean(actor.userId) &&
-            Boolean(effectiveLeaderUserId) &&
-            Number(effectiveLeaderUserId) === Number(actor.userId);
-          if (!matchesEmp && !matchesUser) {
-            continue;
-          }
-        }
+      // Every authenticated user sees only requests for employees who report directly to them.
+      // Super Admin retains the existing global oversight access.
+      if (actor.role !== 'SUPER_ADMIN') {
+        const employee = empMap.get(r.employeeId);
+        const reportingManagerId = r.reportingManagerId ?? employee?.reportingManagerId ?? null;
+        const reportingManager = reportingManagerId ? empMap.get(Number(reportingManagerId)) : null;
+        const reportingManagerUserId = r.reportingManagerUserId ?? reportingManager?.userId ?? null;
+        const matchesEmployee =
+          Boolean(actor.employeeId) &&
+          Boolean(reportingManagerId) &&
+          Number(actor.employeeId) === Number(reportingManagerId);
+        const matchesUser =
+          Boolean(actor.userId) &&
+          Boolean(reportingManagerUserId) &&
+          Number(actor.userId) === Number(reportingManagerUserId);
+        if (!matchesEmployee && !matchesUser) continue;
       }
 
       const tlDecision = r.teamLeaderDecision || 'PENDING';
@@ -1341,13 +1321,8 @@ export class ApprovalService {
     events: LeaveRequestEventDto[];
     employeeHistory: EmployeeLeaveHistoryDto;
   } | null> {
-    if (
-      actor.role !== 'TEAM_LEADER' &&
-      actor.role !== 'HR' &&
-      actor.role !== 'TOP_MANAGEMENT' &&
-      actor.role !== 'SUPER_ADMIN'
-    ) {
-      throw new Error('Forbidden: Access denied. Approver role required');
+    if (!actor || !actor.role) {
+      throw new Error('Unauthorized: Authentication required');
     }
 
     const details = await LeaveRequestService.getLeaveRequestById(id, actor);
@@ -1362,10 +1337,10 @@ export class ApprovalService {
     if (
       !isOwnRequest &&
       details.request.teamLeaderDecision === 'NOT_REQUIRED' &&
-      actor.role === 'TEAM_LEADER'
+      actor.role !== 'SUPER_ADMIN'
     ) {
       throw new Error(
-        'Forbidden: Team Leader cannot access leave requests that do not require Team Leader approval'
+        'Forbidden: Reporting Person approval is not required for this leave request'
       );
     }
     if (
@@ -1378,32 +1353,25 @@ export class ApprovalService {
       );
     }
 
-    if (actor.role === 'TEAM_LEADER') {
-      const emp = await UserService.getEmployeeById(details.request.employeeId);
-      const effectiveLeaderEmpId =
-        details.request.assignedTeamLeaderId ??
-        details.request.reportingManagerId ??
-        emp?.reportingManagerId ??
-        null;
-      const effectiveLeaderUserId =
-        details.request.assignedTeamLeaderUserId ??
-        details.request.reportingManagerUserId ??
-        null;
-
-      if (effectiveLeaderEmpId || effectiveLeaderUserId) {
-        const matchesEmp =
-          Boolean(actor.employeeId) &&
-          Boolean(effectiveLeaderEmpId) &&
-          Number(effectiveLeaderEmpId) === Number(actor.employeeId);
-        const matchesUser =
-          Boolean(actor.userId) &&
-          Boolean(effectiveLeaderUserId) &&
-          Number(effectiveLeaderUserId) === Number(actor.userId);
-        if (!matchesEmp && !matchesUser) {
-          throw new Error(
-            'Forbidden: You can only view leave requests for employees assigned to your team'
-          );
-        }
+    if (!isOwnRequest && actor.role !== 'SUPER_ADMIN') {
+      const employee = await UserService.getEmployeeById(details.request.employeeId);
+      const reportingManagerId =
+        details.request.reportingManagerId ?? employee?.reportingManagerId ?? null;
+      const reportingManager = reportingManagerId
+        ? await UserService.getEmployeeById(reportingManagerId)
+        : null;
+      const reportingManagerUserId =
+        details.request.reportingManagerUserId ?? reportingManager?.userId ?? null;
+      const matchesEmployee =
+        Boolean(actor.employeeId) &&
+        Boolean(reportingManagerId) &&
+        Number(actor.employeeId) === Number(reportingManagerId);
+      const matchesUser =
+        Boolean(actor.userId) &&
+        Boolean(reportingManagerUserId) &&
+        Number(actor.userId) === Number(reportingManagerUserId);
+      if (!matchesEmployee && !matchesUser) {
+        throw new Error('Forbidden: Only the employee\'s assigned Reporting Person can view this request at Stage 1');
       }
     }
 
