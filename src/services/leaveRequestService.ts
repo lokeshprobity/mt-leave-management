@@ -2037,10 +2037,17 @@ export class LeaveRequestService {
 
     if (!reqRecord) return null;
 
-    // Strict Backend Authorization: An EMPLOYEE can ONLY view their own requests!
+    // Employees may view their own requests, and may view another request only when
+    // they are that employee's explicitly assigned Reporting Person.
     if (actor.role === 'EMPLOYEE') {
-      const actorEmpId = actor.employeeId || 101;
-      if (reqRecord.employeeId !== actorEmpId) {
+      const actorEmpId = actor.employeeId || 0;
+      const isOwnRequest = reqRecord.employeeId === actorEmpId;
+      const managerId = reqRecord.reportingManagerId ?? null;
+      const managerUserId = reqRecord.reportingManagerUserId ?? null;
+      const isAssignedReportingPerson =
+        (Boolean(actorEmpId) && Boolean(managerId) && Number(actorEmpId) === Number(managerId)) ||
+        (Boolean(actor.userId) && Boolean(managerUserId) && Number(actor.userId) === Number(managerUserId));
+      if (!isOwnRequest && !isAssignedReportingPerson) {
         throw new Error('Forbidden: You are not authorized to view another employee’s leave request');
       }
     }
