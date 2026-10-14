@@ -179,6 +179,7 @@ export const employees = pgTable(
     employmentStatus: text('employment_status').default('ACTIVE').notNull(),
     officeLocation: text('office_location'),
     remarks: text('remarks'),
+    hrApprovalRequired: boolean('hr_approval_required').default(true).notNull(),
     userId: integer('user_id')
       .references(() => users.id, { onDelete: 'set null' })
       .unique(),
