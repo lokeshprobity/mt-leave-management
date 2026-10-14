@@ -740,6 +740,40 @@ export class EmailService {
     };
   }
 
+  /** Sends email through Resend's HTTPS API, avoiding outbound SMTP port restrictions. */
+  private static async deliverViaResend(
+    message: DispatchedEmailMessage
+  ): Promise<{ messageId: string }> {
+    const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+    const from = String(process.env.RESEND_FROM || '').trim() || message.from;
+    if (!apiKey) throw new Error('RESEND_API_KEY is not configured.');
+    if (!from) throw new Error('RESEND_FROM must be configured with a verified sender address.');
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [message.to],
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+
+    const payload: any = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = String(payload?.message || payload?.name || `HTTP ${response.status}`);
+      throw new Error(`Resend API rejected email (${response.status}): ${detail}`);
+    }
+    if (!payload?.id) throw new Error('Resend API returned no message ID.');
+    return { messageId: String(payload.id) };
+  }
+
   /**
    * Minimal standard SMTP client using Node's built-in net/tls modules when SMTP_HOST is configured.
    */
