@@ -10,7 +10,7 @@ export interface EmailDeliveryResult {
   sentAt: string | null;
   messageId: string | null;
   error: string | null;
-  transportMode?: 'SMTP' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX';
+  transportMode?: 'SMTP' | 'RESEND' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX';
 }
 
 export interface DispatchedEmailMessage {
@@ -41,7 +41,7 @@ export interface OutboxEmailRecord {
   status: 'SENT' | 'FAILED';
   sentAt: string | null;
   error: string | null;
-  transportMode: 'SMTP' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX';
+  transportMode: 'SMTP' | 'RESEND' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX';
   contentChecks: {
     hasEmployeeName: boolean;
     hasUserId: boolean;
@@ -115,7 +115,11 @@ export class EmailService {
   }
 
   public static getFromAddress(): string {
-    return process.env.SMTP_FROM || 'no-reply@maestro.com';
+    return process.env.RESEND_FROM || process.env.SMTP_FROM || 'no-reply@maestro.com';
+  }
+
+  public static isResendConfigured(): boolean {
+    return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim().length > 0);
   }
 
   public static isSmtpConfigured(): boolean {
@@ -335,9 +339,11 @@ export class EmailService {
         error: errMsg,
         transportMode: customTransport
           ? 'CUSTOM_TRANSPORT'
-          : this.isSmtpConfigured()
-            ? 'SMTP'
-            : 'LOCAL_OUTBOX',
+          : this.isResendConfigured()
+            ? 'RESEND'
+            : this.isSmtpConfigured()
+              ? 'SMTP'
+              : 'LOCAL_OUTBOX',
         contentChecks,
         metadata: {
           employeeName: params.employeeName,
@@ -358,7 +364,7 @@ export class EmailService {
       };
     }
 
-    let transportMode: 'SMTP' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX' = 'LOCAL_OUTBOX';
+    let transportMode: 'SMTP' | 'RESEND' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX' = 'LOCAL_OUTBOX';
     let messageId = `<cred-${crypto.randomBytes(8).toString('hex')}@maestro-leave.local>`;
 
     const outgoingMessage: DispatchedEmailMessage = {
@@ -383,6 +389,10 @@ export class EmailService {
         if (res && res.messageId) {
           messageId = res.messageId;
         }
+      } else if (this.isResendConfigured()) {
+        transportMode = 'RESEND';
+        const resendRes = await this.deliverViaResend(outgoingMessage);
+        messageId = resendRes.messageId;
       } else if (this.isSmtpConfigured()) {
         transportMode = 'SMTP';
         const smtpRes = await this.deliverViaSmtp(outgoingMessage);
@@ -590,9 +600,11 @@ export class EmailService {
         error: errMsg,
         transportMode: customTransport
           ? 'CUSTOM_TRANSPORT'
-          : this.isSmtpConfigured()
-            ? 'SMTP'
-            : 'LOCAL_OUTBOX',
+          : this.isResendConfigured()
+            ? 'RESEND'
+            : this.isSmtpConfigured()
+              ? 'SMTP'
+              : 'LOCAL_OUTBOX',
         contentChecks,
         metadata: {
           employeeName: params.employeeName,
@@ -614,7 +626,7 @@ export class EmailService {
       };
     }
 
-    let transportMode: 'SMTP' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX' = 'LOCAL_OUTBOX';
+    let transportMode: 'SMTP' | 'RESEND' | 'CUSTOM_TRANSPORT' | 'LOCAL_OUTBOX' = 'LOCAL_OUTBOX';
     let messageId = `<reset-${crypto.randomBytes(8).toString('hex')}@maestro-leave.local>`;
 
     const outgoingMessage: DispatchedEmailMessage = {
@@ -639,6 +651,10 @@ export class EmailService {
         if (res && res.messageId) {
           messageId = res.messageId;
         }
+      } else if (this.isResendConfigured()) {
+        transportMode = 'RESEND';
+        const resendRes = await this.deliverViaResend(outgoingMessage);
+        messageId = resendRes.messageId;
       } else if (this.isSmtpConfigured()) {
         transportMode = 'SMTP';
         const smtpRes = await this.deliverViaSmtp(outgoingMessage);
