@@ -37,6 +37,13 @@ import {
   ReasonCategory,
 } from '../types/leave.ts';
 
+const toDateInputValue = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export function MyLeavePortal() {
   const [requests, setRequests] = useState<LeaveRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1247,6 +1254,8 @@ export function MyLeavePortal() {
                     id="input-start-date"
                     type="date"
                     required
+                    min={formDayType === 'HALF_DAY' ? toDateInputValue(new Date()) : undefined}
+                    max={formDayType === 'HALF_DAY' ? (() => { const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + 30); return toDateInputValue(maxDate); })() : undefined}
                     value={formStartDate}
                     onChange={(e) => setFormStartDate(e.target.value)}
                     className="w-full min-h-[44px] md:min-h-0 text-xs p-2.5 bg-white rounded-xl md:rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700/20 focus:border-red-700"
@@ -1262,6 +1271,7 @@ export function MyLeavePortal() {
                       id="input-end-date"
                       type="date"
                       required
+                      min={formStartDate || undefined}
                       value={formEndDate}
                       onChange={(e) => setFormEndDate(e.target.value)}
                       className="w-full min-h-[44px] md:min-h-0 text-xs p-2.5 bg-white rounded-xl md:rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700/20 focus:border-red-700"
