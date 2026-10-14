@@ -751,6 +751,10 @@ export class NotificationService {
    * Mark a single notification as read with strict actor permission check
    */
   public static async markAsRead(notificationId: number, actor: AuthContext): Promise<boolean> {
+    const { notifications: visibleNotifications } = await this.getNotificationsForUser(actor);
+    if (!visibleNotifications.some((n) => Number(n.id) === Number(notificationId))) {
+      throw new Error('Forbidden: You can only mark your own or role-authorized notifications as read.');
+    }
     const now = new Date();
 
     if (isDbConfigured()) {
