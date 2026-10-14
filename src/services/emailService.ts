@@ -646,6 +646,12 @@ export class EmailService {
       }
     } catch (err: any) {
       const errMsg = err?.message || 'Password reset email delivery failed due to transport error.';
+      console.error('[EmailService] Password reset SMTP delivery failed', {
+        host: String(process.env.SMTP_HOST || '').trim(),
+        port: Number(process.env.SMTP_PORT || 587),
+        recipient: registered,
+        error: errMsg,
+      });
       this.recordEmail({
         type: 'PASSWORD_RESET',
         from: fromAddress,
@@ -767,7 +773,7 @@ export class EmailService {
           sendLine('EHLO mt-leave-management.local');
         } else if (step === 1 && code === 250) {
           step = 2;
-          const authPlain = Buffer.from(`\\u0000${user}\\u0000${pass}`).toString('base64');
+          const authPlain = Buffer.from(`\u0000${user}\u0000${pass}`).toString('base64');
           sendLine(`AUTH PLAIN ${authPlain}`);
         } else if (step === 2 && code === 235) {
           step = 3;
