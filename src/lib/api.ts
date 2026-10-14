@@ -777,7 +777,15 @@ export function canAccessModule(
     }
   }
 
-  // EMPLOYEE is strictly limited to Employee Portal self-service modules
+  // Stage 1 queue is shared by all roles, but the server returns only employees
+  // assigned to the signed-in user as their Reporting Person.
+  if (moduleId === 'team-leader') {
+    return builtIn ||
+      perms.includes('LEAVE_TEAM_LEADER_APPROVE') ||
+      (!builtIn && (perms.includes('LEAVE_VIEW_TEAM') || perms.includes('LEAVE_TEAM_LEADER_APPROVE')));
+  }
+
+  // EMPLOYEE is otherwise strictly limited to Employee Portal self-service modules
   if (role === 'EMPLOYEE') {
     return false;
   }
@@ -787,12 +795,6 @@ export function canAccessModule(
   }
 
   switch (moduleId) {
-    case 'team-leader':
-      return (
-        role === 'TEAM_LEADER' ||
-        perms.includes('LEAVE_TEAM_LEADER_APPROVE') ||
-        (!builtIn && perms.includes('LEAVE_VIEW_TEAM'))
-      );
     case 'hr':
       return role === 'HR' || perms.includes('LEAVE_HR_APPROVE');
     case 'management':
