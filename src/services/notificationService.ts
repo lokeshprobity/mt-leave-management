@@ -271,95 +271,36 @@ export class NotificationService {
       return;
     }
 
-    if (opRole === 'HR') {
-      const hrMsg = `${empName} (HR) applied for ${req.totalDays} day(s) of ${req.leaveTypeName || 'Leave'} (${req.startDate} to ${req.endDate}). Routed directly to Top Management.`;
-      const mgmtUsers = await this.getUserIdsForRole('TOP_MANAGEMENT');
-      const adminUsers = await this.getUserIdsForRole('SUPER_ADMIN');
-
-      for (const uid of mgmtUsers) {
-        await this.createNotification({
-          recipientUserId: uid,
-          recipientRole: 'TOP_MANAGEMENT',
-          type: 'LEAVE_SUBMITTED',
-          title,
-          message: hrMsg,
-          relatedLeaveRequestId: req.id,
-          eventKey: `LEAVE_SUBMITTED_${req.id}_MGMT_${uid}`,
-        });
-      }
-
-      for (const uid of adminUsers) {
-        if (!mgmtUsers.includes(uid)) {
-          await this.createNotification({
-            recipientUserId: uid,
-            recipientRole: 'SUPER_ADMIN',
-            type: 'LEAVE_SUBMITTED',
-            title,
-            message: hrMsg,
-            relatedLeaveRequestId: req.id,
-            eventKey: `LEAVE_SUBMITTED_${req.id}_ADMIN_${uid}`,
-          });
-        }
-      }
-      return;
-    }
-
-    if (opRole === 'TEAM_LEADER') {
-      const tlMsg = `${empName} (Team Leader) applied for ${req.totalDays} day(s) of ${req.leaveTypeName || 'Leave'} (${req.startDate} to ${req.endDate}). Pending HR approval.`;
-      const hrUsers = await this.getUserIdsForRole('HR');
-      const adminUsers = await this.getUserIdsForRole('SUPER_ADMIN');
-
-      // Team Leader applicants bypass Stage 1 and route to HR; Top Management is notified after HR review.
-      for (const uid of hrUsers) {
-        await this.createNotification({
-          recipientUserId: uid,
-          recipientRole: 'HR',
-          type: 'LEAVE_SUBMITTED',
-          title,
-          message: tlMsg,
-          relatedLeaveRequestId: req.id,
-          eventKey: `LEAVE_SUBMITTED_${req.id}_HR_${uid}`,
-        });
-      }
-
-      for (const uid of adminUsers) {
-        if (!hrUsers.includes(uid)) {
-          await this.createNotification({
-            recipientUserId: uid,
-            recipientRole: 'SUPER_ADMIN',
-            type: 'LEAVE_SUBMITTED',
-            title,
-            message: tlMsg,
-            relatedLeaveRequestId: req.id,
-            eventKey: `LEAVE_SUBMITTED_${req.id}_ADMIN_${uid}`,
-          });
-        }
-      }
-      return;
-    }
-
-    const resolvedLeaderUserId =
-      req.assignedTeamLeaderUserId ??
+    // All non-Top-Management applicants route Stage 1 to their profile-assigned Reporting Person,
+    // regardless of whether that person is a Team Leader, Manager, HR, or another role.
+    const { UserService } = await import('./userService.ts');
+    const managerEmployee = req.reportingManagerId
+      ? await UserService.getEmployeeById(req.reportingManagerId)
+      : null;
+    const reportingPersonUserId =
       req.reportingManagerUserId ??
-      req.assignedTeamLeaderId ??
-      req.reportingManagerId;
-    const tlUsers = resolvedLeaderUserId
-      ? [resolvedLeaderUserId]
-      : await this.getUserIdsForRole('TEAM_LEADER');
+      managerEmployee?.userId ??
+      (req.reportingManagerId ? null : (req.assignedTeamLeaderUserId ?? null));
+    const hierarchy = req.employeeId
+      ? await UserService.getEmployeeRoleAndHierarchy(req.employeeId)
+      : null;
+    const reportingPersonRole =
+      (hierarchy?.reportingManagerRole as UserRole | null) || 'EMPLOYEE';
+    const reportingPersonUsers = reportingPersonUserId ? [reportingPersonUserId] : [];
     const adminUsers = await this.getUserIdsForRole('SUPER_ADMIN');
 
-    const message = `${empName} applied for ${req.totalDays} day(s) of ${req.leaveTypeName || 'Leave'} (${req.startDate} to ${req.endDate}). Pending Team Leader approval.`;
+    const message = `${empName} applied for ${req.totalDays} day(s) of ${req.leaveTypeName || 'Leave'} (${req.startDate} to ${req.endDate}). Pending approval by the assigned Reporting Person.`;
 
-    // Notify Team Leader (Stage 1 Approver)
-    for (const uid of tlUsers) {
+    // Notify only the employee's assigned Reporting Person for Stage 1.
+    for (const uid of reportingPersonUsers) {
       await this.createNotification({
         recipientUserId: uid,
-        recipientRole: 'TEAM_LEADER',
+        recipientRole: reportingPersonRole,
         type: 'LEAVE_SUBMITTED',
         title,
         message,
         relatedLeaveRequestId: req.id,
-        eventKey: `LEAVE_SUBMITTED_${req.id}_TL_${uid}`,
+        eventKey: `LEAVE_SUBMITTED_${req.id}_REPORTING_PERSON_${uid}`,
       });
     }
 
@@ -397,13 +338,13 @@ export class NotificationService {
   ): Promise<void> {
     const isApproved = decision === 'APPROVED';
     const title = isApproved
-      ? `Team Leader Approved: ${req.requestNumber}`
-      : `Rejected by Team Leader: ${req.requestNumber}`;
+      ? `Reporting Person Approved: ${req.requestNumber}`
+      : `Rejected by Reporting Person: ${req.requestNumber}`;
     const empMsg = isApproved
       ? (req.hrDecision === 'NOT_REQUIRED'
-          ? `Team Leader (${leaderName || 'Team Leader'}) approved your leave request ${req.requestNumber}. It has moved directly to Top Management for final decision.${remarks ? ` Remarks: "${remarks}"` : ''}`
-          : `Team Leader (${leaderName || 'Team Leader'}) approved your leave request ${req.requestNumber}. It has moved to HR Pending.${remarks ? ` Remarks: "${remarks}"` : ''}`)
-      : `Your leave request ${req.requestNumber} was REJECTED by Team Leader (${leaderName || 'Team Leader'}).${remarks ? ` Reason: "${remarks}"` : ''}`;
+          ? `Reporting Person (${leaderName || 'Reporting Person'}) approved your leave request ${req.requestNumber}. It has moved directly to Top Management for final decision.${remarks ? ` Remarks: "${remarks}"` : ''}`
+          : `Reporting Person (${leaderName || 'Reporting Person'}) approved your leave request ${req.requestNumber}. It has moved to HR Pending.${remarks ? ` Remarks: "${remarks}"` : ''}`)
+      : `Your leave request ${req.requestNumber} was REJECTED by Reporting Person (${leaderName || 'Reporting Person'}).${remarks ? ` Reason: "${remarks}"` : ''}`;
 
     // Notify Employee
     await this.createNotification({
@@ -422,7 +363,7 @@ export class NotificationService {
       const isHrReq = req.hrDecision !== 'NOT_REQUIRED' && UserService.isHrApprovalRequired(req.employeeId);
       if (isHrReq) {
         const hrUsers = await this.getUserIdsForRole('HR');
-        const hrMsg = `Team Leader (${leaderName || 'Team Leader'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Now pending HR review.${remarks ? ` TL Remarks: "${remarks}"` : ''}`;
+        const hrMsg = `Reporting Person (${leaderName || 'Reporting Person'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Now pending HR review.${remarks ? ` Reporting Person Remarks: "${remarks}"` : ''}`;
         for (const uid of hrUsers) {
           await this.createNotification({
             recipientUserId: uid,
@@ -437,7 +378,7 @@ export class NotificationService {
       } else {
         // Workflow OFF: routed directly to Top Management
         const mgmtUsers = await this.getUserIdsForRole('TOP_MANAGEMENT');
-        const mgmtMsg = `Team Leader (${leaderName || 'Team Leader'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Awaiting Top Management final decision.${remarks ? ` TL Remarks: "${remarks}"` : ''}`;
+        const mgmtMsg = `Reporting Person (${leaderName || 'Reporting Person'}) approved ${req.requestNumber} for ${req.employeeName || `Employee #${req.employeeId}`}. Awaiting Top Management final decision.${remarks ? ` Reporting Person Remarks: "${remarks}"` : ''}`;
         for (const uid of mgmtUsers) {
           await this.createNotification({
             recipientUserId: uid,
