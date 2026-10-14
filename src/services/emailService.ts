@@ -729,61 +729,47 @@ export class EmailService {
     const user = String(process.env.SMTP_USER || '').trim();
     const pass = String(process.env.SMTP_PASS || '').trim();
     const secure = process.env.SMTP_SECURE === 'true' || port === 465;
-    const messageId = `<cred-${crypto.randomBytes(8).toString('hex')}@${host || 'maestro.local'}>`;
+    if (!host) throw new Error('SMTP_HOST is not configured.');
+    if (!user || !pass) throw new Error('SMTP_USER or SMTP_PASS is missing; authenticated SMTP is required.');
 
+    const messageId = `<mt-leave-${crypto.randomBytes(12).toString('hex')}@${host}>`;
     return new Promise((resolve, reject) => {
       const socket = secure
-        ? tls.connect({ host, port, rejectUnauthorized: false })
+        ? tls.connect({ host, port, servername: host, rejectUnauthorized: true })
         : net.createConnection({ host, port });
-
       let step = 0;
       let settled = false;
+      let responseBuffer = '';
+      let responseLines: string[] = [];
       const timeout = setTimeout(() => {
-        if (!settled) {
-          settled = true;
-          socket.destroy();
-          reject(new Error(`SMTP connection timed out connecting to ${host}:${port}`));
-        }
-      }, 8000);
+        finish(new Error(`SMTP timed out at ${host}:${port} (protocol step ${step}).`));
+      }, 20000);
 
       const finish = (err?: Error) => {
         if (settled) return;
         settled = true;
         clearTimeout(timeout);
-        try {
-          socket.end();
-        } catch {}
+        socket.removeAllListeners('data');
+        try { socket.destroy(); } catch {}
         if (err) reject(err);
         else resolve({ messageId });
       };
+      const sendLine = (line: string) => socket.write(`${line}\r\n`);
 
-      const sendLine = (line: string) => {
-        socket.write(`${line}\r\n`);
-      };
+      const handleResponse = (response: string) => {
+        const finalLine = response.split('\n').pop() || '';
+        const code = Number(finalLine.slice(0, 3));
+        if (!Number.isFinite(code)) return finish(new Error(`Unrecognized SMTP response: ${response.slice(0, 300)}`));
+        if (code >= 400) return finish(new Error(`SMTP server rejected request (${code}): ${response.slice(0, 600)}`));
 
-      socket.on('error', (err) => {
-        finish(new Error(`SMTP transport error (${host}:${port}): ${err.message}`));
-      });
-
-      socket.on('data', (chunk) => {
-        const resp = chunk.toString('utf8');
-        const code = parseInt(resp.slice(0, 3), 10);
-        if (code >= 400) {
-          return finish(new Error(`SMTP server rejected request (${code}): ${resp.trim()}`));
-        }
         if (step === 0 && code === 220) {
           step = 1;
-          sendLine(`EHLO maestro-leave.local`);
+          sendLine('EHLO mt-leave-management.local');
         } else if (step === 1 && code === 250) {
-          if (user && pass) {
-            step = 2;
-            const authPlain = Buffer.from(`\u0000${user}\u0000${pass}`).toString('base64');
-            sendLine(`AUTH PLAIN ${authPlain}`);
-          } else {
-            step = 3;
-            sendLine(`MAIL FROM:<${message.from}>`);
-          }
-        } else if (step === 2 && (code === 235 || code === 250)) {
+          step = 2;
+          const authPlain = Buffer.from(`\\u0000${user}\\u0000${pass}`).toString('base64');
+          sendLine(`AUTH PLAIN ${authPlain}`);
+        } else if (step === 2 && code === 235) {
           step = 3;
           sendLine(`MAIL FROM:<${message.from}>`);
         } else if (step === 3 && code === 250) {
@@ -794,23 +780,50 @@ export class EmailService {
           sendLine('DATA');
         } else if (step === 5 && code === 354) {
           step = 6;
+          const safeSubject = message.subject.replace(/[\\r\\n]+/g, ' ').trim();
+          const safeFrom = message.from.replace(/[\\r\\n<>]/g, '');
+          const safeTo = message.to.replace(/[\\r\\n<>]/g, '');
+          const body = message.text.replace(/(^|\\r?\\n)\\./g, '$1..');
           const mime = [
-            `From: Maestro Leave Management <${message.from}>`,
-            `To: <${message.to}>`,
-            `Subject: ${message.subject}`,
+            `From: Maestro Leave Management <${safeFrom}>`,
+            `To: <${safeTo}>`,
+            `Subject: ${safeSubject}`,
             `Message-ID: ${messageId}`,
             `Date: ${new Date().toUTCString()}`,
             'MIME-Version: 1.0',
             'Content-Type: text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding: 8bit',
             '',
-            message.text,
+            body,
             '.',
           ].join('\r\n');
-          sendLine(mime);
+          socket.write(`${mime}\r\n`);
         } else if (step === 6 && code === 250) {
+          // SMTP 250 after DATA means the server accepted the message for delivery.
           step = 7;
           sendLine('QUIT');
           finish();
+        } else {
+          finish(new Error(`Unexpected SMTP response at step ${step}: ${response.slice(0, 400)}`));
+        }
+      };
+
+      socket.on('error', (err) => finish(new Error(`SMTP transport error (${host}:${port}): ${err.message}`)));
+      socket.on('data', (chunk) => {
+        responseBuffer += chunk.toString('utf8');
+        while (responseBuffer.includes('\r\n') && !settled) {
+          const boundary = responseBuffer.indexOf('\r\n');
+          const line = responseBuffer.slice(0, boundary);
+          responseBuffer = responseBuffer.slice(boundary + 2);
+          responseLines.push(line);
+          // SMTP multiline responses continue with "code-"; the final line is "code ".
+          if (/^\\d{3} /.test(line)) {
+            const completeResponse = responseLines.join('\n');
+            responseLines = [];
+            handleResponse(completeResponse);
+          } else if (!/^\\d{3}-/.test(line)) {
+            finish(new Error(`Malformed SMTP response: ${line.slice(0, 300)}`));
+          }
         }
       });
     });
