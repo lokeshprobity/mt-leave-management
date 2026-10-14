@@ -1376,7 +1376,29 @@ export class ApprovalService {
     }
 
     const enrichedRequest = LeaveRequestService.withStageLabel(details.request);
-    const history = await this.getEmployeeApprovalHistory(enrichedRequest.employeeId, actor);
+    // The Employee role can act as a Reporting Person, but its standard history endpoint
+    // intentionally limits balance/history access to self. Keep the approval detail usable
+    // without widening that separate endpoint's permissions.
+    const history = actor.role === 'EMPLOYEE' && !isOwnRequest
+      ? {
+          employeeId: enrichedRequest.employeeId,
+          employeeName: enrichedRequest.employeeName,
+          employeeCode: enrichedRequest.employeeCode,
+          departmentId: enrichedRequest.departmentId ?? null,
+          departmentCode: enrichedRequest.departmentCode ?? null,
+          departmentName: enrichedRequest.departmentName,
+          totalRequests: 0,
+          approvedRequests: 0,
+          rejectedRequests: 0,
+          cancelledRequests: 0,
+          pendingRequests: 0,
+          lateRequests: 0,
+          postStartRequests: 0,
+          emergencyRequests: 0,
+          balances: [],
+          recentRequests: [],
+        }
+      : await this.getEmployeeApprovalHistory(enrichedRequest.employeeId, actor);
 
     return {
       request: enrichedRequest,
