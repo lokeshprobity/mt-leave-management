@@ -121,21 +121,24 @@ interface DashboardStats {
 
 interface DashboardProps {
   onNavigate?: (module: string) => void;
+  employeeId?: number;
+  viewAsEmployee?: boolean;
 }
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeRole: UserRole = getActiveRole();
 
-  const isEmployee = activeRole === 'EMPLOYEE';
+  const isEmployee = viewAsEmployee || activeRole === 'EMPLOYEE';
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/dashboard/stats', {
+      const statsUrl = employeeId ? `/api/dashboard/stats?employeeId=${encodeURIComponent(String(employeeId))}` : '/api/dashboard/stats';
+      const res = await fetch(statsUrl, {
         headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('Failed to load dashboard statistics');
@@ -150,7 +153,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   useEffect(() => {
     loadData();
-  }, [activeRole]);
+  }, [activeRole, employeeId, viewAsEmployee]);
 
   if (loading && !stats) {
     return (

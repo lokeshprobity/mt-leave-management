@@ -663,7 +663,12 @@ export class LeaveRequestService {
     } catch {}
 
     // Overlap & approval routing validation check in preview
-    const previewWorkflow = await this.resolveApplicantWorkflow(employeeId, actor);
+    const previewWorkflow = await this.resolveApplicantWorkflow(
+      employeeId,
+      actor,
+      input.startDate,
+      actor.role === 'SUPER_ADMIN' && Boolean((input as any).submittedOnBehalfOf)
+    );
     if (previewWorkflow.validationError) {
       validationErrors.push(previewWorkflow.validationError);
     }
@@ -756,7 +761,8 @@ export class LeaveRequestService {
   public static async resolveApplicantWorkflow(
     employeeId: number,
     actor: AuthContext,
-    leaveStartDate?: string
+    leaveStartDate?: string,
+    submittedOnBehalfOf = false
   ): Promise<{
     operationalRole: OperationalRole;
     empHierarchy: Awaited<ReturnType<typeof UserService.getEmployeeRoleAndHierarchy>>;
@@ -769,14 +775,15 @@ export class LeaveRequestService {
   }> {
     const empHierarchy = await UserService.getEmployeeRoleAndHierarchy(employeeId);
 
-    const isSuperAdmin = actor?.role === 'SUPER_ADMIN' || empHierarchy.role === 'SUPER_ADMIN';
+    const actingOnBehalf = actor?.role === 'SUPER_ADMIN' && submittedOnBehalfOf;
+    const isSuperAdmin = !actingOnBehalf && (actor?.role === 'SUPER_ADMIN' || empHierarchy.role === 'SUPER_ADMIN');
 
     // Determine operational role based on operational designation/hierarchy, NOT SUPER_ADMIN permission alone
     let operationalRole: OperationalRole | null = null;
-    if (actor?.operationalRole) {
+    if (actor?.operationalRole && !actingOnBehalf) {
       operationalRole = actor.operationalRole;
     } else if (empHierarchy.employeeExists) {
-      if (actor?.role !== 'SUPER_ADMIN' && empHierarchy.role !== 'SUPER_ADMIN') {
+      if ((actor?.role !== 'SUPER_ADMIN' || actingOnBehalf) && empHierarchy.role !== 'SUPER_ADMIN') {
         operationalRole = empHierarchy.operationalRole || (empHierarchy.role as OperationalRole);
       } else {
         operationalRole = empHierarchy.operationalRole;
@@ -821,7 +828,7 @@ export class LeaveRequestService {
       };
     }
 
-    const applicantUserId = actor?.userId || empHierarchy.userId;
+    const applicantUserId = actingOnBehalf ? empHierarchy.userId : (actor?.userId || empHierarchy.userId);
 
     if (operationalRole === 'TOP_MANAGEMENT') {
       if (!empHierarchy.reportingManagerId && !isSuperAdmin) {
@@ -1474,7 +1481,12 @@ export class LeaveRequestService {
     // 11. Resolve applicant operational role & validate required approvers before creating request
     // Uses the leave application's start date (`input.startDate`) for date-effective Team Leader resolution.
     const empRecord = await UserService.getEmployeeById(employeeId);
-    const workflow = await this.resolveApplicantWorkflow(employeeId, actor, input.startDate);
+    const workflow = await this.resolveApplicantWorkflow(
+      employeeId,
+      actor,
+      input.startDate,
+      actor.role === 'SUPER_ADMIN' && Boolean((input as any).submittedOnBehalfOf)
+    );
     if (workflow.validationError) {
       throw new ValidationError(workflow.validationError, workflow.validationFields);
     }

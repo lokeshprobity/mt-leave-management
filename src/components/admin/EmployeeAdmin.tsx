@@ -681,6 +681,24 @@ export function EmployeeAdmin({
                           </button>
                         )}
 
+                        {isSuperAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('open-employee-dashboard', {
+                              detail: {
+                                employeeId: Number(emp.id),
+                                employeeName: emp.employeeName || emp.fullName || `Employee ${emp.id}`,
+                                employeeCode: emp.employeeCode || undefined,
+                              },
+                            }))}
+                            title="View employee dashboard and process leave"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-neutral-900 text-white border border-neutral-900 hover:bg-neutral-700 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View Dashboard</span>
+                          </button>
+                        )}
+
                         <button
                           onClick={() => openView(emp)}
                           title="Quick Summary"
