@@ -64,6 +64,7 @@ import { TeamLeaderApprovalDashboard } from './components/TeamLeaderApprovalDash
 import { HrApprovalDashboard } from './components/HrApprovalDashboard.tsx';
 import { ManagementApprovalDashboard } from './components/ManagementApprovalDashboard.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
+import { EmployeeDashboardAccess } from './components/admin/EmployeeDashboardAccess.tsx';
 import { ReportsMis } from './components/ReportsMis.tsx';
 import { CompanyBrandingDto, UserDto, UserRole } from './types/leave.ts';
 import {
@@ -231,6 +232,7 @@ export default function App() {
   const [drillDownTarget, setDrillDownTarget] = useState<OpenEmployee360Payload | null>(() =>
     getPersistedEmployee360ProfileState()
   );
+  const [employeeDashboardTarget, setEmployeeDashboardTarget] = useState<{ employeeId: number; employeeName: string; employeeCode?: string } | null>(null);
 
   useEffect(() => {
     const handleOpenEmployee360 = (e: Event) => {
@@ -243,7 +245,21 @@ export default function App() {
       }
     };
     window.addEventListener('open-employee-360', handleOpenEmployee360);
-    return () => window.removeEventListener('open-employee-360', handleOpenEmployee360);
+    const handleOpenEmployeeDashboard = (e: Event) => {
+      const detail = (e as CustomEvent<{ employeeId: number; employeeName: string; employeeCode?: string }>).detail;
+      if (detail?.employeeId && getActiveRole() === 'SUPER_ADMIN') {
+        setEmployeeDashboardTarget(detail);
+        setDrillDownTarget(null);
+        setIsMobileDrawerOpen(false);
+        setIsUserMenuOpen(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('open-employee-dashboard', handleOpenEmployeeDashboard);
+    return () => {
+      window.removeEventListener('open-employee-360', handleOpenEmployee360);
+      window.removeEventListener('open-employee-dashboard', handleOpenEmployeeDashboard);
+    };
   }, []);
 
   useEffect(() => {
@@ -2825,6 +2841,14 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+      {employeeDashboardTarget && activeRole === 'SUPER_ADMIN' && (
+        <EmployeeDashboardAccess
+          employeeId={employeeDashboardTarget.employeeId}
+          employeeName={employeeDashboardTarget.employeeName}
+          employeeCode={employeeDashboardTarget.employeeCode}
+          onClose={() => setEmployeeDashboardTarget(null)}
+        />
       )}
     </div>
   );
