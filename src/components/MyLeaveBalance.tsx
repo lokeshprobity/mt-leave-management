@@ -10,7 +10,12 @@ import {
   getLeaveTypeBarColor,
 } from '../utils/theme.ts';
 
-export function MyLeaveBalance() {
+interface MyLeaveBalanceProps {
+  targetEmployeeId?: number;
+  viewAsEmployee?: boolean;
+}
+
+export function MyLeaveBalance({ targetEmployeeId, viewAsEmployee = false }: MyLeaveBalanceProps = {}) {
   const [balances, setBalances] = useState<LeaveBalanceDto[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +25,8 @@ export function MyLeaveBalance() {
 
   const activeRole = getActiveRole();
   const currentYear = new Date().getFullYear();
-  const employeeId = getActiveEmployeeId();
+  const employeeId = targetEmployeeId ?? getActiveEmployeeId();
+  const canManageBalances = activeRole === 'SUPER_ADMIN' && !viewAsEmployee;
 
   const loadBalances = async () => {
     setLoading(true);
@@ -49,7 +55,7 @@ export function MyLeaveBalance() {
 
   useEffect(() => {
     loadBalances();
-  }, [activeRole, employeeId]);
+  }, [activeRole, employeeId, targetEmployeeId, viewAsEmployee]);
 
   // Allows Super Admin to initialize baseline balance records for this employee
   const handleInitializeBalances = async () => {
@@ -180,7 +186,7 @@ export function MyLeaveBalance() {
             </div>
           </div>
 
-          {activeRole === 'SUPER_ADMIN' && balances.length === 0 && leaveTypes.length > 0 && (
+          {canManageBalances && balances.length === 0 && leaveTypes.length > 0 && (
             <button
               id="mobile-init-balances-btn"
               type="button"
@@ -223,7 +229,7 @@ export function MyLeaveBalance() {
               <p className="text-xs text-neutral-500 leading-relaxed">
                 Balance ledger records are populated from administrative allocation and policy baselines.
               </p>
-              {activeRole === 'SUPER_ADMIN' && (
+              {canManageBalances && (
                 <button
                   type="button"
                   onClick={handleInitializeBalances}
@@ -396,7 +402,7 @@ export function MyLeaveBalance() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-sky-700' : ''}`} />
             </button>
 
-            {activeRole === 'SUPER_ADMIN' && balances.length === 0 && leaveTypes.length > 0 && (
+            {canManageBalances && balances.length === 0 && leaveTypes.length > 0 && (
               <button
                 id="init-balances-btn"
                 onClick={handleInitializeBalances}
@@ -554,7 +560,7 @@ export function MyLeaveBalance() {
                       <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
                         Balance ledger records are populated from administrative allocation and policy baselines.
                       </p>
-                      {activeRole === 'SUPER_ADMIN' && (
+                      {canManageBalances && (
                         <button
                           onClick={handleInitializeBalances}
                           className="mt-3 px-3.5 py-1.5 text-xs font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800 cursor-pointer"
