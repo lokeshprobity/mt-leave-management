@@ -837,32 +837,81 @@ export class LeaveService {
    */
   public static async initializeEmployeeBalances(
     employeeId: number | string,
-    year = 2026,
-    actor: AuthContext = { userId: 1, username: 'superadmin', role: 'SUPER_ADMIN', employeeId: 1 }
+    year = new Date().getFullYear(),
+    _actor: AuthContext = { userId: 1, username: 'superadmin', role: 'SUPER_ADMIN', employeeId: 1 }
   ): Promise<void> {
     const resolvedEmp = UserService.resolveEmployeeRecordSync(employeeId);
     const numericEmpId = resolvedEmp?.employeeId ?? Number(employeeId);
-    const existing = await this.getLeaveBalances({ employeeId: numericEmpId, year });
-    const defaults = [
-      { leaveTypeId: 1, allocated: 12 },
-      { leaveTypeId: 2, allocated: 12 },
-      { leaveTypeId: 3, allocated: 18 },
-      { leaveTypeId: 4, allocated: 10 },
-      { leaveTypeId: 5, allocated: 30 },
-    ];
-    for (const d of defaults) {
-      if (!existing.some((b) => b.leaveTypeId === d.leaveTypeId)) {
-        try {
-          await this.createOrInitBalance(
-            {
-              employeeId: numericEmpId,
-              leaveTypeId: d.leaveTypeId,
-              year,
-              allocated: d.allocated,
-            },
-            actor
-          );
-        } catch {}
+    if (!Number.isFinite(numericEmpId) || numericEmpId <= 0) {
+      throw new ValidationError(`Cannot initialize leave balances: employee '${employeeId}' was not found.`);
+    }
+
+    const [types, policies, existingBalances] = await Promise.all([
+      this.getLeaveTypes(),
+      this.getLeavePolicies(),
+      this.getLeaveBalances({ employeeId: numericEmpId, year }),
+    ]);
+    const activeTypes = types.filter((type) => type.isActive);
+    const now = new Date();
+    const joiningDate = resolvedEmp?.joiningDate ? new Date(resolvedEmp.joiningDate) : null;
+    const serviceMonths = joiningDate && !Number.isNaN(joiningDate.getTime())
+      ? Math.max(0, (now.getFullYear() - joiningDate.getFullYear()) * 12 + now.getMonth() - joiningDate.getMonth())
+      : 0;
+
+    for (const type of activeTypes) {
+      if (existingBalances.some((balance) => Number(balance.leaveTypeId) === Number(type.id))) continue;
+      const applicable = policies.filter((policy) => {
+        if (!policy.isActive || Number(policy.leaveTypeId) !== Number(type.id)) return false;
+        if (policy.effectiveFrom && new Date(policy.effectiveFrom).getTime() > now.getTime()) return false;
+        if (policy.effectiveTo && new Date(policy.effectiveTo).getTime() < now.getTime()) return false;
+        if (policy.applicableDepartmentId != null && Number(policy.applicableDepartmentId) !== Number(resolvedEmp?.departmentId)) return false;
+        if (policy.applicableDesignationId != null && Number(policy.applicableDesignationId) !== Number(resolvedEmp?.designationId)) return false;
+        if (policy.applicableEmploymentStatus && String(policy.applicableEmploymentStatus).toUpperCase() !== String(resolvedEmp?.employmentStatus || 'ACTIVE').toUpperCase()) return false;
+        if (Number(policy.minServiceMonths || 0) > serviceMonths) return false;
+        return true;
+      }).sort((a, b) => {
+        const score = (p: any) => (p.applicableDepartmentId != null ? 4 : 0) +
+          (p.applicableDesignationId != null ? 2 : 0) +
+          (p.applicableEmploymentStatus ? 1 : 0) +
+          (Number(p.minServiceMonths || 0) > 0 ? 1 : 0);
+        return score(b) - score(a);
+      });
+      const policy = applicable[0];
+      if (!policy) continue;
+      const allocation = Number(policy.annualAllocation || 0);
+      const row = {
+        employeeId: numericEmpId,
+        leaveTypeId: type.id,
+        year,
+        openingBalance: '0.00',
+        allocated: allocation.toFixed(2),
+        carryForward: '0.00',
+        adjustments: '0.00',
+        used: '0.00',
+        reserved: '0.00',
+        available: allocation.toFixed(2),
+        departmentId: resolvedEmp?.departmentId ?? null,
+        departmentCode: resolvedEmp?.departmentCode ?? null,
+        departmentName: resolvedEmp?.departmentName ?? null,
+      };
+      if (isDbConfigured()) {
+        const db = getDb();
+        if (!db) throw new Error('Database is configured but unavailable while initializing leave balances.');
+        await db.insert(leaveBalances).values(row).onConflictDoNothing();
+      } else {
+        const existingMem = memoryLeaveBalances.find((balance) =>
+          balance.employeeId === numericEmpId && balance.leaveTypeId === type.id && balance.year === year
+        );
+        if (!existingMem) {
+          memoryLeaveBalances.push(this.enrichLeaveBalanceDto({
+            id: nextBalanceId++,
+            ...row,
+            leaveTypeCode: type.code,
+            leaveTypeName: type.name,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }));
+        }
       }
     }
   }
