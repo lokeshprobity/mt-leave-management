@@ -1458,42 +1458,57 @@ export function registerApiRoutes(app: express.Express) {
       const today = new Date().toISOString().split('T')[0];
       const allEmployees = await UserService.getAllEmployees();
       const allRequests = await LeaveRequestService.getAllRequests();
-      const empId = req.user?.employeeId || (req.query.employeeId ? Number(req.query.employeeId) : undefined);
+      const requestedEmployeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
+      if (requestedEmployeeId !== undefined && (!Number.isInteger(requestedEmployeeId) || requestedEmployeeId <= 0)) {
+        return res.status(400).json({ error: 'Invalid employeeId' });
+      }
+      if (
+        requestedEmployeeId !== undefined &&
+        req.user?.role !== 'SUPER_ADMIN' &&
+        Number(req.user?.employeeId) !== requestedEmployeeId
+      ) {
+        return res.status(403).json({ error: 'Forbidden: You can only view your own dashboard' });
+      }
+      const viewingEmployeeAsAdmin = req.user?.role === 'SUPER_ADMIN' && requestedEmployeeId !== undefined;
+      const empId = viewingEmployeeAsAdmin ? requestedEmployeeId : (req.user?.employeeId || requestedEmployeeId);
+      const dashboardRequests = viewingEmployeeAsAdmin
+        ? allRequests.filter((r: any) => Number(r.employeeId) === Number(empId))
+        : allRequests;
       const holidays = await WorkingDaysService.getHolidays(undefined, empId);
       const upcomingHolidays = holidays.filter((h) => h.holidayDate >= today).slice(0, 5);
 
-      const onLeaveToday = allRequests.filter(
+      const onLeaveToday = dashboardRequests.filter(
         (r: any) =>
           r.finalStatus === 'APPROVED' &&
           r.startDate <= today &&
           r.endDate >= today
       );
 
-      const pendingTeamLeaderCount = allRequests.filter(
+      const pendingTeamLeaderCount = dashboardRequests.filter(
         (r: any) => (r.teamLeaderDecision || 'PENDING') === 'PENDING' && r.finalStatus === 'PENDING'
       ).length;
 
-      const pendingHrCount = allRequests.filter(
+      const pendingHrCount = dashboardRequests.filter(
         (r: any) =>
           (r.teamLeaderDecision || 'PENDING') !== 'REJECTED' &&
           r.hrDecision === 'PENDING' &&
           r.finalStatus === 'PENDING'
       ).length;
 
-      const pendingMgmtCount = allRequests.filter(
+      const pendingMgmtCount = dashboardRequests.filter(
         (r: any) => r.managementDecision === 'PENDING' && r.finalStatus === 'PENDING'
       ).length;
 
-      const approvedCount = allRequests.filter((r: any) => r.finalStatus === 'APPROVED').length;
-      const rejectedCount = allRequests.filter((r: any) => r.finalStatus === 'REJECTED').length;
+      const approvedCount = dashboardRequests.filter((r: any) => r.finalStatus === 'APPROVED').length;
+      const rejectedCount = dashboardRequests.filter((r: any) => r.finalStatus === 'REJECTED').length;
 
-      const upcomingLeaves = allRequests
+      const upcomingLeaves = dashboardRequests
         .filter((r: any) => r.finalStatus === 'APPROVED' && r.startDate > today)
         .slice(0, 10);
 
       // Breakdown by Leave Type
       const typeCountMap: Record<string, number> = {};
-      for (const reqItem of allRequests) {
+      for (const reqItem of dashboardRequests) {
         if (reqItem.finalStatus === 'APPROVED') {
           const key = reqItem.leaveTypeName || reqItem.leaveTypeCode || 'Other';
           typeCountMap[key] = (typeCountMap[key] || 0) + Number(reqItem.totalDays || 1);
@@ -1519,11 +1534,11 @@ export function registerApiRoutes(app: express.Express) {
       // Employee context data if employee role
       let employeeContext: any = null;
       if (req.user) {
-        const empId = req.user.employeeId || 101;
-        const myBalances = await LeaveService.getLeaveBalances({ employeeId: empId }, req.user);
-        const myRequests = await LeaveRequestService.getEmployeeRequests(empId);
+        const employeeContextId = empId || req.user.employeeId || 101;
+        const myBalances = await LeaveService.getLeaveBalances({ employeeId: employeeContextId }, req.user);
+        const myRequests = await LeaveRequestService.getEmployeeRequests(employeeContextId);
         const myUpcoming = myRequests.filter((r: any) => r.finalStatus === 'APPROVED' && r.startDate >= today);
-        const todaySchedule = await ShiftService.resolveEmployeeSchedule(empId, today);
+        const todaySchedule = await ShiftService.resolveEmployeeSchedule(employeeContextId, today);
         const unreadCount = await NotificationService.getUnreadCount(req.user);
 
         employeeContext = {
