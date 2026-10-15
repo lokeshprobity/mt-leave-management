@@ -73,6 +73,7 @@ export function EmployeeDashboardAccess({
             <Dashboard
               key={`employee-view-dashboard-${employeeId}`}
               employeeId={employeeId}
+              employeeName={employeeName}
               viewAsEmployee
               onNavigate={(module) => {
                 if (module === 'my-leave') setActiveTab('leave');
