@@ -44,7 +44,12 @@ const toDateInputValue = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export function MyLeavePortal() {
+interface MyLeavePortalProps {
+  targetEmployeeId?: number;
+  targetEmployeeName?: string;
+}
+
+export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   const [requests, setRequests] = useState<LeaveRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +90,8 @@ export function MyLeavePortal() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch('/api/leave-requests/my');
+      const requestUrl = targetEmployeeId ? `/api/leave-requests/my?employeeId=${encodeURIComponent(String(targetEmployeeId))}` : '/api/leave-requests/my';
+      const res = await apiFetch(requestUrl);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch leave requests');
@@ -114,7 +120,7 @@ export function MyLeavePortal() {
   useEffect(() => {
     fetchMyRequests();
     fetchLeaveTypes();
-  }, []);
+  }, [targetEmployeeId]);
 
   useEffect(() => {
     const effectiveEnd = formDayType === 'HALF_DAY' ? formStartDate : formEndDate;
@@ -129,6 +135,7 @@ export function MyLeavePortal() {
         const res = await apiFetch('/api/leave-requests/calculate', {
           method: 'POST',
           body: JSON.stringify({
+            ...(targetEmployeeId ? { employeeId: targetEmployeeId } : {}),
             leaveTypeId: Number(formLeaveTypeId),
             startDate: formStartDate,
             endDate: effectiveEnd,
@@ -154,6 +161,7 @@ export function MyLeavePortal() {
     };
   }, [
     showApplyModal,
+    targetEmployeeId,
     formLeaveTypeId,
     formStartDate,
     formEndDate,
@@ -241,7 +249,7 @@ export function MyLeavePortal() {
         ['MEDICAL_EMERGENCY', 'FAMILY_EMERGENCY', 'ACCIDENT_OR_TRAVEL_EMERGENCY'].includes(formReasonCategory);
 
       const payload = {
-        employeeId: getActiveEmployeeId(),
+        employeeId: targetEmployeeId ?? getActiveEmployeeId(),
         leaveTypeId: Number(formLeaveTypeId),
         leaveType: selectedLeaveType?.code || String(formLeaveTypeId),
         startDate: formStartDate,
