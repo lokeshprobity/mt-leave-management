@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
+import { eq, and, sql } from 'drizzle-orm';
 import { getDb, isDbConfigured } from './index.ts';
 import { leaveTypes, roles, systemSettings, shifts, shiftSegments, users, employees, departments } from './schema.ts';
 import { INITIAL_SHIFTS } from '../services/shiftService.ts';
@@ -202,41 +203,82 @@ export async function seedDatabase() {
   }
   console.log('[Maestro Leave Management] Leave types seeded successfully.');
 
-  console.log('[Maestro Leave Management] Seeding 17 official shifts and segments...');
+  console.log('[Maestro Leave Management] Ensuring 17 official shifts and their segments...');
   for (const s of INITIAL_SHIFTS) {
-    const [insertedShift] = await db
-      .insert(shifts)
-      .values({
-        id: s.id,
-        shiftCode: s.shiftCode,
-        shiftName: s.shiftName,
-        category: s.category || 'Standard',
-        description: s.description || null,
-        timingConfigured: s.timingConfigured ?? true,
-        isActive: s.isActive ?? true,
-      })
-      .onConflictDoNothing({ target: shifts.shiftCode })
-      .returning();
+    const [existingShift] = await db
+      .select()
+      .from(shifts)
+      .where(eq(shifts.shiftCode, s.shiftCode))
+      .limit(1);
 
-    const targetShiftId = insertedShift ? insertedShift.id : s.id;
-    if (s.segments && s.segments.length > 0) {
-      for (const seg of s.segments) {
-        await db
-          .insert(shiftSegments)
-          .values({
-            shiftId: targetShiftId,
-            segmentSequence: seg.segmentSequence,
-            startTime: seg.startTime,
-            endTime: seg.endTime,
-            crossesMidnight: seg.crossesMidnight,
-            breakMinutes: seg.breakMinutes || 0,
-            isActive: seg.isActive ?? true,
-          })
-          .onConflictDoNothing();
+    let targetShift = existingShift;
+    if (!targetShift) {
+      const segments = s.segments || [];
+      const firstSegment = segments[0];
+      const lastSegment = segments[segments.length - 1];
+      const inferredShiftType = segments.length > 1
+        ? 'SPLIT'
+        : segments.some((segment) => segment.crossesMidnight)
+          ? 'NIGHT'
+          : 'DAY';
+      const [insertedShift] = await db
+        .insert(shifts)
+        .values({
+          shiftCode: s.shiftCode,
+          shiftName: s.shiftName,
+          shiftType: inferredShiftType,
+          category: s.category || 'Standard',
+          description: s.description || null,
+          startTime: firstSegment?.startTime || null,
+          endTime: lastSegment?.endTime || null,
+          totalWorkingHours: s.totalWorkingHours != null ? String(s.totalWorkingHours) : null,
+          breakMinutes: s.breakMinutes || 0,
+          weeklyOff: (s as any).weeklyOff || 'Sunday',
+          effectiveFrom: '2026-01-01',
+          timingConfigured: s.timingConfigured ?? true,
+          isActive: s.isActive ?? true,
+        })
+        .onConflictDoNothing({ target: shifts.shiftCode })
+        .returning();
+      targetShift = insertedShift;
+      // If another startup inserted the same code first, resolve its actual database ID.
+      if (!targetShift) {
+        const [resolvedShift] = await db
+          .select()
+          .from(shifts)
+          .where(eq(shifts.shiftCode, s.shiftCode))
+          .limit(1);
+        targetShift = resolvedShift;
       }
     }
+
+    if (!targetShift) {
+      throw new Error(`Unable to initialize official shift '${s.shiftCode}'.`);
+    }
+
+    for (const seg of s.segments || []) {
+      const [existingSegment] = await db
+        .select()
+        .from(shiftSegments)
+        .where(and(
+          eq(shiftSegments.shiftId, targetShift.id),
+          eq(shiftSegments.segmentSequence, seg.segmentSequence)
+        ))
+        .limit(1);
+      if (existingSegment) continue;
+      await db.insert(shiftSegments).values({
+        shiftId: targetShift.id,
+        segmentSequence: seg.segmentSequence,
+        startTime: seg.startTime,
+        endTime: seg.endTime,
+        crossesMidnight: seg.crossesMidnight,
+        breakMinutes: seg.breakMinutes || 0,
+        isActive: seg.isActive ?? true,
+      });
+    }
   }
-  console.log('[Maestro Leave Management] Shifts and segments seeded successfully.');
+  await db.execute(sql`SELECT setval(pg_get_serial_sequence('shifts', 'id'), COALESCE((SELECT MAX(id) FROM shifts), 1), true)`);
+  console.log('[Maestro Leave Management] Official shifts and segments are ready.');
 
   return {
     success: true,
