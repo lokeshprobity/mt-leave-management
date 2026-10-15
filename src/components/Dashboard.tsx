@@ -101,6 +101,25 @@ interface DashboardStats {
       totalDays: string;
       leaveTypeName: string;
     }>;
+    requestHistory: Array<{
+      id: number;
+      requestNumber: string;
+      startDate: string;
+      endDate: string;
+      totalDays: string | number;
+      leaveTypeName: string;
+      dayType?: string;
+      reason?: string;
+      applicationTimestamp?: string | null;
+      status?: string;
+      finalStatus?: string;
+      teamLeaderDecision?: string;
+      teamLeaderRemarks?: string;
+      hrDecision?: string;
+      hrRemarks?: string;
+      managementDecision?: string;
+      managementRemarks?: string;
+    }>;
     upcomingLeaves: Array<{
       id: number;
       requestNumber: string;
@@ -1274,6 +1293,69 @@ export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false, empl
             </div>
           </div>
         </>
+      )}
+
+      {isEmployee && stats?.employeeContext && (
+        <section id="employee-complete-leave-history" className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">Complete Leave Application History</h2>
+              <p className="text-xs text-neutral-500 mt-1">All submitted requests for {displayUserName}, including pending, approved, rejected and cancelled applications.</p>
+            </div>
+            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-700">
+              {stats.employeeContext.requestHistory.length} request(s)
+            </span>
+          </div>
+          {stats.employeeContext.requestHistory.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-neutral-200">
+              <table className="w-full min-w-[760px] text-left text-xs">
+                <thead className="bg-neutral-50 text-neutral-700">
+                  <tr>
+                    <th className="px-3 py-2.5">Request No.</th>
+                    <th className="px-3 py-2.5">Leave Type</th>
+                    <th className="px-3 py-2.5">Dates</th>
+                    <th className="px-3 py-2.5">Duration</th>
+                    <th className="px-3 py-2.5">Status</th>
+                    <th className="px-3 py-2.5">Approval Details / Remarks</th>
+                    <th className="px-3 py-2.5">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {stats.employeeContext.requestHistory.map((request) => {
+                    const status = String(request.finalStatus || request.status || 'PENDING').toUpperCase();
+                    const statusClass = status === 'APPROVED'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : status === 'REJECTED'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : status === 'CANCELLED'
+                          ? 'bg-neutral-100 text-neutral-700 border-neutral-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200';
+                    const approvalDetails = [
+                      request.teamLeaderDecision && `Reporting Person: ${request.teamLeaderDecision}${request.teamLeaderRemarks ? ` — ${request.teamLeaderRemarks}` : ''}`,
+                      request.hrDecision && `HR: ${request.hrDecision}${request.hrRemarks ? ` — ${request.hrRemarks}` : ''}`,
+                      request.managementDecision && `Top Management: ${request.managementDecision}${request.managementRemarks ? ` — ${request.managementRemarks}` : ''}`,
+                    ].filter(Boolean);
+                    return (
+                      <tr key={request.id} className="align-top hover:bg-neutral-50/70">
+                        <td className="px-3 py-3 font-mono font-semibold text-neutral-800">{request.requestNumber || `#${request.id}`}</td>
+                        <td className="px-3 py-3 text-neutral-800">{request.leaveTypeName}</td>
+                        <td className="px-3 py-3 whitespace-nowrap text-neutral-700">{formatDate(request.startDate)} – {formatDate(request.endDate)}</td>
+                        <td className="px-3 py-3 whitespace-nowrap text-neutral-700">{request.totalDays} Days{request.dayType ? ` • ${request.dayType.replace(/_/g, ' ')}` : ''}</td>
+                        <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold ${statusClass}`}>{status}</span></td>
+                        <td className="px-3 py-3 min-w-[210px] text-neutral-600">
+                          {approvalDetails.length ? <ul className="space-y-1">{approvalDetails.map((detail, index) => <li key={index}>{detail}</li>)}</ul> : <span className="text-neutral-400">No decision remarks recorded</span>}
+                        </td>
+                        <td className="px-3 py-3 min-w-[180px] text-neutral-600">{request.reason || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="rounded-lg bg-neutral-50 px-4 py-6 text-center text-xs text-neutral-500">No leave applications have been submitted by this employee.</p>
+          )}
+        </section>
       )}
 
       {/* ADMIN / HR / TOP MANAGEMENT VIEW */}
