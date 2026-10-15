@@ -846,11 +846,19 @@ export class LeaveService {
       throw new ValidationError(`Cannot initialize leave balances: employee '${employeeId}' was not found.`);
     }
 
-    const [types, policies, existingBalances] = await Promise.all([
+    const [types, policies, existingBalances, existingTransactions] = await Promise.all([
       this.getLeaveTypes(),
       this.getLeavePolicies(),
       this.getLeaveBalances({ employeeId: numericEmpId, year }),
+      isDbConfigured() && getDb()
+        ? getDb()!.select().from(leaveBalanceTransactions).where(eq(leaveBalanceTransactions.employeeId, numericEmpId))
+        : Promise.resolve([] as any[]),
     ]);
+    const balancesWithAllocationTransaction = new Set(
+      existingTransactions
+        .filter((transaction: any) => transaction.transactionType === 'ALLOCATION' && transaction.leaveBalanceId)
+        .map((transaction: any) => Number(transaction.leaveBalanceId))
+    );
     const activeTypes = types.filter((type) => type.isActive);
     const now = new Date();
     const joiningDate = resolvedEmp?.joiningDate ? new Date(resolvedEmp.joiningDate) : null;
@@ -859,7 +867,28 @@ export class LeaveService {
       : 0;
 
     for (const type of activeTypes) {
-      if (existingBalances.some((balance) => Number(balance.leaveTypeId) === Number(type.id))) continue;
+      const existingBalance = existingBalances.find((balance) => Number(balance.leaveTypeId) === Number(type.id));
+      if (existingBalance) {
+        if (isDbConfigured() && Number(existingBalance.allocated || 0) > 0 && !balancesWithAllocationTransaction.has(Number(existingBalance.id))) {
+          const db = getDb();
+          if (!db) throw new Error('Database is configured but unavailable while reconciling leave allocation history.');
+          await db.insert(leaveBalanceTransactions).values({
+            employeeId: numericEmpId,
+            leaveTypeId: type.id,
+            leaveBalanceId: Number(existingBalance.id),
+            leaveTypeCode: type.code,
+            leaveTypeName: type.name,
+            transactionType: 'ALLOCATION',
+            quantity: Number(existingBalance.allocated || 0).toFixed(2),
+            referenceType: 'POLICY_ALLOCATION_RECONCILIATION',
+            referenceId: `${year}:${type.id}`,
+            remarks: 'Allocation ledger entry reconciled from the existing leave balance.',
+            createdBy: null,
+          });
+          balancesWithAllocationTransaction.add(Number(existingBalance.id));
+        }
+        continue;
+      }
       const applicable = policies.filter((policy) => {
         if (!policy.isActive || Number(policy.leaveTypeId) !== Number(type.id)) return false;
         if (policy.effectiveFrom && new Date(policy.effectiveFrom).getTime() > now.getTime()) return false;
@@ -897,7 +926,23 @@ export class LeaveService {
       if (isDbConfigured()) {
         const db = getDb();
         if (!db) throw new Error('Database is configured but unavailable while initializing leave balances.');
-        await db.insert(leaveBalances).values(row).onConflictDoNothing();
+        const inserted = await db.insert(leaveBalances).values(row).onConflictDoNothing().returning();
+        if (inserted.length > 0 && allocation > 0) {
+          await db.insert(leaveBalanceTransactions).values({
+            employeeId: numericEmpId,
+            leaveTypeId: type.id,
+            leaveBalanceId: inserted[0].id,
+            leaveTypeCode: type.code,
+            leaveTypeName: type.name,
+            transactionType: 'ALLOCATION',
+            quantity: allocation.toFixed(2),
+            referenceType: 'POLICY_ALLOCATION',
+            referenceId: `${year}:${policy.id}`,
+            remarks: `Initial allocation from active leave policy #${policy.id} for ${year}.`,
+            createdBy: null,
+          });
+          balancesWithAllocationTransaction.add(Number(inserted[0].id));
+        }
       } else {
         const existingMem = memoryLeaveBalances.find((balance) =>
           balance.employeeId === numericEmpId && balance.leaveTypeId === type.id && balance.year === year
