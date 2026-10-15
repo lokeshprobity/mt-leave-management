@@ -135,7 +135,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
         const res = await apiFetch('/api/leave-requests/calculate', {
           method: 'POST',
           body: JSON.stringify({
-            ...(targetEmployeeId ? { employeeId: targetEmployeeId } : {}),
+            ...(targetEmployeeId ? { employeeId: targetEmployeeId, submittedOnBehalfOf: true } : {}),
             leaveTypeId: Number(formLeaveTypeId),
             startDate: formStartDate,
             endDate: effectiveEnd,
@@ -250,6 +250,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
 
       const payload = {
         employeeId: targetEmployeeId ?? getActiveEmployeeId(),
+        ...(targetEmployeeId ? { submittedOnBehalfOf: true } : {}),
         leaveTypeId: Number(formLeaveTypeId),
         leaveType: selectedLeaveType?.code || String(formLeaveTypeId),
         startDate: formStartDate,
