@@ -1539,7 +1539,9 @@ export function registerApiRoutes(app: express.Express) {
         const myRequests = await LeaveRequestService.getEmployeeRequests(employeeContextId);
         const myUpcoming = myRequests.filter((r: any) => r.finalStatus === 'APPROVED' && r.startDate >= today);
         const todaySchedule = await ShiftService.resolveEmployeeSchedule(employeeContextId, today);
-        const unreadCount = await NotificationService.getUnreadCount(req.user);
+        const unreadCount = viewingEmployeeAsAdmin
+          ? await NotificationService.getUnreadCountForEmployee(employeeContextId)
+          : await NotificationService.getUnreadCount(req.user);
 
         employeeContext = {
           balances: myBalances,
