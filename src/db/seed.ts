@@ -205,6 +205,17 @@ export async function seedDatabase() {
 
   console.log('[Maestro Leave Management] Ensuring 17 official shifts and their segments...');
   for (const s of INITIAL_SHIFTS) {
+    const segments = s.segments || [];
+    const firstSegment = segments[0];
+    const lastSegment = segments[segments.length - 1];
+    const shiftCode = String(s.shiftCode).trim().toUpperCase();
+    const inferredShiftType =
+      shiftCode.startsWith('SS-') || segments.length > 1
+        ? 'SPLIT'
+        : shiftCode.startsWith('NGN') || shiftCode === 'SC' || segments.some((segment) => segment.crossesMidnight)
+          ? 'NIGHT'
+          : 'DAY';
+
     const [existingShift] = await db
       .select()
       .from(shifts)
@@ -213,14 +224,6 @@ export async function seedDatabase() {
 
     let targetShift = existingShift;
     if (!targetShift) {
-      const segments = s.segments || [];
-      const firstSegment = segments[0];
-      const lastSegment = segments[segments.length - 1];
-      const inferredShiftType = segments.length > 1
-        ? 'SPLIT'
-        : segments.some((segment) => segment.crossesMidnight)
-          ? 'NIGHT'
-          : 'DAY';
       const [insertedShift] = await db
         .insert(shifts)
         .values({
@@ -235,7 +238,7 @@ export async function seedDatabase() {
           breakMinutes: s.breakMinutes || 0,
           weeklyOff: (s as any).weeklyOff || 'Sunday',
           effectiveFrom: '2026-01-01',
-          timingConfigured: s.timingConfigured ?? true,
+          timingConfigured: s.timingConfigured ?? (segments.length > 0),
           isActive: s.isActive ?? true,
         })
         .onConflictDoNothing({ target: shifts.shiftCode })
@@ -256,7 +259,16 @@ export async function seedDatabase() {
       throw new Error(`Unable to initialize official shift '${s.shiftCode}'.`);
     }
 
-    for (const seg of s.segments || []) {
+    // Correct only default DAY values that conflict with the official shift-code convention.
+    // Any existing non-default administrative choice is preserved.
+    if (targetShift.shiftType === 'DAY' && inferredShiftType !== 'DAY') {
+      await db
+        .update(shifts)
+        .set({ shiftType: inferredShiftType, updatedAt: new Date() })
+        .where(eq(shifts.id, targetShift.id));
+    }
+
+    for (const seg of segments) {
       const [existingSegment] = await db
         .select()
         .from(shiftSegments)
