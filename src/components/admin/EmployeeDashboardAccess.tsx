@@ -103,7 +103,29 @@ export function EmployeeDashboardAccess({
   const permissions = assignedRole?.permissions || [];
   const allowedModules = useMemo(() => new Set(getAllowedNavModules(role, permissions)), [role, permissions]);
   const allowedAdminTabs = useMemo(() => getVisibleAdminTabs(role, permissions), [role, permissions]);
-  const visibleTabs = MODULES.filter((item) => allowedModules.has(item.id));
+  const permissionSet = new Set(permissions.map((value) => String(value).trim().toUpperCase()));
+  const hasAny = (...codes: string[]) =>
+    permissionSet.has('ALL_PERMISSIONS') ||
+    permissionSet.has('*') ||
+    codes.some((code) => permissionSet.has(code.toUpperCase()));
+  // In this preview, the persisted role permission list is authoritative for role-specific modules.
+  // The generic navigation helper intentionally keeps self-service available for built-in roles;
+  // applying this stricter filter here prevents that default from masking explicit role settings.
+  const permissionGate: Partial<Record<ViewTab, boolean>> = {
+    dashboard: true,
+    'my-profile': hasAny('PROFILE_VIEW_OWN', 'PROFILE_EDIT_BASIC', 'PASSWORD_CHANGE_OWN', 'ALL_PERMISSIONS'),
+    'my-leave': hasAny('LEAVE_APPLY', 'LEAVE_VIEW_OWN', 'LEAVE_VIEW_TEAM', 'LEAVE_VIEW_ALL'),
+    'leave-balance': hasAny('LEAVE_VIEW_OWN', 'LEAVE_VIEW_TEAM', 'LEAVE_VIEW_ALL', 'LEAVE_BALANCE_VIEW', 'LEAVE_BALANCE_MANAGE', 'LEAVE_BALANCE_ADJUST'),
+    'my-schedule': hasAny('SCHEDULE_VIEW_OWN', 'SHIFT_VIEW', 'SHIFT_ASSIGN', 'SHIFT_EDIT', 'LEAVE_APPLY', 'LEAVE_VIEW_OWN'),
+    'team-leader': hasAny('LEAVE_TEAM_LEADER_APPROVE', 'LEAVE_VIEW_TEAM'),
+    hr: hasAny('LEAVE_HR_APPROVE'),
+    management: hasAny('LEAVE_FINAL_APPROVE'),
+    reports: hasAny('LEAVE_VIEW_ALL', 'REPORT_VIEW', 'REPORTS_VIEW', 'reports.view', 'reports.export'),
+    administration: allowedAdminTabs.length > 0,
+  };
+  const visibleTabs = MODULES.filter(
+    (item) => allowedModules.has(item.id) && permissionGate[item.id] === true
+  );
   const activeRoleLabel = assignedRole?.displayName || assignedRole?.name || role;
 
   const openModule = (module: string) => {
