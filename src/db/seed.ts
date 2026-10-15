@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { getDb, isDbConfigured } from './index.ts';
 import { leaveTypes, roles, systemSettings, shifts, shiftSegments, users, employees, departments } from './schema.ts';
 import { INITIAL_SHIFTS } from '../services/shiftService.ts';
