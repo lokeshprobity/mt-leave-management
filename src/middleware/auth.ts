@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthContext, UserRole } from '../types/leave.ts';
 import { UserService } from '../services/userService.ts';
+import { verifySessionToken } from '../services/sessionService.ts';
 
 declare global {
   namespace Express {
@@ -22,6 +23,130 @@ declare global {
  * but whenever a role header is provided (e.g. x-user-role: EMPLOYEE), strict RBAC is enforced!
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  // Production trusts only a server-signed session token. Identity/role headers are never
+  // sufficient to authenticate a request; only a real SUPER_ADMIN session may request
+  // the lower-privilege preview context used by the admin employee-dashboard preview.
+  if (process.env.NODE_ENV === 'production') {
+    const pathLower = (req.path || req.url || '').split('?')[0].toLowerCase().replace(/\/+$/, '') || '/';
+    const publicEndpoints = new Set([
+      '/health',
+      '/auth/login',
+      '/auth/forgot-password',
+      '/auth/verify-reset-token',
+      '/auth/reset-password',
+      '/company-logo',
+      '/company-logo/image',
+      '/company-branding',
+    ]);
+    if (publicEndpoints.has(pathLower)) {
+      req.user = undefined;
+      return next();
+    }
+
+    const rawTokenHeader = req.headers['x-session-token'];
+    const bearerHeader = req.headers.authorization;
+    const sessionToken = (typeof rawTokenHeader === 'string' ? rawTokenHeader : '') ||
+      (typeof bearerHeader === 'string' && bearerHeader.startsWith('Bearer ') ? bearerHeader.slice(7).trim() : '');
+    const claims = verifySessionToken(sessionToken);
+    if (!claims) {
+      return res.status(401).json({
+        error: 'Unauthorized: A valid server-issued session is required.',
+        authenticated: false,
+      });
+    }
+
+    const authenticatedRecord = UserService.getMemoryUserRecordById(claims.userId);
+    if (
+      !authenticatedRecord ||
+      authenticatedRecord.isActive === false ||
+      String(authenticatedRecord.username || '').trim().toLowerCase() !== claims.username.trim().toLowerCase() ||
+      String(authenticatedRecord.roleName || '').trim().toUpperCase() !== claims.role
+    ) {
+      return res.status(401).json({
+        error: 'Unauthorized: The session no longer matches an active account. Please log in again.',
+        authenticated: false,
+      });
+    }
+
+    const validSystemRoles: UserRole[] = [
+      'SUPER_ADMIN',
+      'HR',
+      'TOP_MANAGEMENT',
+      'TEAM_LEADER',
+      'EMPLOYEE',
+    ];
+    const rawRoleHeader = (req.headers['x-user-role'] as string)?.trim().toUpperCase();
+    const isSuperAdminSession = claims.role === 'SUPER_ADMIN';
+    const requestedRoleIsValid = Boolean(
+      rawRoleHeader &&
+      (validSystemRoles.includes(rawRoleHeader as UserRole) || UserService.isValidRoleName(rawRoleHeader))
+    );
+    const effectiveRole = (
+      isSuperAdminSession && requestedRoleIsValid ? rawRoleHeader : claims.role
+    ) as UserRole;
+
+    const requestedUserId = req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : NaN;
+    const effectiveUserRecord =
+      isSuperAdminSession && Number.isInteger(requestedUserId) && requestedUserId > 0
+        ? UserService.getMemoryUserRecordById(requestedUserId) || authenticatedRecord
+        : authenticatedRecord;
+
+    const rawEmployeeHeader = req.headers['x-employee-id']
+      ? String(req.headers['x-employee-id']).trim()
+      : '';
+    const requestedEmployeeId =
+      isSuperAdminSession && /^\d+$/.test(rawEmployeeHeader) ? Number(rawEmployeeHeader) : undefined;
+    const effectiveEmployeeId = requestedEmployeeId ?? effectiveUserRecord.employeeId ?? undefined;
+    const effectiveEmployeeRecord =
+      isSuperAdminSession && effectiveEmployeeId
+        ? UserService.getMemoryUserRecordByEmployee(effectiveEmployeeId) || effectiveUserRecord
+        : effectiveUserRecord;
+    const effectiveDept = effectiveEmployeeRecord.departmentId
+      ? UserService.getDepartmentByIdSync(effectiveEmployeeRecord.departmentId)
+      : null;
+    const headerUsername = (req.headers['x-username'] as string)?.trim();
+
+    req.user = {
+      userId: effectiveUserRecord.id,
+      employeeId: effectiveEmployeeId,
+      employeeCode: effectiveEmployeeRecord.employeeCode ?? undefined,
+      departmentId: effectiveEmployeeRecord.departmentId ?? null,
+      departmentCode: effectiveDept?.code ?? null,
+      username: isSuperAdminSession
+        ? headerUsername || effectiveUserRecord.username
+        : authenticatedRecord.username,
+      role: effectiveRole,
+      ...(effectiveEmployeeRecord.roleName === effectiveRole
+        ? { operationalRole: UserService.resolveOperationalRoleForRecord(effectiveEmployeeRecord) }
+        : {}),
+    };
+
+    // Forced password changes are enforced against the actual signed-in account, not
+    // an admin's temporary employee-preview context.
+    if (authenticatedRecord.mustChangePassword === true) {
+      const isAllowedDuringForcedChange =
+        pathLower === '/health' ||
+        pathLower === '/auth/login' ||
+        pathLower === '/auth/logout' ||
+        pathLower === '/auth/me' ||
+        pathLower === '/auth/forgot-password' ||
+        pathLower === '/auth/verify-reset-token' ||
+        pathLower === '/auth/reset-password' ||
+        pathLower === '/company-logo' ||
+        pathLower === '/company-logo/image' ||
+        pathLower === '/company-branding' ||
+        pathLower === '/users/change-password' ||
+        pathLower === `/users/${authenticatedRecord.id}/change-password`;
+      if (!isAllowedDuringForcedChange) {
+        return res.status(403).json({
+          error: 'Forbidden: Password change required. Please change your temporary password before accessing this resource.',
+          mustChangePassword: true,
+          code: 'PASSWORD_CHANGE_REQUIRED',
+        });
+      }
+    }
+    return next();
+  }
   const authStateHeader = (req.headers['x-auth-state'] as string)?.toUpperCase();
   const rawRoleHeader = (req.headers['x-user-role'] as string)?.trim().toUpperCase();
   const validSystemRoles: UserRole[] = [
