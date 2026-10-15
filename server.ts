@@ -67,13 +67,32 @@ export function registerApiRoutes(app: express.Express) {
   // 1. Health & Database Status Check
   app.get('/api/health', async (_req: Request, res: Response) => {
     const configured = isDbConfigured();
-    res.json({
-      application: 'Maestro Leave Management',
+    let connected = false;
+    if (configured) {
+      try {
+        await verifyDatabaseConnectivity();
+        connected = true;
+      } catch {
+        return res.status(503).json({
+          application: 'MT Leave Management',
+          status: 'degraded',
+          database: {
+            engine: 'PostgreSQL',
+            orm: 'Drizzle ORM',
+            isConfigured: true,
+            isConnected: false,
+          },
+        });
+      }
+    }
+    res.status(configured && !connected ? 503 : 200).json({
+      application: 'MT Leave Management',
       status: 'ok',
       database: {
         engine: 'PostgreSQL',
         orm: 'Drizzle ORM',
         isConfigured: configured,
+        isConnected: connected,
         tablesDefined: [
           'users',
           'roles',
@@ -86,12 +105,16 @@ export function registerApiRoutes(app: express.Express) {
           'leave_balances',
           'leave_balance_transactions',
           'holidays',
+          'holiday_lists',
+          'employee_holiday_assignments',
           'leave_requests',
           'leave_request_events',
           'notifications',
           'shifts',
           'shift_segments',
           'employee_shift_assignments',
+          'employee_weekly_off_assignments',
+          'system_audit_logs',
         ],
       },
     });
@@ -3784,7 +3807,7 @@ async function startServer() {
 
   const app = express();
   app.set('trust proxy', 1);
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   registerApiRoutes(app);
 
