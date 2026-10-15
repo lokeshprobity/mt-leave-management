@@ -444,8 +444,8 @@ function addDaysToDateStr(dateStr: string, days: number): string {
   return dt.toISOString().split('T')[0];
 }
 
-export function MySchedule() {
-  const employeeId = getActiveEmployeeId();
+export function MySchedule({ targetEmployeeId }: { targetEmployeeId?: number } = {}) {
+  const employeeId = targetEmployeeId ?? getActiveEmployeeId();
   const activeRole = getActiveRole();
 
   const todayStr = new Date().toISOString().split('T')[0];
