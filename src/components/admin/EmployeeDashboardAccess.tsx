@@ -130,9 +130,9 @@ export function EmployeeDashboardAccess({
           {activeTab === 'profile' && (
             <MyProfile
               key={`employee-view-profile-${employeeId}`}
-              currentRole="EMPLOYEE"
               currentEmployeeId={employeeId}
               targetEmployeeId={employeeId}
+              viewAsEmployee
             />
           )}
         </main>
