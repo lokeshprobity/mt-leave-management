@@ -332,8 +332,8 @@ export function EmployeeAdmin({
     const aIsAdmin = String(a.role || '').toUpperCase() === 'SUPER_ADMIN';
     const bIsAdmin = String(b.role || '').toUpperCase() === 'SUPER_ADMIN';
     if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
-    const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
-    const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
+    const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
+    const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
     if (aCode && bCode) return Number(aCode[1]) - Number(bCode[1]);
     if (aCode) return -1;
     if (bCode) return 1;

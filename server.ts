@@ -1707,9 +1707,10 @@ export function registerApiRoutes(app: express.Express) {
           error: 'Forbidden: Reports & MIS is restricted to authorized HR, Top Management, and Super Admin roles.',
         });
       }
-      const allEmployees = canViewEmployees
+      const allEmployees = (canViewEmployees
         ? await UserService.getAllEmployees()
-        : (await UserService.getAllEmployees()).filter((e) => e.id === req.user?.employeeId);
+        : (await UserService.getAllEmployees()).filter((e) => e.id === req.user?.employeeId))
+        .filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN');
       const allRequests = await LeaveRequestService.getAllRequests();
       const allTypes = await LeaveService.getLeaveTypes({ includeInactive: true });
       const holidays = await HolidayService.getHolidays();
@@ -2843,8 +2844,8 @@ export function registerApiRoutes(app: express.Express) {
             const aIsAdmin = String(a.role || '').toUpperCase() === 'SUPER_ADMIN';
             const bIsAdmin = String(b.role || '').toUpperCase() === 'SUPER_ADMIN';
             if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
-            const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
-            const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
+            const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
+            const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
             if (aCode && bCode) return Number(aCode[1]) - Number(bCode[1]);
             if (aCode) return -1;
             if (bCode) return 1;
