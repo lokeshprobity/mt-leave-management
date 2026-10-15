@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { eq } from 'drizzle-orm';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as dotenv from 'dotenv';
@@ -3741,7 +3742,7 @@ async function reconcileCurrentYearLeaveBalances(): Promise<void> {
   const db = getDb();
   if (!db) return;
   const currentYear = new Date().getFullYear();
-  const activeEmployees = await db.select({ id: employees.id }).from(employees).where((await import('drizzle-orm')).eq(employees.employmentStatus, 'ACTIVE'));
+  const activeEmployees = await db.select({ id: employees.id }).from(employees).where(eq(employees.employmentStatus, 'ACTIVE'));
   for (const employee of activeEmployees) {
     try {
       await LeaveService.initializeEmployeeBalances(employee.id, currentYear);
