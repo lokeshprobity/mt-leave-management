@@ -153,7 +153,8 @@ export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false, view
   const sessionRole: UserRole = getActiveRole();
   const activeRole: UserRole = viewAsEmployee && viewAsRole ? viewAsRole : sessionRole;
 
-  const isEmployee = activeRole === 'EMPLOYEE';
+  // Preview must render the employee self-service layout regardless of operational role.
+  const isEmployee = viewAsEmployee || activeRole === 'EMPLOYEE';
 
   const loadData = async () => {
     setLoading(true);

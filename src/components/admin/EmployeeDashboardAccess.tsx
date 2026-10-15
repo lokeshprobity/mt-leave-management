@@ -91,7 +91,7 @@ export function EmployeeDashboardAccess({
     // when the account role is the generic EMPLOYEE role.
     const resolved = assignedRole && !builtInRoles.has(assignedRole)
       ? assignedRole
-      : operationalRole || assignedRole || 'EMPLOYEE';
+      : assignedRole || operationalRole || 'EMPLOYEE';
     return resolved as UserRole;
   }, [employee]);
 

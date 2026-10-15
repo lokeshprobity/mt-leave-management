@@ -350,6 +350,16 @@ export function UserManagementAdmin({
       (statusFilter === 'INACTIVE' && !u.isActive);
 
     return matchesSearch && matchesRole && matchesDept && matchesStatus;
+  }).sort((a, b) => {
+    const aIsAdmin = String(a.roleName || '').toUpperCase() === 'SUPER_ADMIN';
+    const bIsAdmin = String(b.roleName || '').toUpperCase() === 'SUPER_ADMIN';
+    if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
+    const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
+    const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
+    if (aCode && bCode) return Number(aCode[1]) - Number(bCode[1]);
+    if (aCode) return -1;
+    if (bCode) return 1;
+    return String(a.fullName || a.username || '').localeCompare(String(b.fullName || b.username || ''));
   });
 
   return (

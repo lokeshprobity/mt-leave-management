@@ -60,6 +60,18 @@ export function registerApiRoutes(app: express.Express) {
     );
   };
 
+  const denySuperAdminEmployeeTarget = async (
+    targetId: number | string | undefined,
+    req: Request,
+    res: Response
+  ): Promise<boolean> => {
+    if (req.user?.role === 'SUPER_ADMIN' || targetId === undefined || targetId === null) return false;
+    const target = await UserService.getEmployeeById(targetId);
+    if (String(target?.role || '').toUpperCase() !== 'SUPER_ADMIN') return false;
+    res.status(404).json({ error: 'Employee profile not found.' });
+    return true;
+  };
+
   // ----------------------------------------------------
   // API Routes
   // ----------------------------------------------------
@@ -1526,6 +1538,7 @@ export function registerApiRoutes(app: express.Express) {
     try {
       const today = new Date().toISOString().split('T')[0];
       const allEmployees = await UserService.getAllEmployees();
+      const employeeDirectory = allEmployees.filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN');
       const allRequests = await LeaveRequestService.getAllRequests();
       const requestedEmployeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
       if (requestedEmployeeId !== undefined && (!Number.isInteger(requestedEmployeeId) || requestedEmployeeId <= 0)) {
@@ -1649,7 +1662,7 @@ export function registerApiRoutes(app: express.Express) {
       }
 
       res.json({
-        totalEmployees: allEmployees.length,
+        totalEmployees: employeeDirectory.length,
         onLeaveTodayCount: onLeaveToday.length,
         onLeaveTodayList: onLeaveToday.map((r: any) => ({
           id: r.id,
@@ -1889,6 +1902,7 @@ export function registerApiRoutes(app: express.Express) {
   app.get('/api/employees/:id/holiday-assignments', async (req: Request, res: Response) => {
     try {
       const id = parseIdOrCode(req.params.id)!;
+      if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       if (req.user?.role === 'EMPLOYEE' && !isSameEmployeeActor(req.user, id)) {
         return res.status(403).json({ error: 'Forbidden: You can only view your own holiday assignments' });
       }
@@ -2395,7 +2409,10 @@ export function registerApiRoutes(app: express.Express) {
         const isActive = req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined;
         const search = req.query.search as string | undefined;
         const users = await UserService.getUsers({ role, isActive, search });
-        res.json({ success: true, users });
+        const visibleUsers = req.user?.role === 'SUPER_ADMIN'
+          ? users
+          : users.filter((user: any) => String(user.roleName || user.role || '').toUpperCase() !== 'SUPER_ADMIN');
+        res.json({ success: true, users: visibleUsers });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }
@@ -2597,8 +2614,8 @@ export function registerApiRoutes(app: express.Express) {
         }
       }
       const user = await UserService.getUserById(id);
-      if (!user) {
-        return res.status(404).json({ error: `User with ID ${id} not found` });
+      if (!user || (user.roleName === 'SUPER_ADMIN' && req.user?.role !== 'SUPER_ADMIN')) {
+        return res.status(404).json({ error: 'User profile not found.' });
       }
       res.json({ success: true, user });
     } catch (err: any) {
@@ -2818,7 +2835,21 @@ export function registerApiRoutes(app: express.Express) {
         if (req.query.reportingManagerId) filter.reportingManagerId = parseIdOrCode(req.query.reportingManagerId);
         if (req.query.isActive !== undefined) filter.isActive = req.query.isActive === 'true';
 
-        const employees = await UserService.getEmployees(filter);
+        const allEmployees = await UserService.getEmployees(filter);
+        const employees = (req.user?.role === 'SUPER_ADMIN'
+          ? allEmployees
+          : allEmployees.filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN'))
+          .sort((a: any, b: any) => {
+            const aIsAdmin = String(a.role || '').toUpperCase() === 'SUPER_ADMIN';
+            const bIsAdmin = String(b.role || '').toUpperCase() === 'SUPER_ADMIN';
+            if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
+            const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
+            const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\\d+)$/);
+            if (aCode && bCode) return Number(aCode[1]) - Number(bCode[1]);
+            if (aCode) return -1;
+            if (bCode) return 1;
+            return String(a.employeeName || '').localeCompare(String(b.employeeName || ''));
+          });
         res.json({ success: true, employees });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -2830,6 +2861,7 @@ export function registerApiRoutes(app: express.Express) {
   app.get('/api/employees/:id', async (req: Request, res: Response) => {
     try {
       const id = parseIdOrCode(req.params.id)!;
+      if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       const isSelf = isSameEmployeeActor(req.user, id);
       if (req.user?.role !== 'SUPER_ADMIN') {
         if ((req.user?.role === 'EMPLOYEE' || req.user?.role === 'TEAM_LEADER') && !isSelf) {
@@ -2856,6 +2888,7 @@ export function registerApiRoutes(app: express.Express) {
     try {
       const id = parseIdOrCode(req.params.id);
       if (id === undefined) return res.status(400).json({ error: 'Invalid employee ID' });
+      if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       const year = req.query.year ? Number(req.query.year) : undefined;
       const profile = await UserService.getCompleteUserProfile({ employeeId: id }, req.user!, { year });
       res.json({ success: true, profile });
@@ -2912,6 +2945,7 @@ export function registerApiRoutes(app: express.Express) {
   app.get('/api/employees/:id/leave-requests', async (req: Request, res: Response) => {
     try {
       const id = parseIdOrCode(req.params.id)!;
+      if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       const isSelf = isSameEmployeeActor(req.user, id);
       if (req.user?.role !== 'SUPER_ADMIN' && !isSelf) {
         if (req.user?.role === 'EMPLOYEE' || req.user?.role === 'TEAM_LEADER') {
@@ -2931,6 +2965,7 @@ export function registerApiRoutes(app: express.Express) {
   app.get('/api/employees/:id/leave-balances', async (req: Request, res: Response) => {
     try {
       const id = parseIdOrCode(req.params.id)!;
+      if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       const year = req.query.year ? Number(req.query.year) : new Date().getFullYear();
       const balances = await LeaveService.getLeaveBalances({ employeeId: id, year }, req.user);
       res.json({ success: true, balances });
@@ -3479,6 +3514,7 @@ export function registerApiRoutes(app: express.Express) {
   app.get('/api/employees/:id/weekly-off', async (req: Request, res: Response) => {
     try {
       const id = parseIdOrCode(req.params.id)!;
+      if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       if (req.user?.role !== 'SUPER_ADMIN' && !isSameEmployeeActor(req.user, id)) {
         if (req.user?.role === 'EMPLOYEE' || req.user?.role === 'TEAM_LEADER') {
           return res.status(403).json({ error: 'Forbidden: You can only view your own weekly off history' });
@@ -3753,6 +3789,7 @@ export function registerApiRoutes(app: express.Express) {
   app.get(['/api/employees/:id/360', '/api/employee-360/:id'], async (req: Request, res: Response) => {
     try {
       const id = parseIdOrCode(req.params.id)!;
+      if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       const year = req.query.year ? Number(req.query.year) : undefined;
       const profile = await UserService.getCompleteUserProfile({ employeeId: id }, req.user!, { year });
       res.json({ success: true, profile });
