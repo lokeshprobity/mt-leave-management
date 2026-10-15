@@ -3757,6 +3757,7 @@ export async function verifyServerDatabaseReadiness(): Promise<void> {
     await verifyDatabaseConnectivity();
     await runMigrations();
     await seedDatabase();
+    await HolidayService.ensureDefaultHolidayLists();
     await DataImportService.importLocalMetadataToDatabase();
     await UserService.syncFromDatabase();
     await reconcileCurrentYearLeaveBalances();
@@ -3764,6 +3765,7 @@ export async function verifyServerDatabaseReadiness(): Promise<void> {
   } else if (isDbConfigured()) {
     await verifyDatabaseConnectivity();
     await seedDatabase();
+    await HolidayService.ensureDefaultHolidayLists();
     await DataImportService.importLocalMetadataToDatabase();
     await UserService.syncFromDatabase();
     await reconcileCurrentYearLeaveBalances();
