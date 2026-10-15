@@ -1197,28 +1197,24 @@ export class HolidayService {
 
     if (isDbConfigured()) {
       const db = getDb();
-      if (db) {
-        try {
-          const rows = await db
-            .insert(holidayLists)
-            .values({
-              listCode,
-              listName,
-              year,
-              departmentId,
-              isDefault,
-              isActive,
-              description,
-            })
-            .returning();
-          if (rows.length > 0) {
-            created = {
-              ...created,
-              id: rows[0].id,
-            };
-          }
-        } catch {}
-      }
+      if (!db) throw new Error('Database is configured but unavailable while creating a holiday list.');
+      const rows = await db
+        .insert(holidayLists)
+        .values({
+          listCode,
+          listName,
+          year,
+          departmentId,
+          isDefault,
+          isActive,
+          description,
+        })
+        .returning();
+      if (!rows[0]) throw new Error('Holiday list was not persisted to the database.');
+      created = {
+        ...created,
+        id: rows[0].id,
+      };
     }
 
     memoryHolidayLists.push(created);
@@ -1580,25 +1576,21 @@ export class HolidayService {
 
     if (isDbConfigured()) {
       const db = getDb();
-      if (db) {
-        try {
-          const rows = await db
-            .insert(employeeHolidayAssignments)
-            .values({
-              employeeId: resolvedEmpId,
-              holidayListId: Number(input.holidayListId),
-              effectiveFrom,
-              effectiveTo,
-              assignedBy: actor?.userId || null,
-              remarks: created.remarks,
-              isActive: true,
-            })
-            .returning();
-          if (rows.length > 0) {
-            created.id = rows[0].id;
-          }
-        } catch {}
-      }
+      if (!db) throw new Error('Database is configured but unavailable while assigning a holiday list.');
+      const rows = await db
+        .insert(employeeHolidayAssignments)
+        .values({
+          employeeId: resolvedEmpId,
+          holidayListId: Number(input.holidayListId),
+          effectiveFrom,
+          effectiveTo,
+          assignedBy: actor?.userId || null,
+          remarks: created.remarks,
+          isActive: true,
+        })
+        .returning();
+      if (!rows[0]) throw new Error('Holiday list assignment was not persisted to the database.');
+      created.id = rows[0].id;
     }
 
     memoryEmployeeHolidayAssignments.push(created);
