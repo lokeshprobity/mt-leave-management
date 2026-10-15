@@ -2880,6 +2880,8 @@ export function registerApiRoutes(app: express.Express) {
     async (req: Request, res: Response) => {
       try {
         const created = await UserService.createEmployee(req.body, req.user!);
+        // Initialize missing balances from active, applicable leave policies for each new employee.
+        await LeaveService.initializeEmployeeBalances(created.id, new Date().getFullYear(), req.user!);
         const emailDelivery = created.credentialEmail ?? null;
         res.status(201).json({
           success: true,
