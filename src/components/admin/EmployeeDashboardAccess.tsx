@@ -199,12 +199,7 @@ export function EmployeeDashboardAccess({
                   </div> : <p className="mt-4 text-sm text-neutral-500">No administration areas are assigned to this role.</p>}
                 </section>
               )}
-              <section className="mt-5 rounded-xl border border-neutral-200 bg-white p-4">
-                <div className="flex items-center justify-between gap-3"><h3 className="text-xs font-bold uppercase tracking-wide text-neutral-700">Assigned Role Permissions</h3><span className="text-[11px] text-neutral-500">{permissions.length} permissions</span></div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {permissions.length ? permissions.map((permission) => <span key={permission} className="rounded-md bg-neutral-100 px-2 py-1 text-[10px] font-medium text-neutral-700">{permission}</span>) : <span className="text-xs text-amber-700">No persisted permission list was returned for this role; access is not inferred.</span>}
-                </div>
-              </section>
+              
             </main>
           </>
         )}

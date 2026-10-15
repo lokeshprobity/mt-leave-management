@@ -142,16 +142,18 @@ interface DashboardProps {
   onNavigate?: (module: string) => void;
   employeeId?: number;
   viewAsEmployee?: boolean;
+  viewAsRole?: UserRole;
   employeeName?: string;
 }
 
-export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false, employeeName }: DashboardProps) {
+export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false, viewAsRole, employeeName }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const activeRole: UserRole = getActiveRole();
+  const sessionRole: UserRole = getActiveRole();
+  const activeRole: UserRole = viewAsEmployee && viewAsRole ? viewAsRole : sessionRole;
 
-  const isEmployee = viewAsEmployee || activeRole === 'EMPLOYEE';
+  const isEmployee = activeRole === 'EMPLOYEE';
 
   const loadData = async () => {
     setLoading(true);
@@ -200,7 +202,7 @@ export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false, empl
 
   const todayStr = formatDate(new Date());
   const activeSession = getActiveUserSession();
-  const displayRole: UserRole = viewAsEmployee ? 'EMPLOYEE' : activeRole;
+  const displayRole: UserRole = activeRole;
   const displayUserName = viewAsEmployee
     ? (employeeName || 'Employee')
     : (activeSession.fullName || activeSession.username || formatRoleDisplayName(activeRole));
