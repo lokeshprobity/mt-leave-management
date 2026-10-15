@@ -123,9 +123,10 @@ interface DashboardProps {
   onNavigate?: (module: string) => void;
   employeeId?: number;
   viewAsEmployee?: boolean;
+  employeeName?: string;
 }
 
-export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false }: DashboardProps) {
+export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false, employeeName }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -180,8 +181,10 @@ export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false }: Da
 
   const todayStr = formatDate(new Date());
   const activeSession = getActiveUserSession();
-  const displayUserName =
-    activeSession.fullName || activeSession.username || formatRoleDisplayName(activeRole);
+  const displayRole: UserRole = viewAsEmployee ? 'EMPLOYEE' : activeRole;
+  const displayUserName = viewAsEmployee
+    ? (employeeName || 'Employee')
+    : (activeSession.fullName || activeSession.username || formatRoleDisplayName(activeRole));
   const unreadNotificationsCount = stats?.employeeContext?.unreadCount ?? 0;
   const totalPendingOperational =
     (stats?.pendingTeamLeaderCount ?? 0) +
@@ -203,7 +206,7 @@ export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false }: Da
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${MT_THEME.badge.brand}`}>
-                  {formatRoleDisplayName(activeRole)}
+                  {formatRoleDisplayName(displayRole)}
                 </span>
                 <span className="text-[11px] font-medium text-neutral-500 flex items-center gap-1">
                   <Calendar className="w-3 h-3 shrink-0" />
@@ -1047,7 +1050,7 @@ export function Dashboard({ onNavigate, employeeId, viewAsEmployee = false }: Da
               {isEmployee ? 'Employee Leave Hub' : 'Operational Leave & Attendance Dashboard'}
             </h1>
             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-100 text-sky-900 border border-sky-300">
-              {activeRole}
+              {displayRole}
             </span>
           </div>
           <p className="text-xs text-neutral-600 mt-1 flex items-center gap-1.5">
