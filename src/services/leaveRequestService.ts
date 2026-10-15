@@ -783,7 +783,7 @@ export class LeaveRequestService {
     if (actor?.operationalRole && !actingOnBehalf) {
       operationalRole = actor.operationalRole;
     } else if (empHierarchy.employeeExists) {
-      if (actor?.role !== 'SUPER_ADMIN' && empHierarchy.role !== 'SUPER_ADMIN') {
+      if ((actor?.role !== 'SUPER_ADMIN' || actingOnBehalf) && empHierarchy.role !== 'SUPER_ADMIN') {
         operationalRole = empHierarchy.operationalRole || (empHierarchy.role as OperationalRole);
       } else {
         operationalRole = empHierarchy.operationalRole;
