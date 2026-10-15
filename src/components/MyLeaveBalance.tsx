@@ -186,7 +186,7 @@ export function MyLeaveBalance({ targetEmployeeId, viewAsEmployee = false }: MyL
             </div>
           </div>
 
-          {activeRole === 'SUPER_ADMIN' && balances.length === 0 && leaveTypes.length > 0 && (
+          {canManageBalances && balances.length === 0 && leaveTypes.length > 0 && (
             <button
               id="mobile-init-balances-btn"
               type="button"
@@ -402,7 +402,7 @@ export function MyLeaveBalance({ targetEmployeeId, viewAsEmployee = false }: MyL
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-sky-700' : ''}`} />
             </button>
 
-            {activeRole === 'SUPER_ADMIN' && balances.length === 0 && leaveTypes.length > 0 && (
+            {canManageBalances && balances.length === 0 && leaveTypes.length > 0 && (
               <button
                 id="init-balances-btn"
                 onClick={handleInitializeBalances}
@@ -560,7 +560,7 @@ export function MyLeaveBalance({ targetEmployeeId, viewAsEmployee = false }: MyL
                       <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
                         Balance ledger records are populated from administrative allocation and policy baselines.
                       </p>
-                      {activeRole === 'SUPER_ADMIN' && (
+                      {canManageBalances && (
                         <button
                           onClick={handleInitializeBalances}
                           className="mt-3 px-3.5 py-1.5 text-xs font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800 cursor-pointer"
