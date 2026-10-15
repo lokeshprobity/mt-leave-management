@@ -333,29 +333,13 @@ export function isValidClientSessionPayload(
   if (!isUserRoleValue(parsed.role)) {
     return false;
   }
-  if (typeof parsed.sessionToken !== 'string' || !parsed.sessionToken.startsWith('mts1.')) {
+  if (typeof parsed.sessionToken !== 'string' || !parsed.sessionToken.startsWith('mts2.')) {
     return false;
   }
   const parts = parsed.sessionToken.split('.');
-  if (parts.length !== 5) return false;
-  const [, issuedAt36, expiresAt36, nonce, sig] = parts;
-  const issuedAt = parseInt(issuedAt36, 36);
-  const expiresAt = parseInt(expiresAt36, 36);
-  if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt)) return false;
-  if (!nonce || nonce.length < 16 || !sig || sig.length !== 16) return false;
-  if (typeof parsed.expiresAt === 'number' && parsed.expiresAt !== expiresAt) return false;
-  if (Date.now() >= expiresAt) {
-    return false;
-  }
-  const expectedSig = computeSessionSignature(
-    parsed.userId,
-    parsed.username,
-    parsed.role,
-    issuedAt,
-    expiresAt,
-    nonce
-  );
-  return sig === expectedSig;
+  if (parts.length !== 3 || !parts[1] || !parts[2]) return false;
+  if (typeof parsed.expiresAt !== 'number' || !Number.isFinite(parsed.expiresAt)) return false;
+  return Date.now() < parsed.expiresAt;
 }
 
 function resetClientStateToUnauthenticated(): void {
@@ -505,9 +489,14 @@ export function setActiveRole(
     dynamicRolePermissionsMap[role] = [...meta!.permissions];
   }
   currentMustChangePassword = false;
-  const signed = createSignedSessionToken(currentUserId, currentUsername, currentRole);
-  currentSessionToken = signed.sessionToken;
-  currentExpiresAt = signed.expiresAt;
+  // Role changes are a UI preview only. Preserve the server-issued token for the
+  // actual authenticated account; the backend permits preview headers only for a
+  // verified SUPER_ADMIN token.
+  if (!isBrowserRuntime) {
+    const signed = createSignedSessionToken(currentUserId, currentUsername, currentRole);
+    currentSessionToken = signed.sessionToken;
+    currentExpiresAt = signed.expiresAt;
+  }
   persistSessionToStorage();
 }
 
@@ -552,12 +541,31 @@ export function loginUserSession(user: {
   if (Array.isArray(user.permissions)) {
     dynamicRolePermissionsMap[resolvedRole] = [...user.permissions];
   }
-  const signed = createSignedSessionToken(currentUserId, currentUsername, currentRole);
-  currentSessionToken = signed.sessionToken;
-  currentExpiresAt =
-    typeof user.expiresAt === 'number' && user.expiresAt > Date.now()
-      ? user.expiresAt
-      : signed.expiresAt;
+  const suppliedToken = typeof user.sessionToken === 'string' ? user.sessionToken.trim() : '';
+  const canReuseCurrentToken = Boolean(
+    currentSessionToken &&
+    currentExpiresAt > Date.now() &&
+    currentUserId === resolvedUserId &&
+    currentUsername.trim().toLowerCase() === resolvedUsername.toLowerCase() &&
+    currentRole === resolvedRole
+  );
+  if (isBrowserRuntime && !suppliedToken && !canReuseCurrentToken) {
+    invalidateClientSessionAndRedirectToLogin();
+    return getActiveUserSession();
+  }
+  if (suppliedToken) {
+    currentSessionToken = suppliedToken;
+    currentExpiresAt =
+      typeof user.expiresAt === 'number' && user.expiresAt > Date.now()
+        ? user.expiresAt
+        : Date.now() + SESSION_TTL_MS;
+  } else if (canReuseCurrentToken) {
+    // Keep the current server-issued token when refreshing the same signed-in user.
+  } else {
+    const signed = createSignedSessionToken(currentUserId, currentUsername, currentRole);
+    currentSessionToken = signed.sessionToken;
+    currentExpiresAt = signed.expiresAt;
+  }
   persistSessionToStorage();
   return getActiveUserSession();
 }
@@ -573,6 +581,7 @@ export async function logoutUserSession(): Promise<void> {
           'x-user-id': String(currentUserId),
           'x-employee-id': String(currentEmployeeId),
           'x-username': currentUsername,
+          ...(currentSessionToken ? { 'x-session-token': currentSessionToken } : {}),
         },
       }).catch(() => {});
     }
