@@ -1053,6 +1053,49 @@ export class HolidayService {
   // HOLIDAY LISTS & EFFECTIVE-DATED EMPLOYEE ASSIGNMENTS
   // ============================================================================
 
+  public static async ensureDefaultHolidayLists(): Promise<void> {
+    if (!isDbConfigured()) return;
+    const db = getDb();
+    if (!db) throw new Error('Database is configured but unavailable while initializing holiday lists.');
+
+    const departmentRows = await db.select().from(departments);
+    const departmentCodeByList: Record<string, string> = {
+      HL_MAESTRO_IMPORT_2026: 'MT_IMP',
+      HL_AR_TRANS_2026: 'AR_TNSPRT_USA',
+      HL_MAESTRO_CFS_2026: 'MT_CSF_USA',
+    };
+
+    for (const list of createDefaultHolidayLists()) {
+      const [existing] = await db
+        .select()
+        .from(holidayLists)
+        .where(eq(holidayLists.listCode, list.listCode))
+        .limit(1);
+      if (existing) continue;
+
+      const departmentCode = departmentCodeByList[list.listCode];
+      const department = departmentCode
+        ? departmentRows.find((row) => String(row.code).toUpperCase() === departmentCode)
+        : null;
+      if (departmentCode && !department) {
+        throw new Error(`Cannot initialize holiday list '${list.listCode}': department code '${departmentCode}' was not found.`);
+      }
+
+      await db
+        .insert(holidayLists)
+        .values({
+          listCode: list.listCode,
+          listName: list.listName,
+          year: list.year,
+          departmentId: department?.id ?? null,
+          isDefault: list.isDefault,
+          isActive: list.isActive,
+          description: list.description ?? null,
+        })
+        .onConflictDoNothing({ target: holidayLists.listCode });
+    }
+  }
+
   public static async getHolidayLists(options?: {
     year?: number;
     includeInactive?: boolean;
