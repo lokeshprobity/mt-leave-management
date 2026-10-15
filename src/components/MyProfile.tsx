@@ -47,6 +47,7 @@ import {
   getActiveRole,
   getActiveUserId,
   getActiveEmployeeId,
+  getAuthHeaders,
   updateActiveUserPhoto,
 } from '../lib/api.ts';
 import { formatDate } from '../utils/dateFormat.ts';
@@ -183,7 +184,11 @@ export const MyProfile: React.FC<MyProfileProps> = ({
 
   const apiFetch = useCallback(
     async (url: string, options: RequestInit = {}) => {
-      const headers = new Headers(options.headers || {});
+      // Always include the server-issued session token. This profile-specific fetch
+      // wrapper previously sent only role/identity headers, which production correctly
+      // rejects as unauthenticated.
+      const headers = new Headers(getAuthHeaders());
+      new Headers(options.headers || {}).forEach((value, key) => headers.set(key, value));
       headers.set('Content-Type', 'application/json');
       headers.set('x-user-role', currentRole);
       headers.set('x-user-id', String(currentUserId));
