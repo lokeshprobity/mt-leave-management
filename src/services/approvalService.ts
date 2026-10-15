@@ -1311,6 +1311,196 @@ export class ApprovalService {
   }
 
   /**
+   * HR fallback queue: pending Stage 1 requests that require an explicit unavailable-person reason.
+   */
+  public static async getRequestsForHrStage1Fallback(
+    filter: { search?: string } = {},
+    actor: AuthContext
+  ): Promise<LeaveRequestDto[]> {
+    if (!actor || (actor.role !== 'HR' && actor.role !== 'SUPER_ADMIN')) {
+      throw new Error('Forbidden: Only HR or Super Admin can access the Reporting Person fallback queue');
+    }
+    if (!(await UserService.hasPermission(actor, 'LEAVE_HR_APPROVE'))) {
+      throw new Error('Forbidden: Role does not have LEAVE_HR_APPROVE permission');
+    }
+    const requests = await LeaveRequestService.getAllLeaveRequests();
+    const filtered: LeaveRequestDto[] = [];
+    for (const request of requests) {
+      const routing = await this.resolveRequestRoutingInfo(request);
+      if (routing.isTopMgmt || request.teamLeaderDecision === 'NOT_REQUIRED') continue;
+      if ((request.teamLeaderDecision || 'PENDING') !== 'PENDING') continue;
+      if (request.finalStatus !== 'PENDING' || request.status === 'CANCELLED') continue;
+      const isSelfRequest =
+        (Boolean(actor.employeeId) && Number(request.employeeId) === Number(actor.employeeId)) ||
+        (Boolean(actor.userId) && Boolean(routing.applicantUserId) &&
+          Number(actor.userId) === Number(routing.applicantUserId));
+      if (isSelfRequest) continue;
+      if (filter.search) {
+        const term = filter.search.toLowerCase();
+        if (
+          !request.requestNumber.toLowerCase().includes(term) &&
+          !(request.employeeName || '').toLowerCase().includes(term) &&
+          !(request.leaveTypeName || '').toLowerCase().includes(term)
+        ) continue;
+      }
+      filtered.push(request);
+    }
+    return filtered;
+  }
+
+  /**
+   * HR-only Stage 1 approval when the assigned Reporting Person is unavailable.
+   * The reason, acting HR identity and original assignment are retained in approval/audit events.
+   */
+  public static async submitHrStage1FallbackApproval(
+    leaveRequestId: number,
+    input: { reason?: string },
+    actor: AuthContext,
+    auditMeta?: { ipAddress?: string; userAgent?: string }
+  ): Promise<LeaveRequestDto> {
+    if (!actor || (actor.role !== 'HR' && actor.role !== 'SUPER_ADMIN')) {
+      throw new Error('Forbidden: Only HR or Super Admin can approve Stage 1 on behalf of a Reporting Person');
+    }
+    if (!(await UserService.hasPermission(actor, 'LEAVE_HR_APPROVE'))) {
+      throw new Error('Forbidden: Role does not have LEAVE_HR_APPROVE permission');
+    }
+    const reason = String(input?.reason || '').trim();
+    if (reason.length < 8) {
+      throw new ValidationError('Enter a reason of at least 8 characters confirming why the Reporting Person is unavailable');
+    }
+    const existing = await LeaveRequestService.getLeaveRequestById(leaveRequestId, actor);
+    if (!existing?.request) {
+      throw new ValidationError(`Leave request with ID ${leaveRequestId} not found`);
+    }
+    const req = existing.request;
+    const routing = await this.resolveRequestRoutingInfo(req);
+    this.assertNotSelfApproval(req, routing.applicantUserId, actor);
+    if (routing.isTopMgmt) {
+      throw new Error('Forbidden: HR fallback is not permitted for Top Management leave requests');
+    }
+    if (req.teamLeaderDecision === 'NOT_REQUIRED') {
+      throw new Error('Forbidden: Stage 1 Reporting Person approval is not required for this request');
+    }
+    if (req.finalStatus !== 'PENDING' || req.status === 'CANCELLED') {
+      throw new ValidationError('Only pending leave requests can use the Reporting Person fallback');
+    }
+    if ((req.teamLeaderDecision || 'PENDING') !== 'PENDING') {
+      throw new ValidationError('Stage 1 has already been decided for this request');
+    }
+
+    const employee = await UserService.getEmployeeById(req.employeeId);
+    const reportingManagerId = req.reportingManagerId ?? employee?.reportingManagerId ?? null;
+    const assignedReportingPerson = reportingManagerId
+      ? await UserService.getEmployeeById(reportingManagerId)
+      : null;
+    const reportingPersonName = assignedReportingPerson?.employeeName || 'Unassigned Reporting Person';
+    const remarks = `HR fallback Stage 1 approval on behalf of ${reportingPersonName} (employee ID ${reportingManagerId ?? 'unassigned'}); reason: ${reason}`;
+    const now = new Date();
+    if (isDbConfigured()) {
+      const db = getDb();
+      if (db) {
+        return await db.transaction(async (tx) => {
+          const updated = await tx.update(leaveRequests).set({
+            teamLeaderDecision: 'APPROVED',
+            teamLeaderDecidedBy: actor.userId || null,
+            teamLeaderDecidedAt: now,
+            teamLeaderRemarks: remarks,
+            // Explicit requested fallback workflow: send this request through HR review even
+            // if the employee's normal routing preference would otherwise bypass the HR stage.
+            hrDecision: req.hrDecision === 'NOT_REQUIRED' || req.hrDecision === 'SKIPPED' ? 'PENDING' : req.hrDecision,
+            updatedAt: now,
+          }).where(and(
+            eq(leaveRequests.id, leaveRequestId),
+            eq(leaveRequests.teamLeaderDecision, 'PENDING'),
+            eq(leaveRequests.finalStatus, 'PENDING')
+          )).returning();
+          if (updated.length === 0) {
+            throw new ValidationError('Conflict: Stage 1 was already processed or the request is no longer pending');
+          }
+          await tx.insert(leaveRequestEvents).values({
+            leaveRequestId,
+            eventType: 'TEAM_LEADER_APPROVED_BY_HR_FALLBACK',
+            action: 'TEAM_LEADER_APPROVED_BY_HR_FALLBACK',
+            previousDecision: 'PENDING',
+            newDecision: 'APPROVED',
+            actorId: actor.userId || null,
+            actorRole: actor.role,
+            remarks,
+            ipAddress: auditMeta?.ipAddress || null,
+            userAgent: auditMeta?.userAgent || null,
+          });
+          const result = {
+            ...updated[0],
+            employeeName: req.employeeName,
+            employeeCode: req.employeeCode,
+            leaveTypeCode: req.leaveTypeCode,
+            leaveTypeName: req.leaveTypeName,
+            teamLeaderDecidedByName: actor.username,
+          } as LeaveRequestDto;
+          try {
+            const { AuditService } = await import('./auditService.ts');
+            await AuditService.logEvent({
+              actorId: actor.userId || actor.employeeId || null,
+              actorRole: actor.role,
+              action: 'TEAM_LEADER_APPROVED_BY_HR_FALLBACK',
+              targetEntity: 'leave_requests',
+              targetId: String(req.id),
+              metadata: {
+                requestNumber: req.requestNumber,
+                employeeId: req.employeeId,
+                employeeName: req.employeeName,
+                assignedReportingPersonEmployeeId: reportingManagerId,
+                assignedReportingPersonName: reportingPersonName,
+                actingHrUserId: actor.userId,
+                actingHrUsername: actor.username,
+                stage: 'TEAM_LEADER_FALLBACK',
+                reason,
+                nextStep: 'HR review, then Top Management final decision',
+              },
+              ipAddress: auditMeta?.ipAddress,
+              userAgent: auditMeta?.userAgent,
+            });
+          } catch (error) {
+            console.error('Failed to write HR Reporting Person fallback audit log:', error);
+          }
+          NotificationService.notifyTeamLeaderDecided({
+            id: req.id,
+            requestNumber: req.requestNumber,
+            employeeId: req.employeeId,
+            employeeName: req.employeeName,
+            totalDays: req.totalDays,
+            hrDecision: 'PENDING',
+          }, 'APPROVED', remarks, actor.username).catch(() => {});
+          return result;
+        });
+      }
+    }
+    req.teamLeaderDecision = 'APPROVED';
+    req.teamLeaderDecidedBy = actor.userId || null;
+    req.teamLeaderDecidedByName = actor.username || 'HR Reviewer';
+    req.teamLeaderDecidedAt = now.toISOString();
+    req.teamLeaderRemarks = remarks;
+    if (req.hrDecision === 'NOT_REQUIRED' || req.hrDecision === 'SKIPPED') req.hrDecision = 'PENDING';
+    req.approvalStageLabel = LeaveRequestService.computeApprovalStageLabel(req);
+    req.updatedAt = now.toISOString();
+    LeaveRequestService.addMemoryEvent({
+      leaveRequestId,
+      eventType: 'TEAM_LEADER_APPROVED_BY_HR_FALLBACK',
+      action: 'TEAM_LEADER_APPROVED_BY_HR_FALLBACK',
+      previousDecision: 'PENDING',
+      newDecision: 'APPROVED',
+      actorId: actor.userId || null,
+      actorRole: actor.role,
+      actorName: actor.username,
+      remarks,
+      ipAddress: auditMeta?.ipAddress,
+      userAgent: auditMeta?.userAgent,
+      createdAt: now.toISOString(),
+    });
+    return req;
+  }
+
+  /**
    * Retrieves full details for approver review (includes employee history and balances)
    */
   public static async getApprovalDetails(
@@ -1337,31 +1527,76 @@ export class ApprovalService {
     if (
       !isOwnRequest &&
       details.request.teamLeaderDecision === 'NOT_REQUIRED' &&
-      actor.role !== 'SUPER_ADMIN'
+      actor.role !== 'SUPER_ADMIN' &&
+      actor.role !== 'HR' &&
+      actor.role !== 'TOP_MANAGEMENT'
     ) {
       throw new Error(
         'Forbidden: Reporting Person approval is not required for this leave request'
       );
     }
     if (!isOwnRequest && actor.role !== 'SUPER_ADMIN') {
-      const employee = await UserService.getEmployeeById(details.request.employeeId);
-      const reportingManagerId =
-        details.request.reportingManagerId ?? employee?.reportingManagerId ?? null;
-      const reportingManager = reportingManagerId
-        ? await UserService.getEmployeeById(reportingManagerId)
-        : null;
-      const reportingManagerUserId =
-        details.request.reportingManagerUserId ?? reportingManager?.userId ?? null;
-      const matchesEmployee =
-        Boolean(actor.employeeId) &&
-        Boolean(reportingManagerId) &&
-        Number(actor.employeeId) === Number(reportingManagerId);
-      const matchesUser =
-        Boolean(actor.userId) &&
-        Boolean(reportingManagerUserId) &&
-        Number(actor.userId) === Number(reportingManagerUserId);
-      if (!matchesEmployee && !matchesUser) {
-        throw new Error('Forbidden: Only the employee\'s assigned Reporting Person can view this request at Stage 1');
+      const request = details.request;
+      const tlDecision = request.teamLeaderDecision || 'PENDING';
+      const hrRequired = request.hrDecision !== 'NOT_REQUIRED' && request.hrDecision !== 'SKIPPED';
+
+      if (actor.role === 'HR') {
+        // HR may view requests routed to HR after Stage 1 and HR review history.
+        if (routing.isTopMgmt) {
+          throw new Error('Forbidden: HR cannot access Top Management leave requests');
+        }
+        if (!hrRequired) {
+          throw new Error('Forbidden: HR review is not required for this leave request');
+        }
+        if (tlDecision !== 'APPROVED' && tlDecision !== 'NOT_REQUIRED') {
+          throw new Error('Forbidden: HR can access this request only after Stage 1 is complete');
+        }
+        if (request.hrDecision === 'PENDING' && request.finalStatus !== 'PENDING') {
+          throw new Error('Forbidden: This request is no longer awaiting HR review');
+        }
+      } else if (actor.role === 'TOP_MANAGEMENT') {
+        // Management may view actionable requests only after required earlier stages finish.
+        if (routing.isTopMgmt) {
+          const employee = await UserService.getEmployeeById(request.employeeId);
+          const managerId = request.reportingManagerId ?? employee?.reportingManagerId ?? null;
+          const manager = managerId ? await UserService.getEmployeeById(managerId) : null;
+          const managerUserId = request.reportingManagerUserId ?? manager?.userId ?? null;
+          const matchesManager =
+            (Boolean(actor.employeeId) && Boolean(managerId) && Number(actor.employeeId) === Number(managerId)) ||
+            (Boolean(actor.userId) && Boolean(managerUserId) && Number(actor.userId) === Number(managerUserId));
+          if (!matchesManager) {
+            throw new Error('Forbidden: Only the assigned Reporting Person can view this Top Management leave request');
+          }
+        }
+        if (request.managementDecision === 'PENDING' && request.finalStatus === 'PENDING') {
+          if (tlDecision === 'PENDING') {
+            throw new Error('Forbidden: This request is still awaiting Stage 1 approval');
+          }
+          if (hrRequired && request.hrDecision === 'PENDING') {
+            throw new Error('Forbidden: This request is still awaiting HR review');
+          }
+        }
+      } else {
+        // Stage 1 remains restricted to the employee's assigned Reporting Person.
+        const employee = await UserService.getEmployeeById(request.employeeId);
+        const reportingManagerId =
+          request.reportingManagerId ?? employee?.reportingManagerId ?? null;
+        const reportingManager = reportingManagerId
+          ? await UserService.getEmployeeById(reportingManagerId)
+          : null;
+        const reportingManagerUserId =
+          request.reportingManagerUserId ?? reportingManager?.userId ?? null;
+        const matchesEmployee =
+          Boolean(actor.employeeId) &&
+          Boolean(reportingManagerId) &&
+          Number(actor.employeeId) === Number(reportingManagerId);
+        const matchesUser =
+          Boolean(actor.userId) &&
+          Boolean(reportingManagerUserId) &&
+          Number(actor.userId) === Number(reportingManagerUserId);
+        if (!matchesEmployee && !matchesUser) {
+          throw new Error('Forbidden: Only the employee\'s assigned Reporting Person can view this request at Stage 1');
+        }
       }
     }
 

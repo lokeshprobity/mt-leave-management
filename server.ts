@@ -1328,6 +1328,45 @@ export function registerApiRoutes(app: express.Express) {
     }
   );
 
+  // 14d. HR fallback queue for Stage 1 requests whose Reporting Person is unavailable
+  app.get(
+    '/api/hr/stage1-fallback-requests',
+    requireRole(['SUPER_ADMIN', 'HR']),
+    async (req: Request, res: Response) => {
+      try {
+        const search = req.query.search as string | undefined;
+        const list = await ApprovalService.getRequestsForHrStage1Fallback({ search }, req.user!);
+        res.json({ leaveRequests: list, requests: list });
+      } catch (err: any) {
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message });
+      }
+    }
+  );
+
+  app.post(
+    '/api/hr/leave-requests/:id/reporting-person-fallback',
+    requireRole(['SUPER_ADMIN', 'HR']),
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ error: 'Invalid leave request ID' });
+        const auditMeta = {
+          ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent'],
+        };
+        const updated = await ApprovalService.submitHrStage1FallbackApproval(id, req.body, req.user!, auditMeta);
+        res.json({ success: true, leaveRequest: updated });
+      } catch (err: any) {
+        if (err instanceof ValidationError) {
+          return res.status(400).json({ error: err.message, fieldErrors: err.fieldErrors });
+        }
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message });
+      }
+    }
+  );
+
   // 15. HR Leave Requests Queue
   app.get(
     '/api/hr/leave-requests',

@@ -41,6 +41,8 @@ export function HrApprovalDashboard() {
   const [filterStatus, setFilterStatus] = useState<string>('PENDING');
   const [topMgmtLeaves, setTopMgmtLeaves] = useState<LeaveRequestDto[]>([]);
   const [loadingTopMgmt, setLoadingTopMgmt] = useState(false);
+  const [fallbackRequests, setFallbackRequests] = useState<LeaveRequestDto[]>([]);
+  const [fallbackBusyId, setFallbackBusyId] = useState<number | null>(null);
 
   // Review Modal State
   const [activeDetails, setActiveDetails] = useState<{
@@ -82,6 +84,10 @@ export function HrApprovalDashboard() {
         throw new Error(data.error || 'Failed to fetch HR leave requests queue');
       }
       setRequests(data.leaveRequests || []);
+      const fallbackRes = await apiFetch(`/api/hr/stage1-fallback-requests?${queryParams.toString()}`);
+      const fallbackData = await fallbackRes.json();
+      if (!fallbackRes.ok) throw new Error(fallbackData.error || 'Failed to fetch Reporting Person fallback queue');
+      setFallbackRequests(fallbackData.leaveRequests || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -117,6 +123,32 @@ export function HrApprovalDashboard() {
       setError('Error loading review details: ' + err.message);
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  const handleReportingPersonFallback = async (request: LeaveRequestDto) => {
+    const reason = window.prompt(
+      `Confirm the assigned Reporting Person is unavailable for request ${request.requestNumber}. Enter the reason (minimum 8 characters):`
+    );
+    if (reason === null) return;
+    if (reason.trim().length < 8) {
+      setError('Fallback approval requires a reason of at least 8 characters.');
+      return;
+    }
+    setFallbackBusyId(request.id);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/hr/leave-requests/${request.id}/reporting-person-fallback`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to approve Stage 1 on behalf of the Reporting Person');
+      await fetchHrRequests();
+    } catch (err: any) {
+      setError(err.message || 'Reporting Person fallback approval failed');
+    } finally {
+      setFallbackBusyId(null);
     }
   };
 
@@ -220,6 +252,43 @@ export function HrApprovalDashboard() {
           <span className="font-semibold text-indigo-950">Stage 2 — HR Approval & Policy Review:</span> HR reviews requests that have passed Stage 1 Team Leader approval. HR cannot override a Team Leader rejection. Once HR approves or rejects, the request moves to Top Management for final authorization.
         </div>
       </div>
+
+      {filterStatus !== 'TOP_MGMT_OVERVIEW' && fallbackRequests.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-bold text-amber-950">Stage 1 — Reporting Person Unavailable</h3>
+            <p className="text-xs text-amber-900 mt-1">
+              Use this only after confirming the assigned Reporting Person is unavailable. A reason is mandatory; the request will then return to HR review before Top Management makes the final decision.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead><tr className="border-b border-amber-200 text-amber-900">
+                <th className="py-2 pr-3">Request</th><th className="py-2 pr-3">Employee</th><th className="py-2 pr-3">Leave</th><th className="py-2 pr-3">Dates</th><th className="py-2 text-right">Action</th>
+              </tr></thead>
+              <tbody>
+                {fallbackRequests.map((r) => (
+                  <tr key={r.id} className="border-b border-amber-100 last:border-0">
+                    <td className="py-2 pr-3 font-mono">{r.requestNumber}</td>
+                    <td className="py-2 pr-3">{r.employeeName} <span className="text-amber-800">({r.employeeCode || r.employeeId})</span></td>
+                    <td className="py-2 pr-3">{r.leaveTypeName} — {r.totalDays} day(s)</td>
+                    <td className="py-2 pr-3">{formatDate(r.startDate)} – {formatDate(r.endDate)}</td>
+                    <td className="py-2 text-right">
+                      <button
+                        onClick={() => handleReportingPersonFallback(r)}
+                        disabled={fallbackBusyId === r.id}
+                        className="px-3 py-1.5 bg-amber-700 text-white rounded-lg font-semibold hover:bg-amber-800 disabled:opacity-50"
+                      >
+                        {fallbackBusyId === r.id ? 'Processing…' : 'Approve Stage 1 for unavailable Reporting Person'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Filters & Search Toolbar */}
       <div className={`${MT_COLOR_CARDS.purple} flex flex-col sm:flex-row items-center justify-between gap-3 p-4`}>
