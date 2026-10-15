@@ -68,6 +68,7 @@ interface MyProfileProps {
   currentEmployeeId?: number;
   targetUserId?: number | string | null;
   targetEmployeeId?: number | string | null;
+  viewAsEmployee?: boolean;
   onBack?: () => void;
   onRequestLogout?: () => void;
 }
@@ -78,13 +79,16 @@ export const MyProfile: React.FC<MyProfileProps> = ({
   currentEmployeeId: propEmployeeId,
   targetUserId,
   targetEmployeeId,
+  viewAsEmployee = false,
   onBack,
   onRequestLogout,
 }) => {
   const currentRole = propRole || getActiveRole();
   const currentUserId = propUserId || getActiveUserId();
-  const currentEmployeeId = propEmployeeId || getActiveEmployeeId();
-  const isSuperAdmin = currentRole === 'SUPER_ADMIN';
+  const currentEmployeeId = viewAsEmployee && targetEmployeeId != null
+    ? Number(targetEmployeeId)
+    : propEmployeeId || getActiveEmployeeId();
+  const isSuperAdmin = currentRole === 'SUPER_ADMIN' && !viewAsEmployee;
 
   // Active target identifier (defaults to prop or logged-in user)
   const [selectedUserId, setSelectedUserId] = useState<number | string | null>(targetUserId ?? null);
