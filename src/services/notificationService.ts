@@ -732,6 +732,30 @@ export class NotificationService {
   }
 
   /**
+   * Read-only unread count for the selected employee when a Super Admin
+   * previews that employee's dashboard. This does not grant notification
+   * access or mark notifications as read.
+   */
+  public static async getUnreadCountForEmployee(employeeId: number | string): Promise<number> {
+    let actor: AuthContext = {
+      role: 'EMPLOYEE',
+      employeeId: Number(employeeId),
+    } as AuthContext;
+    try {
+      const { UserService } = await import('./userService.ts');
+      const employee = UserService.resolveEmployeeRecordSync(employeeId);
+      if (employee) {
+        actor.employeeId = employee.id;
+        actor.employeeCode = employee.employeeCode ?? undefined;
+        const hierarchy = UserService.getEmployeeRoleAndHierarchySync(employee.id);
+        if (hierarchy?.userId) actor.userId = hierarchy.userId;
+      }
+    } catch {}
+    const result = await this.getNotificationsForUser(actor);
+    return result.unreadCount;
+  }
+
+  /**
    * 5. EVENT: Shift Assigned
    */
   public static async notifyShiftAssigned(

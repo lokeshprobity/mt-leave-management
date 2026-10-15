@@ -1539,13 +1539,34 @@ export function registerApiRoutes(app: express.Express) {
         const myRequests = await LeaveRequestService.getEmployeeRequests(employeeContextId);
         const myUpcoming = myRequests.filter((r: any) => r.finalStatus === 'APPROVED' && r.startDate >= today);
         const todaySchedule = await ShiftService.resolveEmployeeSchedule(employeeContextId, today);
-        const unreadCount = await NotificationService.getUnreadCount(req.user);
+        const unreadCount = viewingEmployeeAsAdmin
+          ? await NotificationService.getUnreadCountForEmployee(employeeContextId)
+          : await NotificationService.getUnreadCount(req.user);
 
         employeeContext = {
           balances: myBalances,
           pendingRequests: myRequests.filter((r: any) => r.finalStatus === 'PENDING'),
           approvedLeaves: myRequests.filter((r: any) => r.finalStatus === 'APPROVED'),
           upcomingLeaves: myUpcoming,
+          requestHistory: myRequests.map((r: any) => ({
+            id: r.id,
+            requestNumber: r.requestNumber,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            totalDays: r.totalDays,
+            leaveTypeName: r.leaveTypeName || r.leaveTypeCode || 'Leave',
+            dayType: r.dayType,
+            reason: r.reason,
+            applicationTimestamp: r.applicationTimestamp || r.createdAt || null,
+            status: r.status,
+            finalStatus: r.finalStatus,
+            teamLeaderDecision: r.teamLeaderDecision,
+            teamLeaderRemarks: r.teamLeaderRemarks,
+            hrDecision: r.hrDecision,
+            hrRemarks: r.hrRemarks,
+            managementDecision: r.managementDecision,
+            managementRemarks: r.managementRemarks,
+          })).sort((a: any, b: any) => String(b.applicationTimestamp || '').localeCompare(String(a.applicationTimestamp || ''))),
           todaySchedule: {
             shiftCode: todaySchedule.shiftCode || (todaySchedule.isWeeklyOff ? 'WO' : 'GN'),
             shiftName: todaySchedule.shiftName || (todaySchedule.isWeeklyOff ? 'Weekly Off' : 'General Shift'),
