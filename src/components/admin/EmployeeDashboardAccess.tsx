@@ -84,8 +84,15 @@ export function EmployeeDashboardAccess({
   }, [employeeId]);
 
   const role = useMemo<UserRole>(() => {
-    const raw = employee?.role || employee?.operationalRole || 'EMPLOYEE';
-    return String(raw).trim().toUpperCase() as UserRole;
+    const assignedRole = String(employee?.role || '').trim().toUpperCase();
+    const operationalRole = String(employee?.operationalRole || '').trim().toUpperCase();
+    const builtInRoles = new Set(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']);
+    // Custom role assignment takes precedence; otherwise honor operational role
+    // when the account role is the generic EMPLOYEE role.
+    const resolved = assignedRole && !builtInRoles.has(assignedRole)
+      ? assignedRole
+      : operationalRole || assignedRole || 'EMPLOYEE';
+    return resolved as UserRole;
   }, [employee]);
 
   const assignedRole = useMemo(() => {
