@@ -15,6 +15,7 @@ import { runMigrations } from './src/db/migrate.ts';
 import { employees, roles, systemSettings } from './src/db/schema.ts';
 import { INITIAL_ROLES, INITIAL_SYSTEM_SETTINGS, seedDatabase } from './src/db/seed.ts';
 import { authMiddleware, requireRole } from './src/middleware/auth.ts';
+import { createSessionToken } from './src/services/sessionService.ts';
 import { LeaveService } from './src/services/leaveService.ts';
 import { LeaveRequestService } from './src/services/leaveRequestService.ts';
 import { ApprovalService } from './src/services/approvalService.ts';
@@ -139,6 +140,7 @@ export function registerApiRoutes(app: express.Express) {
       const { username, email, identifier, usernameOrEmail, password } = req.body || {};
       const loginId = identifier || usernameOrEmail || username || email || '';
       const user = await UserService.authenticateUser(loginId, password);
+      const session = createSessionToken({ userId: user.id, username: user.username, role: user.roleName });
       await AuditService.logEvent({
         actorId: user.id,
         actorRole: user.roleName,
@@ -159,8 +161,12 @@ export function registerApiRoutes(app: express.Express) {
       res.json({
         success: true,
         authenticated: true,
+        sessionToken: session.sessionToken,
+        expiresAt: session.expiresAt,
         mustChangePassword: Boolean(user.mustChangePassword),
         user: {
+          sessionToken: session.sessionToken,
+          expiresAt: session.expiresAt,
           id: user.id,
           userId: user.id,
           username: user.username,
