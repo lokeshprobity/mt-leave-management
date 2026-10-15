@@ -13,7 +13,7 @@ import {
 } from './src/db/index.ts';
 import { runMigrations } from './src/db/migrate.ts';
 import { employees, roles, systemSettings } from './src/db/schema.ts';
-import { INITIAL_ROLES, INITIAL_SYSTEM_SETTINGS } from './src/db/seed.ts';
+import { INITIAL_ROLES, INITIAL_SYSTEM_SETTINGS, seedDatabase } from './src/db/seed.ts';
 import { authMiddleware, requireRole } from './src/middleware/auth.ts';
 import { LeaveService } from './src/services/leaveService.ts';
 import { LeaveRequestService } from './src/services/leaveRequestService.ts';
@@ -3756,12 +3756,14 @@ export async function verifyServerDatabaseReadiness(): Promise<void> {
     assertProductionDbConfigured();
     await verifyDatabaseConnectivity();
     await runMigrations();
+    await seedDatabase();
     await DataImportService.importLocalMetadataToDatabase();
     await UserService.syncFromDatabase();
     await reconcileCurrentYearLeaveBalances();
     await WorkingDaysService.syncEmployeeWeeklyOffsFromDb();
   } else if (isDbConfigured()) {
     await verifyDatabaseConnectivity();
+    await seedDatabase();
     await DataImportService.importLocalMetadataToDatabase();
     await UserService.syncFromDatabase();
     await reconcileCurrentYearLeaveBalances();
