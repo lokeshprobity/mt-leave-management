@@ -1903,7 +1903,6 @@ export class ShiftService {
     if (isDbConfigured()) {
       const db = getDb();
       if (db) {
-        try {
           const [inserted] = await db
             .insert(employeeShiftAssignments)
             .values({
@@ -1972,9 +1971,8 @@ export class ShiftService {
             createdAt: inserted.createdAt,
             updatedAt: inserted.updatedAt,
           };
-        } catch (e: any) {
-          console.warn('DB assignShift failed, fallback to memory:', e);
-        }
+      } else {
+        throw new Error('Database is configured but unavailable while assigning the shift.');
       }
     }
 
