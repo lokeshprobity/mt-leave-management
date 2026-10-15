@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowLeft, CalendarDays, LayoutDashboard, X } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarDays, LayoutDashboard, X } from 'lucide-react';
 import { Dashboard } from '../Dashboard.tsx';
 import { MyLeavePortal } from '../MyLeavePortal.tsx';
 
