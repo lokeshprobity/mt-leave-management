@@ -873,11 +873,11 @@ export class EmailService {
           responseBuffer = responseBuffer.slice(boundary + 2);
           responseLines.push(line);
           // SMTP multiline responses continue with "code-"; the final line is "code ".
-          if (/^\\d{3} /.test(line)) {
+          if (/^\d{3} /.test(line)) {
             const completeResponse = responseLines.join('\n');
             responseLines = [];
             handleResponse(completeResponse);
-          } else if (!/^\\d{3}-/.test(line)) {
+          } else if (!/^\d{3}-/.test(line)) {
             finish(new Error(`Malformed SMTP response: ${line.slice(0, 300)}`));
           }
         }
