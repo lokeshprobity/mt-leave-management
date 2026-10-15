@@ -10,7 +10,12 @@ import {
   getLeaveTypeBarColor,
 } from '../utils/theme.ts';
 
-export function MyLeaveBalance() {
+interface MyLeaveBalanceProps {
+  targetEmployeeId?: number;
+  viewAsEmployee?: boolean;
+}
+
+export function MyLeaveBalance({ targetEmployeeId, viewAsEmployee = false }: MyLeaveBalanceProps = {}) {
   const [balances, setBalances] = useState<LeaveBalanceDto[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +25,8 @@ export function MyLeaveBalance() {
 
   const activeRole = getActiveRole();
   const currentYear = new Date().getFullYear();
-  const employeeId = getActiveEmployeeId();
+  const employeeId = targetEmployeeId ?? getActiveEmployeeId();
+  const canManageBalances = activeRole === 'SUPER_ADMIN' && !viewAsEmployee;
 
   const loadBalances = async () => {
     setLoading(true);
@@ -49,7 +55,7 @@ export function MyLeaveBalance() {
 
   useEffect(() => {
     loadBalances();
-  }, [activeRole, employeeId]);
+  }, [activeRole, employeeId, targetEmployeeId, viewAsEmployee]);
 
   // Allows Super Admin to initialize baseline balance records for this employee
   const handleInitializeBalances = async () => {
@@ -223,7 +229,7 @@ export function MyLeaveBalance() {
               <p className="text-xs text-neutral-500 leading-relaxed">
                 Balance ledger records are populated from administrative allocation and policy baselines.
               </p>
-              {activeRole === 'SUPER_ADMIN' && (
+              {canManageBalances && (
                 <button
                   type="button"
                   onClick={handleInitializeBalances}
