@@ -1519,7 +1519,7 @@ export function registerApiRoutes(app: express.Express) {
       // Breakdown by Department
       const deptCountMap: Record<string, number> = {};
       const empMap = new Map(allEmployees.map((e: any) => [e.id, e]));
-      for (const reqItem of allRequests) {
+      for (const reqItem of dashboardRequests) {
         if (reqItem.finalStatus === 'APPROVED') {
           const emp = empMap.get(reqItem.employeeId) as any;
           const dept = emp?.departmentName || 'General';
