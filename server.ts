@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { eq } from 'drizzle-orm';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as dotenv from 'dotenv';
@@ -11,7 +12,7 @@ import {
   verifyDatabaseConnectivity,
 } from './src/db/index.ts';
 import { runMigrations } from './src/db/migrate.ts';
-import { roles, systemSettings } from './src/db/schema.ts';
+import { employees, roles, systemSettings } from './src/db/schema.ts';
 import { INITIAL_ROLES, INITIAL_SYSTEM_SETTINGS } from './src/db/seed.ts';
 import { authMiddleware, requireRole } from './src/middleware/auth.ts';
 import { LeaveService } from './src/services/leaveService.ts';
@@ -2880,6 +2881,8 @@ export function registerApiRoutes(app: express.Express) {
     async (req: Request, res: Response) => {
       try {
         const created = await UserService.createEmployee(req.body, req.user!);
+        // Initialize missing balances from active, applicable leave policies for each new employee.
+        await LeaveService.initializeEmployeeBalances(created.id, new Date().getFullYear(), req.user!);
         const emailDelivery = created.credentialEmail ?? null;
         res.status(201).json({
           success: true,
@@ -3734,6 +3737,20 @@ export function registerApiRoutes(app: express.Express) {
   });
 }
 
+async function reconcileCurrentYearLeaveBalances(): Promise<void> {
+  if (!isDbConfigured()) return;
+  const db = getDb();
+  if (!db) return;
+  const currentYear = new Date().getFullYear();
+  const activeEmployees = await db.select({ id: employees.id }).from(employees).where(eq(employees.employmentStatus, 'ACTIVE'));
+  for (const employee of activeEmployees) {
+    try {
+      await LeaveService.initializeEmployeeBalances(employee.id, currentYear);
+    } catch (error: any) {
+      console.error(`[Leave Balance Reconciliation] Employee ${employee.id}: ${error?.message || error}`);
+    }
+  }
+}
 export async function verifyServerDatabaseReadiness(): Promise<void> {
   if (isProductionRuntime()) {
     assertProductionDbConfigured();
@@ -3741,11 +3758,13 @@ export async function verifyServerDatabaseReadiness(): Promise<void> {
     await runMigrations();
     await DataImportService.importLocalMetadataToDatabase();
     await UserService.syncFromDatabase();
+    await reconcileCurrentYearLeaveBalances();
     await WorkingDaysService.syncEmployeeWeeklyOffsFromDb();
   } else if (isDbConfigured()) {
     await verifyDatabaseConnectivity();
     await DataImportService.importLocalMetadataToDatabase();
     await UserService.syncFromDatabase();
+    await reconcileCurrentYearLeaveBalances();
     await WorkingDaysService.syncEmployeeWeeklyOffsFromDb();
   }
 }
