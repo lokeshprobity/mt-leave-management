@@ -188,7 +188,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ variant = 'h
                   <p>If the browser menu has no install option, update/reload this site in Chrome or Edge. The browser may not yet consider the site installable.</p>
                 </>
               )}
-            </div>>
+            </div>
 
             <button
               type="button"
