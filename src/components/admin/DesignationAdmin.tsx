@@ -125,6 +125,7 @@ export function DesignationAdmin() {
   };
 
   const handleDelete = async (d: DesignationDto) => {
+    if (activeRole !== 'SUPER_ADMIN') return;
     setError(null);
     setSuccessMsg(null);
     setDeleting(true);
@@ -268,13 +269,15 @@ export function DesignationAdmin() {
                         >
                           <Power className="w-3.5 h-3.5" />
                         </button>
-                        <button
+                        {activeRole === 'SUPER_ADMIN' && (
+                          <button
                           onClick={() => setConfirmDeleteDesig(d)}
                           title="Safe Delete Designation"
                           className="p-1 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
                       </div>
                     </td>
                   )}
@@ -364,7 +367,7 @@ export function DesignationAdmin() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {confirmDeleteDesig && (
+      {activeRole === 'SUPER_ADMIN' && confirmDeleteDesig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl border border-neutral-200 space-y-4">
             <div className="flex items-center gap-3">
