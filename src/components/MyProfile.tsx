@@ -1180,6 +1180,7 @@ export const MyProfile: React.FC<MyProfileProps> = ({
           <span className="break-words min-w-0">{isSuperAdmin ? 'Password & Status' : 'Password & Security'}</span>
         </button>
 
+        {isSuperAdmin && (
         <button
           type="button"
           onClick={() => setActiveTab('audit_trail')}
@@ -1194,6 +1195,7 @@ export const MyProfile: React.FC<MyProfileProps> = ({
             360° Activity ({(completeProfile.unifiedTimeline || completeProfile.auditLogs).length})
           </span>
         </button>
+        )}
       </div>
 
       {/* TAB 1: OVERVIEW */}
@@ -2369,7 +2371,7 @@ export const MyProfile: React.FC<MyProfileProps> = ({
       )}
 
       {/* TAB 6: 360° ACTIVITY & AUDIT TIMELINE */}
-      {activeTab === 'audit_trail' && (
+      {isSuperAdmin && activeTab === 'audit_trail' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3">
