@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users,
+  Download,
   UserPlus,
   Search,
   Filter,
@@ -22,6 +23,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { EmployeeDto, DepartmentDto, DesignationDto, ShiftDto, EmploymentType, EmploymentStatus } from '../../types/leave.ts';
+import { strToU8, zipSync } from 'fflate';
 import { getActiveRole, apiFetch } from '../../lib/api.ts';
 import { Employee360Link } from '../Employee360Trigger.tsx';
 
@@ -340,6 +342,83 @@ export function EmployeeAdmin({
     return String(a.employeeName || a.fullName || '').localeCompare(String(b.employeeName || b.fullName || ''));
   });
 
+  const handleExportEmployeesExcel = () => {
+    const headers = [
+      'Employee Code', 'Employee Name', 'Official Email', 'Mobile',
+      'Department', 'Designation', 'Reporting Manager', 'Employment Type',
+      'Employment Status', 'Role', 'Joining Date', 'Office Location',
+      'Shift Code', 'Shift Name', 'Weekly Off', 'HR Approval Required',
+      'Holiday List', 'Active',
+    ];
+    const rows = employees.map((emp) => [
+      emp.employeeCode,
+      emp.employeeName || emp.fullName,
+      emp.officialEmail || emp.email,
+      emp.mobile,
+      emp.departmentName,
+      emp.designationName,
+      emp.reportingManagerName,
+      emp.employmentType,
+      emp.employmentStatus,
+      emp.role,
+      emp.joiningDate,
+      emp.officeLocation,
+      emp.currentShiftCode,
+      emp.currentShiftName,
+      emp.weeklyOff,
+      (emp as any).hrApprovalRequired === undefined ? '' : ((emp as any).hrApprovalRequired ? 'Yes' : 'No'),
+      emp.currentHolidayListName || emp.currentHolidayListCode,
+      emp.isActive ? 'Yes' : 'No',
+    ].map((value) => value === null || value === undefined ? '' : String(value)));
+
+    const xmlEscape = (value: string) => value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+    const columnName = (index: number) => {
+      let number = index + 1;
+      let name = '';
+      while (number > 0) {
+        const remainder = (number - 1) % 26;
+        name = String.fromCharCode(65 + remainder) + name;
+        number = Math.floor((number - 1) / 26);
+      }
+      return name;
+    };
+    const makeRow = (values: string[], rowNumber: number) =>
+      `<row r="${rowNumber}">${values.map((value, index) =>
+        `<c r="${columnName(index)}${rowNumber}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`
+      ).join('')}</row>`;
+    const sheetRows = [makeRow(headers, 1), ...rows.map((row, index) => makeRow(row, index + 2))].join('');
+    const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData>${sheetRows}</sheetData><autoFilter ref="A1:${columnName(headers.length - 1)}${rows.length + 1}"/></worksheet>`;
+    const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Employees" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+    const files: Record<string, Uint8Array> = {
+      '[Content_Types].xml': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`),
+      '_rels/.rels': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
+      'xl/workbook.xml': strToU8(workbook),
+      'xl/_rels/workbook.xml.rels': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`),
+      'xl/worksheets/sheet1.xml': strToU8(worksheet),
+    };
+    const blob = new Blob([zipSync(files)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `MT-Leave-Employees-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setSuccessMsg(`Excel downloaded successfully: ${employees.length} employee record(s).`);
+    setError(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -354,7 +433,20 @@ export function EmployeeAdmin({
           </p>
         </div>
 
-        {canManage && (
+        <div className="flex flex-wrap items-center gap-2">
+          {isSuperAdmin && (
+            <button
+              id="btn-export-employees-excel"
+              onClick={handleExportEmployeesExcel}
+              disabled={loading || employees.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg text-xs font-semibold hover:bg-emerald-800 transition-colors shadow-xs cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download all employee records as an Excel workbook"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Excel</span>
+            </button>
+          )}
+          {canManage && (
           <button
             id="btn-add-employee"
             onClick={() => {
@@ -367,7 +459,8 @@ export function EmployeeAdmin({
             <UserPlus className="w-4 h-4" />
             <span>Add New Employee</span>
           </button>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Notifications */}
