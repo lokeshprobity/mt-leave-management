@@ -692,15 +692,12 @@ function resolvePermissionsForRoleCheck(
   if (Array.isArray(permissionsOverride)) {
     return permissionsOverride;
   }
-  if (!roleOverride || roleOverride === currentRole) {
-    if (!isBuiltInRole(role)) {
-      return currentPermissions.length > 0
-        ? currentPermissions
-        : dynamicRolePermissionsMap[role] || [];
-    }
-    return currentPermissions.length > 0
-      ? currentPermissions
-      : DEFAULT_ROLE_PERMISSIONS[role] || [];
+  const contextRole = superAdminUserContext?.role || currentRole;
+  const contextPermissions = superAdminUserContext?.permissions || currentPermissions;
+  if (!roleOverride || roleOverride === contextRole) {
+    if (contextPermissions.length > 0) return contextPermissions;
+    if (!isBuiltInRole(role)) return dynamicRolePermissionsMap[role] || [];
+    return DEFAULT_ROLE_PERMISSIONS[role] || [];
   }
   return (
     DEFAULT_ROLE_PERMISSIONS[roleOverride] ||
@@ -715,7 +712,7 @@ export function hasClientPermission(
   permissionsOverride?: string[]
 ): boolean {
   if (!isAuthenticated && !roleOverride) return false;
-  const role = roleOverride || currentRole;
+  const role = roleOverride || superAdminUserContext?.role || currentRole;
   if (role === 'SUPER_ADMIN') return true;
   const perms = resolvePermissionsForRoleCheck(role, roleOverride, permissionsOverride);
   if (perms.includes('ALL_PERMISSIONS') || perms.includes('*')) return true;
