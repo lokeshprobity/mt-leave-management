@@ -129,6 +129,22 @@ let currentMustChangePassword: boolean = false;
 let currentSessionToken: string | null = null;
 let currentExpiresAt: number = 0;
 
+/** In-memory elevated context; the signed-in Super Admin session is never overwritten or persisted. */
+export interface SuperAdminUserContext {
+  userId: number; employeeId: number; role: UserRole; username: string; fullName: string;
+  permissions?: string[]; profilePhotoUrl?: string | null;
+}
+let superAdminUserContext: SuperAdminUserContext | null = null;
+export function startSuperAdminUserContext(target: SuperAdminUserContext): boolean {
+  if (!isUserAuthenticated() || currentRole !== 'SUPER_ADMIN' || !currentSessionToken) return false;
+  if (!Number.isInteger(target.userId) || target.userId <= 0 || !Number.isInteger(target.employeeId) || target.employeeId <= 0) return false;
+  if (!target.role || !target.username?.trim()) return false;
+  superAdminUserContext = { ...target, permissions: [...(target.permissions || [])] };
+  return true;
+}
+export function endSuperAdminUserContext(): void { superAdminUserContext = null; }
+export function isViewingAsAnotherUser(): boolean { return superAdminUserContext !== null; }
+
 const ROLE_VALUES: UserRole[] = [
   'SUPER_ADMIN',
   'TOP_MANAGEMENT',
@@ -632,16 +648,17 @@ export function isUserAuthenticated(): boolean {
 
 export function getActiveUserSession(): ActiveClientSession {
   const active = isUserAuthenticated();
+  const target = active ? superAdminUserContext : null;
   return {
     isAuthenticated: active,
-    role: active ? currentRole : 'EMPLOYEE',
-    userId: active ? currentUserId : 0,
-    employeeId: active ? currentEmployeeId : 0,
-    username: active ? currentUsername : '',
-    fullName: active ? currentFullName : '',
-    profilePhotoUrl: active ? currentProfilePhotoUrl : null,
-    permissions: active ? [...currentPermissions] : [],
-    mustChangePassword: active ? currentMustChangePassword : false,
+    role: active ? (target?.role || currentRole) : 'EMPLOYEE',
+    userId: active ? (target?.userId || currentUserId) : 0,
+    employeeId: active ? (target?.employeeId || currentEmployeeId) : 0,
+    username: active ? (target?.username || currentUsername) : '',
+    fullName: active ? (target?.fullName || currentFullName) : '',
+    profilePhotoUrl: active ? (target ? target.profilePhotoUrl ?? null : currentProfilePhotoUrl) : null,
+    permissions: active ? [...(target?.permissions || currentPermissions)] : [],
+    mustChangePassword: active ? (target ? false : currentMustChangePassword) : false,
     sessionToken: active ? currentSessionToken : null,
     expiresAt: active ? currentExpiresAt : null,
   };
@@ -651,21 +668,10 @@ export function getClientSession(): ActiveClientSession {
   return getActiveUserSession();
 }
 
-export function getActiveRole(): UserRole {
-  return currentRole;
-}
-
-export function getActiveUserId(): number {
-  return currentUserId;
-}
-
-export function getActiveEmployeeId(): number {
-  return currentEmployeeId;
-}
-
-export function getActiveUserPermissions(): string[] {
-  return [...currentPermissions];
-}
+export function getActiveRole(): UserRole { return superAdminUserContext?.role || currentRole; }
+export function getActiveUserId(): number { return superAdminUserContext?.userId || currentUserId; }
+export function getActiveEmployeeId(): number { return superAdminUserContext?.employeeId || currentEmployeeId; }
+export function getActiveUserPermissions(): string[] { return [...(superAdminUserContext?.permissions || currentPermissions)]; }
 
 const PERMISSION_ALIASES: Record<string, string[]> = {
   'audit.view': ['AUDIT_LOG_VIEW', 'audit.view', 'AUDIT_VIEW'],
@@ -1027,11 +1033,12 @@ export function getAuthHeaders(): Record<string, string> {
       'Content-Type': 'application/json',
     };
   }
+  const target = superAdminUserContext;
   return {
-    'x-user-role': currentRole,
-    'x-user-id': String(currentUserId),
-    'x-employee-id': String(currentEmployeeId),
-    'x-username': currentUsername,
+    'x-user-role': target?.role || currentRole,
+    'x-user-id': String(target?.userId || currentUserId),
+    'x-employee-id': String(target?.employeeId || currentEmployeeId),
+    'x-username': target?.username || currentUsername,
     ...(currentSessionToken ? { 'x-session-token': currentSessionToken } : {}),
     'Content-Type': 'application/json',
   };
@@ -1092,10 +1099,11 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     headers.set('x-auth-state', 'LOGGED_OUT');
     headers.set('x-user-role', 'LOGGED_OUT');
   } else {
-    headers.set('x-user-role', currentRole);
-    headers.set('x-user-id', String(currentUserId));
-    headers.set('x-employee-id', String(currentEmployeeId));
-    headers.set('x-username', currentUsername);
+    const target = superAdminUserContext;
+    headers.set('x-user-role', target?.role || currentRole);
+    headers.set('x-user-id', String(target?.userId || currentUserId));
+    headers.set('x-employee-id', String(target?.employeeId || currentEmployeeId));
+    headers.set('x-username', target?.username || currentUsername);
     if (currentSessionToken) {
       headers.set('x-session-token', currentSessionToken);
     }
