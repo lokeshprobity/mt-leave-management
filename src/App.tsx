@@ -455,7 +455,8 @@ export default function App() {
             setMustChangePasswordState(data.user.mustChangePassword);
           }
           const serverRole = (data.user.roleName || data.user.role) as UserRole | undefined;
-          if (serverRole && serverRole !== activeRole) {
+          // A profile refresh in elevated user-context mode must never replace the original admin session.
+          if (!isViewingAsAnotherUser() && serverRole && serverRole !== activeRole) {
             const sess = loginUserSession(data.user);
             setActiveRoleState(sess.role);
           }
