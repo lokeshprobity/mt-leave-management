@@ -212,6 +212,9 @@ export default function App() {
   const initialNav = parseNavFromLocation(initialRole);
   const [isAuthenticatedState, setIsAuthenticatedState] = useState<boolean>(isUserAuthenticated());
   const [activeModule, setActiveModuleState] = useState<NavModule>(initialNav.module);
+  // Increment on every navigation click so the current module can dismiss any open detail/profile view,
+  // even when the user clicks the already-selected navigation item.
+  const [navigationResetKey, setNavigationResetKey] = useState(0);
   const [adminTab, setAdminTabState] = useState<AdminTab>(initialNav.tab);
   const [activeRole, setActiveRoleState] = useState<UserRole>(initialRole);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserDto | null>(null);
@@ -366,6 +369,7 @@ export default function App() {
   } | null>(null);
 
   const setActiveModule = (mod: NavModule) => {
+    setNavigationResetKey((key) => key + 1);
     clearEmployee360ProfileState();
     setDrillDownTarget(null);
     setIsMobileDrawerOpen(false);
@@ -399,6 +403,7 @@ export default function App() {
   };
 
   const setAdminTab = (tab: AdminTab) => {
+    setNavigationResetKey((key) => key + 1);
     setDrillDownTarget(null);
     setIsMobileDrawerOpen(false);
     setIsUserMenuOpen(false);
@@ -2445,19 +2450,19 @@ export default function App() {
             )}
 
             {/* Tab: Users */}
-            {isCurrentAdminTabAuthorized && adminTab === 'users' && <UserManagementAdmin initialSubTab="users" onSubTabChange={(t) => setAdminTab(t)} />}
+            {isCurrentAdminTabAuthorized && adminTab === 'users' && <UserManagementAdmin initialSubTab="users" navigationResetKey={navigationResetKey} onSubTabChange={(t) => setAdminTab(t)} />}
 
             {/* Tab: Employees */}
-            {isCurrentAdminTabAuthorized && adminTab === 'employees' && <UserManagementAdmin initialSubTab="employees" onSubTabChange={(t) => setAdminTab(t)} />}
+            {isCurrentAdminTabAuthorized && adminTab === 'employees' && <UserManagementAdmin initialSubTab="employees" navigationResetKey={navigationResetKey} onSubTabChange={(t) => setAdminTab(t)} />}
 
             {/* Tab: Roles */}
-            {isCurrentAdminTabAuthorized && adminTab === 'roles' && <UserManagementAdmin initialSubTab="roles" onSubTabChange={(t) => setAdminTab(t)} />}
+            {isCurrentAdminTabAuthorized && adminTab === 'roles' && <UserManagementAdmin initialSubTab="roles" navigationResetKey={navigationResetKey} onSubTabChange={(t) => setAdminTab(t)} />}
 
             {/* Tab: Departments */}
-            {isCurrentAdminTabAuthorized && adminTab === 'departments' && <UserManagementAdmin initialSubTab="departments" onSubTabChange={(t) => setAdminTab(t)} />}
+            {isCurrentAdminTabAuthorized && adminTab === 'departments' && <UserManagementAdmin initialSubTab="departments" navigationResetKey={navigationResetKey} onSubTabChange={(t) => setAdminTab(t)} />}
 
             {/* Tab: Designations */}
-            {isCurrentAdminTabAuthorized && adminTab === 'designations' && <UserManagementAdmin initialSubTab="designations" onSubTabChange={(t) => setAdminTab(t)} />}
+            {isCurrentAdminTabAuthorized && adminTab === 'designations' && <UserManagementAdmin initialSubTab="designations" navigationResetKey={navigationResetKey} onSubTabChange={(t) => setAdminTab(t)} />}
 
             {/* Tab: Working Days & Timing */}
             {isCurrentAdminTabAuthorized && adminTab === 'working-days' && <WorkingDaysAdmin initialSubTab="working-days" />}
