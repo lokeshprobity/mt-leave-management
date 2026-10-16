@@ -9,6 +9,8 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isMacOS, setIsMacOS] = useState(false);
+  const [isSafari, setIsSafari] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -20,7 +22,11 @@ export function usePWAInstall() {
 
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+    const isMacDevice = /macintosh|mac os x/.test(userAgent) && !isIOSDevice;
+    const isSafariBrowser = /safari/.test(userAgent) && !/chrome|chromium|crios|edg|opr|firefox/.test(userAgent);
     setIsIOS(isIOSDevice);
+    setIsMacOS(isMacDevice);
+    setIsSafari(isSafariBrowser);
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -44,19 +50,26 @@ export function usePWAInstall() {
   const install = async () => {
     if (!deferredPrompt) return false;
     await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setIsInstalled(true);
+    try {
+      const { outcome } = await deferredPrompt.userChoice;
       setDeferredPrompt(null);
-      return true;
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      setDeferredPrompt(null);
+      throw error;
     }
-    return false;
   };
 
   return {
     isInstallable: !!deferredPrompt,
     isInstalled,
     isIOS,
+    isMacOS,
+    isSafari,
     install,
   };
 }
