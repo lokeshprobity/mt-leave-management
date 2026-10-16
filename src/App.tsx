@@ -64,7 +64,6 @@ import { TeamLeaderApprovalDashboard } from './components/TeamLeaderApprovalDash
 import { HrApprovalDashboard } from './components/HrApprovalDashboard.tsx';
 import { ManagementApprovalDashboard } from './components/ManagementApprovalDashboard.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
-import { EmployeeDashboardAccess } from './components/admin/EmployeeDashboardAccess.tsx';
 import { ReportsMis } from './components/ReportsMis.tsx';
 import { CompanyBrandingDto, UserDto, UserRole } from './types/leave.ts';
 import {
@@ -80,6 +79,9 @@ import {
   loginUserSession,
   logoutUserSession,
   mustUserChangePassword,
+  startSuperAdminUserContext,
+  endSuperAdminUserContext,
+  isViewingAsAnotherUser,
 } from './lib/api.ts';
 
 type NavModule =
@@ -232,7 +234,7 @@ export default function App() {
   const [drillDownTarget, setDrillDownTarget] = useState<OpenEmployee360Payload | null>(() =>
     getPersistedEmployee360ProfileState()
   );
-  const [employeeDashboardTarget, setEmployeeDashboardTarget] = useState<{ employeeId: number; employeeName: string; employeeCode?: string } | null>(null);
+  const [viewingUser, setViewingUser] = useState<{ userId: number; employeeId: number; employeeName: string; employeeCode?: string; role: UserRole } | null>(null);
 
   useEffect(() => {
     const handleOpenEmployee360 = (e: Event) => {
@@ -245,15 +247,35 @@ export default function App() {
       }
     };
     window.addEventListener('open-employee-360', handleOpenEmployee360);
-    const handleOpenEmployeeDashboard = (e: Event) => {
+    const handleOpenEmployeeDashboard = async (e: Event) => {
       const detail = (e as CustomEvent<{ employeeId: number; employeeName: string; employeeCode?: string }>).detail;
-      if (detail?.employeeId && getActiveRole() === 'SUPER_ADMIN') {
-        setEmployeeDashboardTarget(detail);
+      if (!detail?.employeeId || getActiveRole() !== 'SUPER_ADMIN' || isViewingAsAnotherUser()) return;
+      try {
+        const [employeeResponse, roleResponse] = await Promise.all([apiFetch('/api/employees'), apiFetch('/api/roles')]);
+        if (!employeeResponse.ok) throw new Error('Employee account details could not be loaded.');
+        const employeePayload = await employeeResponse.json();
+        const rolePayload = roleResponse.ok ? await roleResponse.json() : { roles: [] };
+        const employee = (employeePayload.employees || []).find((item: any) => Number(item.id) === Number(detail.employeeId));
+        if (!employee || !Number(employee.userId)) throw new Error('This employee has no linked user account, so their actual dashboard cannot be opened.');
+        const role = String(employee.role || employee.operationalRole || 'EMPLOYEE').trim().toUpperCase() as UserRole;
+        const normalize = (value: unknown) => String(value || '').trim().toUpperCase().replace(/[\\s-]+/g, '_');
+        const roleRecord = (rolePayload.roles || []).find((item: any) => [item.name, item.code, item.displayName].some((value: unknown) => normalize(value) === normalize(role)));
+        const started = startSuperAdminUserContext({ userId: Number(employee.userId), employeeId: Number(employee.id), role,
+          username: String(employee.username || employee.officialEmail || employee.email || ''),
+          fullName: String(employee.fullName || employee.employeeName || detail.employeeName || ''),
+          profilePhotoUrl: employee.profilePhotoUrl || null,
+          permissions: Array.isArray(roleRecord?.permissions) ? roleRecord.permissions : [] });
+        if (!started) throw new Error('Secure user context could not be started. Your Super Admin session remains unchanged.');
+        setViewingUser({ userId: Number(employee.userId), employeeId: Number(employee.id), employeeName: String(employee.fullName || employee.employeeName || detail.employeeName), employeeCode: employee.employeeCode, role });
+        setActiveRoleState(role);
+        setActiveModuleState('dashboard');
         setDrillDownTarget(null);
+        setCurrentUserProfile(null);
         setIsMobileDrawerOpen(false);
         setIsUserMenuOpen(false);
+        window.history.replaceState({ activeModule: 'dashboard' }, '', '#dashboard');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      } catch (error: any) { window.alert(error?.message || 'Could not open the selected user dashboard.'); }
     };
     window.addEventListener('open-employee-dashboard', handleOpenEmployeeDashboard);
     return () => {
@@ -433,7 +455,8 @@ export default function App() {
             setMustChangePasswordState(data.user.mustChangePassword);
           }
           const serverRole = (data.user.roleName || data.user.role) as UserRole | undefined;
-          if (serverRole && serverRole !== activeRole) {
+          // A profile refresh in elevated user-context mode must never replace the original admin session.
+          if (!isViewingAsAnotherUser() && serverRole && serverRole !== activeRole) {
             const sess = loginUserSession(data.user);
             setActiveRoleState(sess.role);
           }
@@ -557,6 +580,8 @@ export default function App() {
   }, [isAuthenticatedState, activeRole]);
 
   const handleConfirmLogout = async () => {
+    endSuperAdminUserContext();
+    setViewingUser(null);
     setLoggingOut(true);
     try {
       await logoutUserSession();
@@ -2842,13 +2867,13 @@ export default function App() {
           </div>
         </div>
       )}
-      {employeeDashboardTarget && activeRole === 'SUPER_ADMIN' && (
-        <EmployeeDashboardAccess
-          employeeId={employeeDashboardTarget.employeeId}
-          employeeName={employeeDashboardTarget.employeeName}
-          employeeCode={employeeDashboardTarget.employeeCode}
-          onClose={() => setEmployeeDashboardTarget(null)}
-        />
+      {viewingUser && isViewingAsAnotherUser() && (
+        <div className="fixed top-0 inset-x-0 z-[120] bg-amber-100 border-b border-amber-300 px-3 py-2 shadow-md">
+          <div className="mx-auto max-w-screen-2xl flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+            <div className="min-w-0 text-amber-950"><strong>Super Admin — Viewing as {viewingUser.employeeName}</strong><span className="ml-2">({viewingUser.employeeCode || 'No employee code'} · {viewingUser.role})</span><span className="ml-2 hidden md:inline">Actions run in the selected user context.</span></div>
+            <button type="button" onClick={() => { endSuperAdminUserContext(); setViewingUser(null); setActiveRoleState('SUPER_ADMIN'); setActiveModuleState('dashboard'); setAdminTabState('employees'); setCurrentUserProfile(null); window.history.replaceState({ activeModule: 'dashboard' }, '', '#dashboard'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="rounded-lg bg-amber-900 px-3 py-2 font-semibold text-white hover:bg-amber-950">Return to Super Admin</button>
+          </div>
+        </div>
       )}
     </div>
   );
