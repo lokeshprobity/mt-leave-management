@@ -6,14 +6,14 @@ import { RequestClassification } from '../types/leave.ts';
 export interface SystemTimingConfig {
   officeStartTime: string; // e.g. "08:30"
   normalLeaveCutoffTime: string; // e.g. "07:00" (same-day normal leave cutoff)
-  normalFullDayCutoffTime?: string; // e.g. "07:00" (same-day cutoff for normal Full-Day leave)
+  normalFullDayCutoffTime?: string; // e.g. "19:00" (previous-day cutoff for normal Full-Day leave)
   timezone: string; // e.g. "Asia/Kolkata"
 }
 
 export const DEFAULT_TIMING_CONFIG: SystemTimingConfig = {
   officeStartTime: '08:30',
   normalLeaveCutoffTime: '07:00',
-  normalFullDayCutoffTime: '07:00',
+  normalFullDayCutoffTime: '19:00',
   timezone: 'Asia/Kolkata',
 };
 
@@ -49,7 +49,6 @@ export class LeaveClassificationService {
         }
         if (row.settingKey === 'normal_leave_cutoff_time' && row.settingValue) {
           config.normalLeaveCutoffTime = row.settingValue;
-          config.normalFullDayCutoffTime = row.settingValue;
         }
         if (
           (row.settingKey === 'leave_cutoff_time' ||
@@ -72,13 +71,15 @@ export class LeaveClassificationService {
       if (db) {
         try {
           const rows = await db.select().from(systemSettings);
+          const hasExplicitNormalCutoff = rows.some(
+            (row) => row.settingKey === 'normal_leave_cutoff_time' && Boolean(row.settingValue)
+          );
           for (const row of rows) {
             if (row.settingKey === 'office_start_time' && row.settingValue) {
               config.officeStartTime = row.settingValue;
             }
             if (row.settingKey === 'normal_leave_cutoff_time' && row.settingValue) {
               config.normalLeaveCutoffTime = row.settingValue;
-              config.normalFullDayCutoffTime = row.settingValue;
             }
             if (
               (row.settingKey === 'leave_cutoff_time' ||
@@ -86,6 +87,9 @@ export class LeaveClassificationService {
               row.settingValue
             ) {
               config.normalFullDayCutoffTime = row.settingValue;
+              if (!hasExplicitNormalCutoff) {
+                config.normalLeaveCutoffTime = row.settingValue;
+              }
             }
             if (row.settingKey === 'timezone' && row.settingValue) {
               config.timezone = row.settingValue;
@@ -287,10 +291,10 @@ export class LeaveClassificationService {
 
     const normalFullDayCutoffTimeStr =
       customTiming?.normalFullDayCutoffTime ||
-      effectiveCutoffTimeStr ||
       timing.normalFullDayCutoffTime ||
+      effectiveCutoffTimeStr ||
       timing.normalLeaveCutoffTime ||
-      '07:00';
+      '19:00';
 
     const officeStartMinutes = this.parseTimeToMinutes(effectiveStartTimeStr);
     const normalCutoffMinutes = this.parseTimeToMinutes(effectiveCutoffTimeStr);
@@ -304,16 +308,17 @@ export class LeaveClassificationService {
     const appUtcDays = Math.floor(Date.UTC(aY, aM - 1, aD) / 86400000);
     const noticeDays = startUtcDays - appUtcDays;
 
-    const normalFullDayCutoffDateStr = leaveStartDateStr;
+    const cutoffUtc = new Date(Date.UTC(sY, sM - 1, sD - 1));
+    const normalFullDayCutoffDateStr = `${cutoffUtc.getUTCFullYear()}-${String(cutoffUtc.getUTCMonth() + 1).padStart(2, '0')}-${String(cutoffUtc.getUTCDate()).padStart(2, '0')}`;
 
     const isSameDay = noticeDays === 0;
 
     // Authoritative Normal Full-Day Cutoff Check:
-    // Normal cutoff = 07:00 AM on leave start date (or configured normal cutoff time).
-    // Late window = 07:01 AM to 08:29 AM (after normal cutoff and strictly before office start).
-    // Post-start = 08:30 AM onward (at or after office/shift start).
+    // Normal full-day leave must be submitted strictly before the configured cutoff
+    // on the previous calendar day (default 19:00 / 7:00 PM).
+    // At the cutoff time itself, on the leave date, or later, the request is rejected.
     const isBeforeNormalFullDayCutoff =
-      noticeDays > 0 || (noticeDays === 0 && appMinutes <= normalFullDayCutoffMinutes);
+      noticeDays > 1 || (noticeDays === 1 && appMinutes < normalFullDayCutoffMinutes);
 
     // Authoritative Shift/Office Start Time Check for Date D:
     // Must be submitted strictly BEFORE the employee's applicable office/shift start time for date D.
