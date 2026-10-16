@@ -45,7 +45,38 @@ export function MyLeaveBalance({ targetEmployeeId, viewAsEmployee = false }: MyL
         throw new Error(data.error || 'Failed to fetch leave balances');
       }
       const data = await res.json();
-      setBalances(data.balances || []);
+      const actualBalances: LeaveBalanceDto[] = data.balances || [];
+      if (canManageBalances) {
+        setBalances(actualBalances);
+      } else {
+        // Employee-facing view: show CL as 12 days by default and all other
+        // leave types as 0 until a real ledger record exists. Synthetic rows are
+        // display-only; leave application validation is performed by the server.
+        const now = new Date().toISOString();
+        const displayBalances = types.map((lt: LeaveTypeDto) => {
+          const existing = actualBalances.find((b) => b.leaveTypeId === lt.id && b.year === currentYear);
+          if (existing) return existing;
+          const defaultAllocation = String(lt.code.trim().toUpperCase() === 'CL' ? 12 : 0);
+          return {
+            id: -lt.id,
+            employeeId,
+            leaveTypeId: lt.id,
+            leaveTypeCode: lt.code,
+            leaveTypeName: lt.name,
+            openingBalance: '0',
+            allocated: defaultAllocation,
+            carryForward: '0',
+            adjustments: '0',
+            used: '0',
+            reserved: '0',
+            available: defaultAllocation,
+            year: currentYear,
+            createdAt: now,
+            updatedAt: now,
+          } as LeaveBalanceDto;
+        });
+        setBalances(displayBalances);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -78,7 +109,7 @@ export function MyLeaveBalance({ targetEmployeeId, viewAsEmployee = false }: MyL
               leaveTypeId: lt.id,
               year: currentYear,
               openingBalance: 0,
-              allocated: lt.code === 'CL' ? 12 : lt.code === 'SL' ? 10 : lt.code === 'EL' ? 15 : 0,
+              allocated: lt.code.trim().toUpperCase() === 'CL' ? 12 : 0,
               carryForward: 0,
               adjustments: 0,
               used: 0,
