@@ -553,8 +553,12 @@ export class LeaveRequestService {
       isPostStart: false,
       isBeforeNormalFullDayCutoff: true,
       isBeforeShiftStart: true,
-      normalFullDayCutoffDateStr: input.startDate,
-      normalFullDayCutoffTimeUsed: '07:00',
+      normalFullDayCutoffDateStr: (() => {
+        const [year, month, day] = input.startDate.split('-').map(Number);
+        const previousDay = new Date(Date.UTC(year, month - 1, day - 1));
+        return `${previousDay.getUTCFullYear()}-${String(previousDay.getUTCMonth() + 1).padStart(2, '0')}-${String(previousDay.getUTCDate()).padStart(2, '0')}`;
+      })(),
+      normalFullDayCutoffTimeUsed: '19:00',
       applicationDateStr: input.startDate,
       applicationTimeStr: '00:00',
       shiftStartTimeUsed: '08:30',
