@@ -2767,7 +2767,8 @@ export default function App() {
         id="app-footer"
         className="hidden md:block bg-white border-t border-neutral-200/80 px-4 lg:px-8 py-3.5 text-center text-xs text-neutral-500"
       >
-        Maestro Leave Management &bull; Employee &rarr; Team Leader &rarr; HR &rarr; Top Management Workflow
+        <div>Maestro Leave Management &bull; Employee &rarr; Team Leader &rarr; HR &rarr; Top Management Workflow</div>
+        <div className="mt-1 font-medium text-neutral-600">Build By: Lokesh Yadav</div>
       </footer>
 
       {/* Mobile Bottom Navigation Bar (Dedicated App-Like Mobile Navigation) */}
