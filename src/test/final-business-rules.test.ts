@@ -471,52 +471,52 @@ async function runFinalBusinessRulesTests() {
   console.log('\n--- 9. Authoritative Normal Full-Day, Emergency, & Shift-Start Cutoff Rules ---');
   resetAll();
 
-  // 9.1 Normal Full-Day Leave for D = 2026-09-26 (Normal cutoff = 2026-09-26 07:00)
-  // Verify preview returns authoritative cutoff: 2026-09-26 07:00 and Office Start: 08:30
+  // 9.1 Normal Full-Day Leave for D = 2026-09-26 (previous-day cutoff = 2026-09-25 19:00)
+  // Preview must show the previous calendar day and 7:00 PM as the authoritative cutoff.
   const cutoffPreview = await LeaveRequestService.calculatePreview(
     {
       leaveTypeId: 1,
       startDate: '2026-09-26',
       endDate: '2026-09-26',
       dayType: 'FULL_DAY',
-      applicationTimestampOverride: '2026-09-26T06:59:00+05:30',
+      applicationTimestampOverride: '2026-09-25T18:59:00+05:30',
     },
     EMP_ALICE
   );
   assert(
-    cutoffPreview.normalFullDayCutoffDateStr === '2026-09-26' &&
-      cutoffPreview.normalFullDayCutoffTimeUsed === '07:00' &&
+    cutoffPreview.normalFullDayCutoffDateStr === '2026-09-25' &&
+      cutoffPreview.normalFullDayCutoffTimeUsed === '19:00' &&
       cutoffPreview.shiftStartTimeUsed === '08:30' &&
       cutoffPreview.isBeforeNormalFullDayCutoff === true &&
       cutoffPreview.isValid === true,
-    '9.1.0 Preview displays Normal Full-Day Cutoff as 2026-09-26 07:00 and Office Start 08:30'
+    '9.1.0 Preview displays Normal Full-Day Cutoff as 2026-09-25 19:00 and Office Start 08:30'
   );
 
-  // Verify 2026-10-01 preview displays 2026-10-01 07:00 (and never 2026-09-30 18:00)
+  // Verify a next-day leave request is allowed at 18:59 IST on the previous day.
   const oct1Preview = await LeaveRequestService.calculatePreview(
     {
       leaveTypeId: 1,
       startDate: '2026-10-01',
       endDate: '2026-10-01',
       dayType: 'FULL_DAY',
-      applicationTimestampOverride: '2026-10-01T01:15:00Z', // 06:45 AM Asia/Kolkata
+      applicationTimestampOverride: '2026-09-30T18:59:00+05:30',
     },
     EMP_ALICE
   );
   assert(
-    oct1Preview.normalFullDayCutoffDateStr === '2026-10-01' &&
-      oct1Preview.normalFullDayCutoffTimeUsed === '07:00' &&
+    oct1Preview.normalFullDayCutoffDateStr === '2026-09-30' &&
+      oct1Preview.normalFullDayCutoffTimeUsed === '19:00' &&
       `${oct1Preview.normalFullDayCutoffDateStr} ${oct1Preview.normalFullDayCutoffTimeUsed}` ===
-        '2026-10-01 07:00' &&
+        '2026-09-30 19:00' &&
       oct1Preview.classification === 'NORMAL_LEAVE_REQUEST' &&
       oct1Preview.isBeforeNormalFullDayCutoff === true &&
       oct1Preview.isValid === true,
-    '9.1.0b Preview for 2026-10-01 displays Normal Full-Day Cutoff: 2026-10-01 07:00 (interpreted in Asia/Kolkata)'
+    '9.1.0b Preview for 2026-10-01 displays previous-day cutoff: 2026-09-30 19:00 IST'
   );
 
-  // Verify UTC timestamps are interpreted in Asia/Kolkata across all 4 boundaries (07:00, 07:01, 08:29, 08:30 IST)
+  // Classification keeps same-day office/shift labels, but the normal full-day cutoff has passed.
   const ist0700 = await LeaveClassificationService.classifyLeaveRequest(
-    '2026-10-01T01:30:00Z', // 07:00 IST
+    '2026-10-01T01:30:00Z', // 07:00 IST on the leave date
     '2026-10-01'
   );
   const ist0701 = await LeaveClassificationService.classifyLeaveRequest(
@@ -534,7 +534,7 @@ async function runFinalBusinessRulesTests() {
   assert(
     ist0700.applicationTimeStr === '07:00' &&
       ist0700.classification === 'NORMAL_LEAVE_REQUEST' &&
-      ist0700.isBeforeNormalFullDayCutoff === true &&
+      ist0700.isBeforeNormalFullDayCutoff === false &&
       ist0701.applicationTimeStr === '07:01' &&
       ist0701.classification === 'LATE_LEAVE_REQUEST' &&
       ist0701.isLate === true &&
@@ -548,34 +548,34 @@ async function runFinalBusinessRulesTests() {
       ist0830.classification === 'POST_START_LEAVE_REQUEST' &&
       ist0830.isPostStart === true &&
       ist0830.isBeforeShiftStart === false,
-    '9.1.0c Asia/Kolkata timezone boundaries: 07:00=NORMAL, 07:01..08:29=LATE, 08:30+=POST_START'
+    '9.1.0c Asia/Kolkata classification: full-day cutoff passed on leave date; shift boundaries remain intact'
   );
 
-  // 26/09/2026 07:00 -> ALLOWED
+  // 25/09/2026 18:59 -> ALLOWED for leave on 26/09/2026.
   const normalAllowed = await LeaveRequestService.submitLeaveRequest(
     {
       leaveTypeId: 1,
       startDate: '2026-09-26',
       endDate: '2026-09-26',
       dayType: 'FULL_DAY',
-      reason: 'Planned personal day submitted on or before 07:00 AM cutoff',
-      applicationTimestampOverride: '2026-09-26T07:00:00+05:30',
+      reason: 'Planned personal day submitted before previous-day 7 PM cutoff',
+      applicationTimestampOverride: '2026-09-25T18:59:00+05:30',
     },
     EMP_ALICE
   );
   assert(
     Boolean(normalAllowed?.id) && Number(normalAllowed.totalDays) === 1.0,
-    '9.1.1 Normal Full-Day leave for 26/09/2026 submitted at 26/09/2026 07:00 -> ALLOWED'
+    '9.1.1 Normal Full-Day leave for 26/09/2026 submitted 25/09/2026 18:59 -> ALLOWED'
   );
 
-  // Cancel it so we can test the blocked timestamps on the same date 2026-09-26
-  await LeaveRequestService.cancelLeaveRequest(normalAllowed.id, 'Reset for next test', EMP_ALICE);
+  await LeaveRequestService.cancelLeaveRequest(normalAllowed.id, 'Reset for cutoff boundary tests', EMP_ALICE);
 
   const blockedNormalTimes = [
-    { ts: '2026-09-26T07:01:00+05:30', label: '26/09/2026 07:01' },
-    { ts: '2026-09-26T08:29:00+05:30', label: '26/09/2026 08:29' },
-    { ts: '2026-09-26T08:30:00+05:30', label: '26/09/2026 08:30' },
-    { ts: '2026-09-26T14:10:00+05:30', label: '26/09/2026 14:10' },
+    { ts: '2026-09-25T19:00:00+05:30', label: '25/09/2026 19:00 (exact cutoff)' },
+    { ts: '2026-09-25T19:01:00+05:30', label: '25/09/2026 19:01 (after cutoff)' },
+    { ts: '2026-09-26T06:59:00+05:30', label: '26/09/2026 06:59 (leave date)' },
+    { ts: '2026-09-26T07:00:00+05:30', label: '26/09/2026 07:00 (leave date)' },
+    { ts: '2026-09-26T14:10:00+05:30', label: '26/09/2026 14:10 (leave date)' },
   ];
 
   for (const item of blockedNormalTimes) {
