@@ -36,9 +36,11 @@ export function UserManagementAdmin({
   initialSubTab,
   onSubTabChange,
   onOpenUserProfile,
+  navigationResetKey,
 }: {
   initialSubTab?: 'employees' | 'users' | 'roles' | 'departments' | 'designations' | 'working-days';
   onSubTabChange?: (tab: 'employees' | 'users' | 'roles' | 'departments' | 'designations' | 'working-days') => void;
+  navigationResetKey?: number;
   onOpenUserProfile?: (target: { userId?: number; employeeId?: number | string; employeeCode?: string }) => void;
 } = {}) {
   const [subTab, setSubTab] = useState<'employees' | 'users' | 'roles' | 'departments' | 'designations' | 'working-days'>(
@@ -56,9 +58,17 @@ export function UserManagementAdmin({
 
   const handleSelectSubTab = (tab: 'employees' | 'users' | 'roles' | 'departments' | 'designations' | 'working-days') => {
     if (!canAccessAdminTab(tab, getActiveRole())) return;
+    // A tab click always returns from an open profile/detail view to the selected list.
+    setInlineProfileTarget(null);
     setSubTab(tab);
     onSubTabChange?.(tab);
   };
+
+  useEffect(() => {
+    // Also close inline profiles when the main navigation item is clicked again,
+    // even if Administration is already the active module.
+    setInlineProfileTarget(null);
+  }, [navigationResetKey]);
 
   useEffect(() => {
     if (initialSubTab && canAccessAdminTab(initialSubTab, getActiveRole())) {
