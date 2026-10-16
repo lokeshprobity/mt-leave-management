@@ -77,30 +77,36 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     ];
     const rawRoleHeader = (req.headers['x-user-role'] as string)?.trim().toUpperCase();
     const isSuperAdminSession = claims.role === 'SUPER_ADMIN';
-    const requestedRoleIsValid = Boolean(
-      rawRoleHeader &&
-      (validSystemRoles.includes(rawRoleHeader as UserRole) || UserService.isValidRoleName(rawRoleHeader))
-    );
-    const effectiveRole = (
-      isSuperAdminSession && requestedRoleIsValid ? rawRoleHeader : claims.role
-    ) as UserRole;
-
+    const requestedRoleIsValid = Boolean(rawRoleHeader &&
+      (validSystemRoles.includes(rawRoleHeader as UserRole) || UserService.isValidRoleName(rawRoleHeader)));
     const requestedUserId = req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : NaN;
-    const effectiveUserRecord =
-      isSuperAdminSession && Number.isInteger(requestedUserId) && requestedUserId > 0
-        ? UserService.getMemoryUserRecordById(requestedUserId) || authenticatedRecord
-        : authenticatedRecord;
-
-    const rawEmployeeHeader = req.headers['x-employee-id']
-      ? String(req.headers['x-employee-id']).trim()
-      : '';
-    const requestedEmployeeId =
-      isSuperAdminSession && /^\d+$/.test(rawEmployeeHeader) ? Number(rawEmployeeHeader) : undefined;
-    const effectiveEmployeeId = requestedEmployeeId ?? effectiveUserRecord.employeeId ?? undefined;
-    const effectiveEmployeeRecord =
-      isSuperAdminSession && effectiveEmployeeId
-        ? UserService.getMemoryUserRecordByEmployee(effectiveEmployeeId) || effectiveUserRecord
-        : effectiveUserRecord;
+    const isRequestingAnotherAccount = isSuperAdminSession &&
+      Number.isInteger(requestedUserId) && requestedUserId > 0 && requestedUserId !== authenticatedRecord.id;
+    const effectiveUserRecord = isRequestingAnotherAccount
+      ? UserService.getMemoryUserRecordById(requestedUserId)
+      : authenticatedRecord;
+    if (!effectiveUserRecord || effectiveUserRecord.isActive === false) {
+      return res.status(403).json({ error: 'The selected account is unavailable or inactive.' });
+    }
+    const rawEmployeeHeader = req.headers['x-employee-id'] ? String(req.headers['x-employee-id']).trim() : '';
+    const requestedEmployeeId = isSuperAdminSession && /^\d+$/.test(rawEmployeeHeader) ? Number(rawEmployeeHeader) : undefined;
+    const linkedEmployeeId = effectiveUserRecord.employeeId ?? undefined;
+    if (isRequestingAnotherAccount && requestedEmployeeId !== undefined &&
+        linkedEmployeeId !== undefined && requestedEmployeeId !== linkedEmployeeId) {
+      return res.status(403).json({ error: 'The selected employee does not belong to the selected user account.' });
+    }
+    const effectiveEmployeeId = linkedEmployeeId;
+    const effectiveEmployeeRecord = effectiveEmployeeId
+      ? UserService.getMemoryUserRecordByEmployee(effectiveEmployeeId) || effectiveUserRecord
+      : effectiveUserRecord;
+    const targetOperationalRole = String(UserService.resolveOperationalRoleForRecord(effectiveUserRecord) || '').trim().toUpperCase();
+    const targetAccountRole = String(effectiveUserRecord.roleName || '').trim().toUpperCase();
+    const requestedRoleMatchesAccount = Boolean(rawRoleHeader &&
+      (targetAccountRole === rawRoleHeader || targetOperationalRole === rawRoleHeader));
+    if (isRequestingAnotherAccount && (!requestedRoleIsValid || !requestedRoleMatchesAccount)) {
+      return res.status(403).json({ error: 'The requested role does not match the selected account.' });
+    }
+    const effectiveRole = (isRequestingAnotherAccount ? rawRoleHeader : claims.role) as UserRole;
     const effectiveDept = effectiveEmployeeRecord.departmentId
       ? UserService.getDepartmentByIdSync(effectiveEmployeeRecord.departmentId)
       : null;
@@ -112,9 +118,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       employeeCode: effectiveEmployeeRecord.employeeCode ?? undefined,
       departmentId: effectiveEmployeeRecord.departmentId ?? null,
       departmentCode: effectiveDept?.code ?? null,
-      username: isSuperAdminSession
-        ? headerUsername || effectiveUserRecord.username
-        : authenticatedRecord.username,
+      username: effectiveUserRecord.username,
       role: effectiveRole,
       ...(effectiveEmployeeRecord.roleName === effectiveRole
         ? { operationalRole: UserService.resolveOperationalRoleForRecord(effectiveEmployeeRecord) }
