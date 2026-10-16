@@ -381,6 +381,7 @@ export function UserManagementAdmin({
           <span>Employees</span>
         </button>
 
+        {canAccessAdminTab('users', activeRole) && (
         <button
           id="subtab-users"
           onClick={() => handleSelectSubTab('users')}
@@ -391,7 +392,9 @@ export function UserManagementAdmin({
           <Key className="w-3.5 h-3.5" />
           <span>User Accounts</span>
         </button>
+        )}
 
+        {canAccessAdminTab('roles', activeRole) && (
         <button
           id="subtab-roles"
           onClick={() => handleSelectSubTab('roles')}
@@ -402,6 +405,7 @@ export function UserManagementAdmin({
           <Shield className="w-3.5 h-3.5" />
           <span>Role Master (RBAC)</span>
         </button>
+        )}
 
         <button
           id="subtab-departments"
