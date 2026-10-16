@@ -3748,10 +3748,10 @@ export function registerApiRoutes(app: express.Express) {
   // STEP 8: System Audit Logs
   // ==============================================================
 
-  // 63. Query System Audit Logs (SUPER_ADMIN, HR, or role with AUDIT_LOG_VIEW)
+  // 63. Query System Audit Logs (SUPER_ADMIN only)
   app.get(
     '/api/audit-logs',
-    requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
+    requireRole(['SUPER_ADMIN']),
     async (req: Request, res: Response) => {
       try {
         if (!(await UserService.hasPermission(req.user!, 'AUDIT_LOG_VIEW'))) {
