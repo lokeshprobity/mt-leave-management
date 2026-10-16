@@ -110,8 +110,6 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const effectiveDept = effectiveEmployeeRecord.departmentId
       ? UserService.getDepartmentByIdSync(effectiveEmployeeRecord.departmentId)
       : null;
-    const headerUsername = (req.headers['x-username'] as string)?.trim();
-
     req.user = {
       userId: effectiveUserRecord.id,
       employeeId: effectiveEmployeeId,
