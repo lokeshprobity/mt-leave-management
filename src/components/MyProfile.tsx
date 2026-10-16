@@ -949,10 +949,7 @@ export const MyProfile: React.FC<MyProfileProps> = ({
               </div>
               <p className="text-xs text-neutral-500 mt-2 sm:mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0 break-words">
                 <span className="min-w-0">
-                  <strong className="text-neutral-700">Employee ID:</strong> #{profile.employeeId ?? employee?.id ?? 'N/A'}
-                </span>
-                <span className="min-w-0">
-                  <strong className="text-neutral-700">User ID:</strong> #{profile.id}
+                  <strong className="text-neutral-700">Employee ID:</strong> {completeProfile.employeeCode || employee?.employeeCode || profile.employeeCode || 'N/A'}
                 </span>
                 <span className="min-w-0 break-all sm:break-normal">
                   <strong className="text-neutral-700">Username:</strong> @{profile.username}
@@ -1024,9 +1021,6 @@ export const MyProfile: React.FC<MyProfileProps> = ({
             <div className="text-[11px] font-bold text-sky-900 uppercase break-words">Business Employee ID</div>
             <div className="text-xs font-mono font-bold text-neutral-900 mt-0.5 break-words">
               {completeProfile.employeeCode || employee?.employeeCode || profile.employeeCode || '—'}
-              <span className="text-[10px] font-normal text-slate-600 ml-1">
-                ({completeProfile.linkedAccountStatus === 'STANDALONE_EMPLOYEE' ? 'Standalone' : `User #${profile.id}`})
-              </span>
             </div>
           </div>
           <div className={`${MT_COLOR_CARDS.indigo} p-2.5 sm:p-3 min-w-0 overflow-hidden`}>
@@ -1209,15 +1203,9 @@ export const MyProfile: React.FC<MyProfileProps> = ({
             </h3>
             <div className="space-y-2.5 text-xs min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b border-neutral-100 min-w-0">
-                <span className="text-neutral-500">Employee ID / Code</span>
+                <span className="text-neutral-500">Employee ID</span>
                 <span className="font-mono font-semibold text-neutral-800 break-words text-right">
-                  #{profile.employeeId ?? 'N/A'} ({profile.employeeCode || '—'})
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b border-neutral-100 min-w-0">
-                <span className="text-neutral-500">User ID / Username</span>
-                <span className="font-mono font-semibold text-neutral-800 break-all sm:break-words text-right">
-                  #{profile.id} (@{profile.username})
+                  {completeProfile.employeeCode || employee?.employeeCode || profile.employeeCode || 'N/A'}
                 </span>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b border-neutral-100 min-w-0">
