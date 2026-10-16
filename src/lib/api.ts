@@ -877,6 +877,8 @@ export function canAccessAdminTab(
   }
 
   const role = roleOverride || currentRole;
+  // HR may manage employee/department/designation records, but never user accounts or system roles.
+  if (role === 'HR' && (tabId === 'users' || tabId === 'roles')) return false;
   if (!canAccessModule('administration', role, permissionsOverride)) {
     return false;
   }

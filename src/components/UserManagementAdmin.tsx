@@ -22,7 +22,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { UserDto, DepartmentDto, DesignationDto, ShiftDto, RoleDto, UserRole } from '../types/leave.ts';
-import { getActiveRole, getActiveUserId, getActiveEmployeeId, apiFetch } from '../lib/api.ts';
+import { getActiveRole, getActiveUserId, getActiveEmployeeId, apiFetch, canAccessAdminTab } from '../lib/api.ts';
 import { EmployeeAdmin } from './admin/EmployeeAdmin.tsx';
 import { DepartmentAdmin } from './admin/DepartmentAdmin.tsx';
 import { DesignationAdmin } from './admin/DesignationAdmin.tsx';
@@ -55,15 +55,19 @@ export function UserManagementAdmin({
   };
 
   const handleSelectSubTab = (tab: 'employees' | 'users' | 'roles' | 'departments' | 'designations' | 'working-days') => {
+    if (!canAccessAdminTab(tab, getActiveRole())) return;
     setSubTab(tab);
     onSubTabChange?.(tab);
   };
 
   useEffect(() => {
-    if (initialSubTab) {
+    if (initialSubTab && canAccessAdminTab(initialSubTab, getActiveRole())) {
       setSubTab(initialSubTab);
+    } else if (initialSubTab) {
+      setSubTab('employees');
+      onSubTabChange?.('employees');
     }
-  }, [initialSubTab]);
+  }, [initialSubTab, onSubTabChange]);
   const [users, setUsers] = useState<UserDto[]>([]);
   const [rolesList, setRolesList] = useState<RoleDto[]>([]);
   const [departments, setDepartments] = useState<DepartmentDto[]>([]);
@@ -377,6 +381,7 @@ export function UserManagementAdmin({
           <span>Employees</span>
         </button>
 
+        {canAccessAdminTab('users', activeRole) && (
         <button
           id="subtab-users"
           onClick={() => handleSelectSubTab('users')}
@@ -387,7 +392,9 @@ export function UserManagementAdmin({
           <Key className="w-3.5 h-3.5" />
           <span>User Accounts</span>
         </button>
+        )}
 
+        {canAccessAdminTab('roles', activeRole) && (
         <button
           id="subtab-roles"
           onClick={() => handleSelectSubTab('roles')}
@@ -398,6 +405,7 @@ export function UserManagementAdmin({
           <Shield className="w-3.5 h-3.5" />
           <span>Role Master (RBAC)</span>
         </button>
+        )}
 
         <button
           id="subtab-departments"
@@ -448,14 +456,14 @@ export function UserManagementAdmin({
       ) : (
         <>
           {subTab === 'employees' && <EmployeeAdmin onOpenUserProfile={handleOpenProfile} />}
-          {subTab === 'roles' && <RoleAdmin />}
+          {subTab === 'roles' && canAccessAdminTab('roles', activeRole) && <RoleAdmin />}
           {subTab === 'departments' && <DepartmentAdmin />}
           {subTab === 'designations' && <DesignationAdmin />}
           {subTab === 'working-days' && <WorkingDaysAdmin />}
         </>
       )}
 
-      {!inlineProfileTarget && subTab === 'users' && (
+      {!inlineProfileTarget && subTab === 'users' && canAccessAdminTab('users', activeRole) && (
         <div className="space-y-6">
           {/* Header Banner */}
           <div className={`${MT_COLOR_CARDS.sky} p-6 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
