@@ -103,10 +103,8 @@ export class LeaveClassificationService {
       config.officeStartTime = customTimingOverrides.officeStartTime;
     }
     if (customTimingOverrides.normalLeaveCutoffTime) {
+      // Keep the same-day half-day cutoff independent from the previous-day full-day cutoff.
       config.normalLeaveCutoffTime = customTimingOverrides.normalLeaveCutoffTime;
-      if (!customTimingOverrides.normalFullDayCutoffTime) {
-        config.normalFullDayCutoffTime = customTimingOverrides.normalLeaveCutoffTime;
-      }
     }
     if (customTimingOverrides.normalFullDayCutoffTime) {
       config.normalFullDayCutoffTime = customTimingOverrides.normalFullDayCutoffTime;
