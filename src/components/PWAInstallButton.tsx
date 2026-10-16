@@ -7,7 +7,15 @@ interface PWAInstallButtonProps {
 }
 
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ variant = 'header' }) => {
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isIOS, isMacOS, isSafari, install } = usePWAInstall();
+  const handleInstall = async () => {
+    try {
+      const installed = await install();
+      if (!installed) setShowBrowserGuide(true);
+    } catch {
+      setShowBrowserGuide(true);
+    }
+  };
   const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [showBrowserGuide, setShowBrowserGuide] = useState(false);
 
@@ -20,7 +28,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ variant = 'h
       <button
         id={`btn-pwa-install-${variant}`}
         type="button"
-        onClick={install}
+        onClick={handleInstall}
         className={
           variant === 'drawer'
             ? 'w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800 hover:bg-red-100 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors'
@@ -158,11 +166,29 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ variant = 'h
             </div>
 
             <div className="text-xs text-neutral-700 space-y-2 bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-              <p><strong>Windows — Chrome:</strong> Open the browser menu (⋮) and look for “Install MT Leave” or “Save and share” → “Install page as app”.</p>
-              <p><strong>Windows — Edge:</strong> Open the menu (⋯) → Apps → “Install this site as an app”.</p>
-              <p><strong>Android — Chrome:</strong> Open the menu (⋮) → “Install app” or “Add to Home screen”.</p>
-              <p>If the browser menu has no install option, update/reload this site in Chrome or Edge. The browser may not yet consider the site installable; the instructions alone cannot override that browser requirement.</p>
-            </div>
+              {isMacOS && isSafari ? (
+                <>
+                  <p><strong>Mac — Safari (macOS Sonoma 14 or later):</strong></p>
+                  <p>1. Open MT Leave directly in Safari.</p>
+                  <p>2. From the macOS menu bar, choose <strong>File → Add to Dock…</strong></p>
+                  <p>3. Keep the app name “MT Leave” and click <strong>Add</strong>. It will open from your Dock like a separate app.</p>
+                  <p className="text-neutral-600">Safari does not provide the automatic install prompt used by Chrome, so this menu option is the correct installation method.</p>
+                </>
+              ) : isMacOS ? (
+                <>
+                  <p><strong>Mac — Google Chrome:</strong> Click the install icon at the right side of the address bar if shown, or open <strong>⋮ → Save and share → Install page as app</strong> (menu wording may vary by version).</p>
+                  <p><strong>Mac — Microsoft Edge:</strong> Open <strong>⋯ → Apps → Install this site as an app</strong>.</p>
+                  <p>If the install option is missing, open the same HTTPS site in Safari and use <strong>File → Add to Dock…</strong> on macOS Sonoma 14 or later.</p>
+                </>
+              ) : (
+                <>
+                  <p><strong>Windows — Chrome:</strong> Open the browser menu (⋮) and look for “Install MT Leave” or “Save and share” → “Install page as app”.</p>
+                  <p><strong>Windows — Edge:</strong> Open the menu (⋯) → Apps → “Install this site as an app”.</p>
+                  <p><strong>Android — Chrome:</strong> Open the menu (⋮) → “Install app” or “Add to Home screen”.</p>
+                  <p>If the browser menu has no install option, update/reload this site in Chrome or Edge. The browser may not yet consider the site installable.</p>
+                </>
+              )}
+            </div>>
 
             <button
               type="button"
