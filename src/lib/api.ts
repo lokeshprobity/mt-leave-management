@@ -877,6 +877,8 @@ export function canAccessAdminTab(
   }
 
   const role = roleOverride || currentRole;
+  // System Audit is strictly Super Admin-only, regardless of custom role permissions.
+  if (tabId === 'audit') return role === 'SUPER_ADMIN';
   // HR may manage employee/department/designation records, but never user accounts or system roles.
   if (role === 'HR' && (tabId === 'users' || tabId === 'roles')) return false;
   if (!canAccessModule('administration', role, permissionsOverride)) {
