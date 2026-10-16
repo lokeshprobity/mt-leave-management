@@ -2443,7 +2443,11 @@ export function registerApiRoutes(app: express.Express) {
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid user ID' });
       const year = req.query.year ? Number(req.query.year) : undefined;
       const profile = await UserService.getCompleteUserProfile({ userId: id }, req.user!, { year });
-      res.json({ success: true, profile });
+      // Audit logs and the 360 activity timeline are confidential Super Admin-only data.
+      const responseProfile = req.user!.role === 'SUPER_ADMIN'
+        ? profile
+        : { ...profile, unifiedTimeline: [], auditLogs: [] };
+      res.json({ success: true, profile: responseProfile });
     } catch (err: any) {
       if (err.message?.includes('Forbidden') || err.message?.includes('Unauthorized')) {
         return res.status(403).json({ error: err.message });
@@ -2461,7 +2465,10 @@ export function registerApiRoutes(app: express.Express) {
       const id = Number(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid user ID' });
       const profile = await UserService.operateUserProfile({ userId: id }, req.body, req.user!);
-      res.json({ success: true, profile, user: profile.user, employee: profile.employee });
+      const responseProfile = req.user!.role === 'SUPER_ADMIN'
+        ? profile
+        : { ...profile, unifiedTimeline: [], auditLogs: [] };
+      res.json({ success: true, profile: responseProfile, user: responseProfile.user, employee: responseProfile.employee });
     } catch (err: any) {
       if (err.message?.includes('Forbidden') || err.message?.includes('Unauthorized')) {
         return res.status(403).json({ error: err.message });
@@ -2892,7 +2899,11 @@ export function registerApiRoutes(app: express.Express) {
       if (await denySuperAdminEmployeeTarget(id, req, res)) return;
       const year = req.query.year ? Number(req.query.year) : undefined;
       const profile = await UserService.getCompleteUserProfile({ employeeId: id }, req.user!, { year });
-      res.json({ success: true, profile });
+      // Audit logs and the 360 activity timeline are confidential Super Admin-only data.
+      const responseProfile = req.user!.role === 'SUPER_ADMIN'
+        ? profile
+        : { ...profile, unifiedTimeline: [], auditLogs: [] };
+      res.json({ success: true, profile: responseProfile });
     } catch (err: any) {
       if (err.message?.includes('Forbidden') || err.message?.includes('Unauthorized')) {
         return res.status(403).json({ error: err.message });
@@ -2910,7 +2921,10 @@ export function registerApiRoutes(app: express.Express) {
       const id = parseIdOrCode(req.params.id);
       if (id === undefined) return res.status(400).json({ error: 'Invalid employee ID' });
       const profile = await UserService.operateUserProfile({ employeeId: id }, req.body, req.user!);
-      res.json({ success: true, profile, user: profile.user, employee: profile.employee });
+      const responseProfile = req.user!.role === 'SUPER_ADMIN'
+        ? profile
+        : { ...profile, unifiedTimeline: [], auditLogs: [] };
+      res.json({ success: true, profile: responseProfile, user: responseProfile.user, employee: responseProfile.employee });
     } catch (err: any) {
       if (err.message?.includes('Forbidden') || err.message?.includes('Unauthorized')) {
         return res.status(403).json({ error: err.message });
