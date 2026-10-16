@@ -374,7 +374,7 @@ export default function App() {
       setIsAuthenticatedState(false);
       return;
     }
-    if (mustUserChangePassword() || mustChangePasswordState) {
+    if (!isViewingAsAnotherUser() && (mustUserChangePassword() || mustChangePasswordState)) {
       setMustChangePasswordState(true);
       if (typeof window !== 'undefined' && window.location.hash !== '#change-password') {
         window.history.replaceState(
@@ -406,7 +406,7 @@ export default function App() {
       setIsAuthenticatedState(false);
       return;
     }
-    if (mustUserChangePassword() || mustChangePasswordState) {
+    if (!isViewingAsAnotherUser() && (mustUserChangePassword() || mustChangePasswordState)) {
       setMustChangePasswordState(true);
       if (typeof window !== 'undefined' && window.location.hash !== '#change-password') {
         window.history.replaceState(
@@ -451,7 +451,7 @@ export default function App() {
       .then((data) => {
         if (data?.user) {
           setCurrentUserProfile(data.user);
-          if (typeof data.user.mustChangePassword === 'boolean') {
+          if (!isViewingAsAnotherUser() && typeof data.user.mustChangePassword === 'boolean') {
             setMustChangePasswordState(data.user.mustChangePassword);
           }
           const serverRole = (data.user.roleName || data.user.role) as UserRole | undefined;
@@ -488,7 +488,7 @@ export default function App() {
         }
         return;
       }
-      if (mustUserChangePassword()) {
+      if (!isViewingAsAnotherUser() && mustUserChangePassword()) {
         setMustChangePasswordState(true);
         if (window.location.hash !== '#change-password') {
           window.history.replaceState(
@@ -1298,7 +1298,7 @@ export default function App() {
     );
   }
 
-  if (mustChangePasswordState || mustUserChangePassword()) {
+  if (!isViewingAsAnotherUser() && (mustChangePasswordState || mustUserChangePassword())) {
     return (
       <div
         id="forced-password-change-screen"
