@@ -642,13 +642,9 @@ export class LeaveRequestService {
 
     const emergencyWaiver = this.isEmergencyWaiverApplicable(input, leaveType, policy);
 
-    if (policy && !policy.negativeBalanceAllowed && workingDaysResult.totalDays > available) {
-      if (!emergencyWaiver) {
-        validationErrors.push(
-          `Insufficient balance: Requested ${workingDaysResult.totalDays} day(s), but only ${available} day(s) available`
-        );
-      }
-    }
+    // Balance is informational at application time. Employees may apply with zero
+    // balance; any resulting negative balance is handled by the existing ledger
+    // when Top Management gives final approval.
 
     const requiresDoc = Boolean(leaveType?.requiresDocument || policy?.documentRequired);
 
@@ -1258,14 +1254,8 @@ export class LeaveRequestService {
 
     const emergencyWaiverApplicable = this.isEmergencyWaiverApplicable(input, leaveType, policy);
 
-    if (!policy.negativeBalanceAllowed && workingDaysResult.totalDays > available) {
-      if (!emergencyWaiverApplicable) {
-        throw new ValidationError(
-          `Insufficient leave balance: Requested ${workingDaysResult.totalDays} day(s), but only ${available} day(s) available for ${leaveType.name}`,
-          { balance: `Available balance is ${available} day(s)` }
-        );
-      }
-    }
+    // Do not block leave submission based on available balance. A zero-balance
+    // employee may still apply; final approval and balance posting remain separate.
 
     // 7. Validate overlap (Check against existing active requests for this employee)
     // Audited: Excludes cancelled and rejected requests. Allows distinct half-days on same date.
