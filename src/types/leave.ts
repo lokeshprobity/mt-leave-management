@@ -209,7 +209,7 @@ export interface LeaveRequestDto {
   leaveTypeId: number;
   leaveTypeCode?: string;
   leaveTypeName?: string;
-  isPaid: boolean;
+  isPaid?: boolean;
   startDate: string; // 'YYYY-MM-DD'
   endDate: string; // 'YYYY-MM-DD'
   totalDays: string | number;
