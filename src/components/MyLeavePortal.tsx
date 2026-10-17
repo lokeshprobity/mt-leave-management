@@ -632,8 +632,8 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-semibold text-neutral-500">Payment Type</span>
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${r.isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                        {r.isPaid ? 'Paid' : 'Unpaid'}
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${r.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {r.isPaid !== false ? 'Paid' : 'Unpaid'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
@@ -880,8 +880,8 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                     >
                       {r.leaveTypeName} ({r.leaveTypeCode})
                     </span>
-                    <span className={`px-2.5 py-0.5 rounded text-xs font-semibold ${r.isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                      {r.isPaid ? 'Paid' : 'Unpaid'}
+                    <span className={`px-2.5 py-0.5 rounded text-xs font-semibold ${r.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {r.isPaid !== false ? 'Paid' : 'Unpaid'}
                     </span>
                     {getClassificationBadge(r.requestClassification)}
                     <span className="text-xs text-neutral-500">
