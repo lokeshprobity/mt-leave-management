@@ -549,6 +549,7 @@ export const leaveRequests = pgTable(
     leaveTypeId: integer('leave_type_id')
       .references(() => leaveTypes.id, { onDelete: 'restrict' })
       .notNull(),
+    isPaid: boolean('is_paid').default(true).notNull(),
     startDate: text('start_date').notNull(), // 'YYYY-MM-DD'
     endDate: text('end_date').notNull(), // 'YYYY-MM-DD'
     totalDays: numeric('total_days', { precision: 6, scale: 2 }).notNull(),
