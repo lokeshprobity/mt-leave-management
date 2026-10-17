@@ -366,6 +366,9 @@ export function AdminLeaveRequests() {
                       <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${getLeaveTypeBadgeClasses(r.leaveTypeCode || r.leaveTypeName)}`}>
                         {r.leaveTypeName || r.leaveTypeCode}
                       </span>
+                      <span className={`ml-1 px-2 py-0.5 rounded text-[10px] font-semibold ${r.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {r.isPaid !== false ? 'Paid' : 'Unpaid'}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-neutral-900">
@@ -474,6 +477,7 @@ export function AdminLeaveRequests() {
                 <div>
                   <span className="text-neutral-500 block">Leave Type:</span>
                   <strong className="text-neutral-900">{selectedRequest.leaveTypeName} ({selectedRequest.leaveTypeCode})</strong>
+                  <span className={`ml-2 px-2 py-0.5 rounded text-[11px] font-semibold ${selectedRequest.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{selectedRequest.isPaid !== false ? 'Paid' : 'Unpaid'}</span>
                 </div>
                 <div>
                   <span className="text-neutral-500 block">Duration:</span>
