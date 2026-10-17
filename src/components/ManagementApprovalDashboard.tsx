@@ -305,6 +305,7 @@ export function ManagementApprovalDashboard() {
                     >
                       {r.leaveTypeName} ({r.leaveTypeCode})
                     </span>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${r.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{r.isPaid !== false ? 'Paid' : 'Unpaid'}</span>
                     <span className="font-mono font-bold text-neutral-900 bg-white px-2 py-0.5 rounded border border-neutral-200">
                       {Number(r.totalDays)} Days ({r.dayType === 'HALF_DAY' ? 'Half Day' : 'Full Day'})
                     </span>
@@ -398,7 +399,7 @@ export function ManagementApprovalDashboard() {
                     >
                       {r.leaveTypeCode}
                     </span>
-                    <span className="text-[11px] text-neutral-500 block mt-0.5">{r.leaveTypeName}</span>
+                    <span className="text-[11px] text-neutral-500 block mt-0.5">{r.leaveTypeName} · {r.isPaid !== false ? 'Paid' : 'Unpaid'}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-neutral-800 block">{formatDate(r.startDate)} to {formatDate(r.endDate)}</span>
