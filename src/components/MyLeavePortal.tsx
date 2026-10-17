@@ -65,6 +65,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   // Form State
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeDto[]>([]);
   const [formLeaveTypeId, setFormLeaveTypeId] = useState<number>(1);
+  const [formIsPaid, setFormIsPaid] = useState<boolean>(true);
   const [formStartDate, setFormStartDate] = useState('');
   const [formEndDate, setFormEndDate] = useState('');
   const [formDayType, setFormDayType] = useState<DayType>('FULL_DAY');
@@ -85,6 +86,8 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   const [submittingApply, setSubmittingApply] = useState(false);
   const [previewData, setPreviewData] = useState<any | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const selectedFormLeaveType = leaveTypes.find((lt) => lt.id === Number(formLeaveTypeId));
+  const isCasualLeave = selectedFormLeaveType?.code?.trim().toUpperCase() === 'CL';
 
   const fetchMyRequests = async () => {
     setLoading(true);
@@ -112,6 +115,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
         setLeaveTypes(data.leaveTypes);
         if (data.leaveTypes.length > 0) {
           setFormLeaveTypeId(data.leaveTypes[0].id);
+          setFormIsPaid(data.leaveTypes[0].code?.trim().toUpperCase() === 'CL' ? true : Boolean(data.leaveTypes[0].isPaid));
         }
       }
     } catch {}
@@ -252,6 +256,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
         employeeId: targetEmployeeId ?? getActiveEmployeeId(),
         ...(targetEmployeeId ? { submittedOnBehalfOf: true } : {}),
         leaveTypeId: Number(formLeaveTypeId),
+        isPaid: selectedLeaveType?.code?.trim().toUpperCase() === 'CL' ? true : formIsPaid,
         leaveType: selectedLeaveType?.code || String(formLeaveTypeId),
         startDate: formStartDate,
         endDate: effectiveEndDate,
@@ -282,6 +287,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
       setFormStartDate('');
       setFormEndDate('');
       setFormReason('');
+      setFormIsPaid(true);
       handleRemoveSelectedAttachment();
       fetchMyRequests();
     } catch (err: any) {
@@ -625,6 +631,12 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-neutral-500">Payment Type</span>
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${r.isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {r.isPaid ? 'Paid' : 'Unpaid'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-semibold text-neutral-500">Date Range</span>
                       <span className="font-semibold text-neutral-800 text-right">
                         {formatDate(r.startDate)}
@@ -867,6 +879,9 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                       )}`}
                     >
                       {r.leaveTypeName} ({r.leaveTypeCode})
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded text-xs font-semibold ${r.isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {r.isPaid ? 'Paid' : 'Unpaid'}
                     </span>
                     {getClassificationBadge(r.requestClassification)}
                     <span className="text-xs text-neutral-500">
@@ -1160,7 +1175,12 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                   <select
                     id="select-leave-type"
                     value={formLeaveTypeId}
-                    onChange={(e) => setFormLeaveTypeId(Number(e.target.value))}
+                    onChange={(e) => {
+                      const nextId = Number(e.target.value);
+                      const nextType = leaveTypes.find((lt) => lt.id === nextId);
+                      setFormLeaveTypeId(nextId);
+                      setFormIsPaid(nextType?.code?.trim().toUpperCase() === 'CL' ? true : Boolean(nextType?.isPaid));
+                    }}
                     className="w-full min-h-[44px] md:min-h-0 text-xs p-2.5 bg-white rounded-xl md:rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700/20 focus:border-red-700"
                   >
                     {leaveTypes.map((t) => (
@@ -1170,6 +1190,28 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                     ))}
                   </select>
                 </div>
+
+                {isCasualLeave ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    CL is always treated as Paid Leave.
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                      Leave Payment Type <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      id="select-leave-payment-type"
+                      value={formIsPaid ? 'PAID' : 'UNPAID'}
+                      onChange={(e) => setFormIsPaid(e.target.value === 'PAID')}
+                      className="w-full min-h-[44px] md:min-h-0 text-xs p-2.5 bg-white rounded-xl md:rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700/20 focus:border-red-700"
+                    >
+                      <option value="PAID">Paid Leave</option>
+                      <option value="UNPAID">Unpaid Leave</option>
+                    </select>
+                    <p className="mt-1 text-[11px] text-neutral-500">Paid leave is deducted from this leave type's balance after final approval. Unpaid leave does not deduct paid leave balance.</p>
+                  </div>
+                )}
 
                 {/* Full-Day / Half-Day Controls */}
                 <div>
