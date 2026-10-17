@@ -66,6 +66,7 @@ export class LeaveRequestService {
       applicantRole: (r.applicantRole as any) || emp?.roleName || 'EMPLOYEE',
       applicantOperationalRole: (r.applicantOperationalRole as any) || emp?.operationalRole || 'EMPLOYEE',
       leaveTypeId: r.leaveTypeId,
+      isPaid: Boolean((r as any).isPaid ?? lt?.isPaid ?? true),
       leaveTypeCode: (r as any).leaveTypeCode || lt?.code,
       leaveTypeName: (r as any).leaveTypeName || lt?.name,
       startDate: r.startDate,
@@ -1186,6 +1187,11 @@ export class LeaveRequestService {
         leaveTypeId: `Leave type '${leaveType.name}' is currently inactive`,
       });
     }
+    // CL is always paid. For every other leave type, the applicant's explicit choice
+    // is stored on this request; existing master-level isPaid is the default only.
+    const effectiveIsPaid = leaveType.code.trim().toUpperCase() === 'CL'
+      ? true
+      : (typeof input.isPaid === 'boolean' ? input.isPaid : leaveType.isPaid);
 
     // 4. Read applicable policy
     const policies = await LeaveService.getLeavePolicies({ leaveTypeId: input.leaveTypeId });
@@ -1567,6 +1573,7 @@ export class LeaveRequestService {
       leaveTypeId: input.leaveTypeId,
       leaveTypeCode: leaveType.code,
       leaveTypeName: leaveType.name,
+      isPaid: effectiveIsPaid,
       startDate: input.startDate,
       endDate: input.endDate,
       totalDays: workingDaysResult.totalDays.toFixed(2),
@@ -1629,6 +1636,7 @@ export class LeaveRequestService {
             requestNumber,
             employeeId,
             leaveTypeId: input.leaveTypeId,
+            isPaid: effectiveIsPaid,
             startDate: input.startDate,
             endDate: input.endDate,
             totalDays: String(workingDaysResult.totalDays.toFixed(2)),
@@ -2342,7 +2350,7 @@ export class LeaveRequestService {
     const dayDifference = totalDaysNum - previousDays;
     const reqYear = parseInt(newStartDate.substring(0, 4), 10) || now.getFullYear();
 
-    if ((current.finalStatus === 'APPROVED' || current.balancePosted) && dayDifference !== 0) {
+    if ((current.balancePosted || (current.finalStatus === 'APPROVED' && current.isPaid)) && dayDifference !== 0) {
       if (dayDifference > 0) {
         // Need to deduct additional days
         await LeaveService.deductApprovedLeave(
@@ -2487,7 +2495,7 @@ export class LeaveRequestService {
         reqRecord = this.mapRowToDto(row);
 
         // If approved and balance was deducted, revert the balance
-        if (row.status === 'APPROVED' || row.balancePosted) {
+        if (row.balancePosted || (row.status === 'APPROVED' && row.isPaid !== false)) {
           const reqYear = parseInt(row.startDate.substring(0, 4), 10) || new Date().getFullYear();
           await LeaveService.revertApprovedLeave(
             row.employeeId,
@@ -2511,7 +2519,7 @@ export class LeaveRequestService {
     if (memIdx !== -1) {
       const memReq = memoryLeaveRequests[memIdx];
       if (!reqRecord) reqRecord = memReq;
-      if (memReq.status === 'APPROVED' || memReq.balancePosted) {
+      if (memReq.balancePosted || (memReq.status === 'APPROVED' && memReq.isPaid !== false)) {
         const reqYear = parseInt(memReq.startDate.substring(0, 4), 10) || new Date().getFullYear();
         await LeaveService.revertApprovedLeave(
           memReq.employeeId,
