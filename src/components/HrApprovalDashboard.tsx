@@ -271,7 +271,7 @@ export function HrApprovalDashboard() {
                   <tr key={r.id} className="border-b border-amber-100 last:border-0">
                     <td className="py-2 pr-3 font-mono">{r.requestNumber}</td>
                     <td className="py-2 pr-3">{r.employeeName} <span className="text-amber-800">({r.employeeCode || r.employeeId})</span></td>
-                    <td className="py-2 pr-3">{r.leaveTypeName} — {r.totalDays} day(s)</td>
+                    <td className="py-2 pr-3">{r.leaveTypeName} — {r.totalDays} day(s) <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${r.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{r.isPaid !== false ? 'Paid' : 'Unpaid'}</span></td>
                     <td className="py-2 pr-3">{formatDate(r.startDate)} – {formatDate(r.endDate)}</td>
                     <td className="py-2 text-right">
                       <button
@@ -384,6 +384,7 @@ export function HrApprovalDashboard() {
                           <span className={"px-2 py-0.5 rounded text-[11px] font-bold " + getLeaveTypeBadgeClasses(r.leaveTypeCode || r.leaveTypeName)}>
                             {r.leaveTypeName || r.leaveTypeCode}
                           </span>
+                          <span className={`ml-1 px-2 py-0.5 rounded text-[10px] font-semibold ${r.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{r.isPaid !== false ? 'Paid' : 'Unpaid'}</span>
                         </td>
                         <td className="px-4 py-3 font-mono font-bold text-neutral-900">
                           {Number(r.totalDays)} Day{Number(r.totalDays) === 1 ? '' : 's'} ({r.dayType === 'HALF_DAY' ? 'Half Day' : 'Full Day'})
@@ -476,6 +477,7 @@ export function HrApprovalDashboard() {
                     >
                       {r.leaveTypeName} ({r.leaveTypeCode})
                     </span>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${r.isPaid !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{r.isPaid !== false ? 'Paid' : 'Unpaid'}</span>
                     <span className="font-mono font-bold text-neutral-900 bg-white px-2 py-0.5 rounded border border-neutral-200">
                       {Number(r.totalDays)} Days ({r.dayType === 'HALF_DAY' ? 'Half Day' : 'Full Day'})
                     </span>
@@ -566,7 +568,7 @@ export function HrApprovalDashboard() {
                     >
                       {r.leaveTypeCode}
                     </span>
-                    <span className="text-[11px] text-neutral-500 block mt-0.5">{r.leaveTypeName}</span>
+                    <span className="text-[11px] text-neutral-500 block mt-0.5">{r.leaveTypeName} · {r.isPaid !== false ? 'Paid' : 'Unpaid'}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-neutral-800 block">{formatDate(r.startDate)} to {formatDate(r.endDate)}</span>
