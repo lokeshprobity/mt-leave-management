@@ -559,3 +559,90 @@ img, svg, video, canvas, audio, iframe, embed, object {
   font-weight: 700;
   letter-spacing: 0.03em;
 }
+
+/* Native-feeling mobile/PWA viewport fixes (kept separate from desktop styling). */
+@media (max-width: 767px) {
+  html,
+  body,
+  #root,
+  #app-root {
+    min-height: 100%;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  /* iOS standalone mode uses a translucent status bar; reserve its safe area
+     so the app title and controls never sit underneath the system indicators. */
+  #app-header {
+    height: calc(3.5rem + env(safe-area-inset-top, 0px));
+    min-height: calc(3.5rem + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    scroll-margin-top: env(safe-area-inset-top, 0px);
+  }
+
+  #app-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  #mobile-bottom-nav {
+    padding-left: max(0.375rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.375rem, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(0.25rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.98);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  #mobile-bottom-nav button {
+    min-width: 0;
+    flex-basis: 0;
+    font-size: 0.6875rem;
+    line-height: 1.1;
+  }
+
+  /* Prevent long cards/forms and desktop-width widgets from widening the app. */
+  #app-container > section,
+  #app-container > section > *,
+  #app-container form,
+  #app-container [role="tabpanel"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #app-container :where(input, select, textarea, button) {
+    max-width: 100%;
+  }
+
+  #app-container :where(h1, h2, h3, p, label, td, th) {
+    overflow-wrap: anywhere;
+  }
+
+  /* Keep data tables usable on a phone without forcing the whole page wider. */
+  #app-container table {
+    max-width: 100%;
+  }
+
+  /* The drawer should sit above the app shell and use the full dynamic viewport. */
+  #mobile-navigation-drawer {
+    max-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@media (display-mode: standalone) {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    min-height: 100dvh;
+  }
+}
