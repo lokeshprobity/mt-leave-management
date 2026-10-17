@@ -2770,10 +2770,10 @@ export default function App() {
       {/* Footer (Desktop Only — Hidden on Mobile for Native App Experience) */}
       <footer
         id="app-footer"
-        className="hidden md:block bg-white border-t border-neutral-200/80 px-4 lg:px-8 py-3.5 text-center text-xs text-neutral-500"
+        className="hidden md:block bg-neutral-900 text-white border-t-2 border-red-700 px-4 lg:px-8 py-3.5 text-center text-xs"
       >
-        <div>Maestro Leave Management &bull; Employee &rarr; Team Leader &rarr; HR &rarr; Top Management Workflow</div>
-        <div className="mt-1 font-medium text-neutral-600">Build By: Lokesh Yadav</div>
+        <div className="text-neutral-100">Maestro Leave Management &bull; Employee &rarr; Team Leader &rarr; HR &rarr; Top Management Workflow</div>
+        <div className="mt-1 font-medium text-white">Build By: Lokesh Yadav</div>
       </footer>
 
       {/* Mobile Bottom Navigation Bar (Dedicated App-Like Mobile Navigation) */}
