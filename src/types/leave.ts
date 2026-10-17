@@ -209,6 +209,7 @@ export interface LeaveRequestDto {
   leaveTypeId: number;
   leaveTypeCode?: string;
   leaveTypeName?: string;
+  isPaid: boolean;
   startDate: string; // 'YYYY-MM-DD'
   endDate: string; // 'YYYY-MM-DD'
   totalDays: string | number;
@@ -271,6 +272,7 @@ export interface CreateLeaveRequestInput {
   employeeId?: number | string;
   employeeCode?: string;
   leaveTypeId: number;
+  isPaid?: boolean;
   startDate: string; // 'YYYY-MM-DD'
   endDate: string; // 'YYYY-MM-DD'
   dayType: DayType;
