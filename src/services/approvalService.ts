@@ -822,7 +822,7 @@ export class ApprovalService {
     // 5. Calculate Final Status (Authoritative)
     const newFinalStatus = calculateFinalLeaveStatus(req.hrDecision, decision, req.finalStatus);
     const now = new Date();
-    const shouldPostBalance = newFinalStatus === 'APPROVED' && !req.balancePosted;
+    const shouldPostBalance = newFinalStatus === 'APPROVED' && !req.balancePosted && req.isPaid !== false;
 
     // 6. Persist to Database or Memory store transactionally
     if (isDbConfigured()) {
