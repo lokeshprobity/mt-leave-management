@@ -1662,7 +1662,7 @@ export default function App() {
             type="button"
             onClick={() => setIsLogoutModalOpen(true)}
             aria-label="Logout"
-            className="min-h-[44px] min-w-[44px] sm:min-w-0 inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-700 text-white border border-red-600 hover:bg-red-800 active:bg-red-900 transition-colors cursor-pointer"
+            className="hidden sm:inline-flex min-h-[44px] sm:min-w-0 items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-700 text-white border border-red-600 hover:bg-red-800 active:bg-red-900 transition-colors cursor-pointer"
             title="Logout from Maestro Leave Management"
           >
             <LogOut className="w-4 h-4 shrink-0" />
