@@ -1539,7 +1539,12 @@ export function registerApiRoutes(app: express.Express) {
       const today = new Date().toISOString().split('T')[0];
       const allEmployees = await UserService.getAllEmployees();
       const employeeDirectory = allEmployees.filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN');
-      const allRequests = await LeaveRequestService.getAllRequests();
+      const employeeDirectoryIds = new Set(employeeDirectory.map((employee: any) => Number(employee.id)));
+      const storedRequests = await LeaveRequestService.getAllRequests();
+      // Super Admin's own leave records must not appear in any other user's dashboard totals or lists.
+      const allRequests = req.user?.role === 'SUPER_ADMIN'
+        ? storedRequests
+        : storedRequests.filter((request: any) => employeeDirectoryIds.has(Number(request.employeeId)));
       const requestedEmployeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
       if (requestedEmployeeId !== undefined && (!Number.isInteger(requestedEmployeeId) || requestedEmployeeId <= 0)) {
         return res.status(400).json({ error: 'Invalid employeeId' });
@@ -1600,7 +1605,7 @@ export function registerApiRoutes(app: express.Express) {
 
       // Breakdown by Department
       const deptCountMap: Record<string, number> = {};
-      const empMap = new Map(allEmployees.map((e: any) => [e.id, e]));
+      const empMap = new Map(employeeDirectory.map((e: any) => [e.id, e]));
       for (const reqItem of dashboardRequests) {
         if (reqItem.finalStatus === 'APPROVED') {
           const emp = empMap.get(reqItem.employeeId) as any;
@@ -1711,12 +1716,20 @@ export function registerApiRoutes(app: express.Express) {
         ? await UserService.getAllEmployees()
         : (await UserService.getAllEmployees()).filter((e) => e.id === req.user?.employeeId))
         .filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN');
-      const allRequests = await LeaveRequestService.getAllRequests();
+      const storedRequests = await LeaveRequestService.getAllRequests();
+      const visibleEmployeeIds = new Set(allEmployees.map((employee: any) => Number(employee.id)));
+      // Reports for non-Super Admin roles must never expose Super Admin leave history.
+      const allRequests = req.user?.role === 'SUPER_ADMIN'
+        ? storedRequests
+        : storedRequests.filter((request: any) => visibleEmployeeIds.has(Number(request.employeeId)));
       const allTypes = await LeaveService.getLeaveTypes({ includeInactive: true });
       const holidays = await HolidayService.getHolidays();
       const shifts = await ShiftService.getShifts({ includeInactive: true });
       const overtime = await OvertimeService.getRequests();
-      const balances = await LeaveService.getLeaveBalances({}, req.user);
+      const allBalances = await LeaveService.getLeaveBalances({}, req.user);
+      const balances = req.user?.role === 'SUPER_ADMIN'
+        ? allBalances
+        : allBalances.filter((balance: any) => visibleEmployeeIds.has(Number(balance.employeeId)));
 
       res.json({
         employees: allEmployees,
