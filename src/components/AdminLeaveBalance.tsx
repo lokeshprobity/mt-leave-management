@@ -176,17 +176,28 @@ export function AdminLeaveBalance() {
       const empData = await empRes.json();
       const ltData = ltRes.ok ? await ltRes.json() : { leaveTypes: [] };
 
-      const loadedBalances: LeaveBalanceItem[] = balData.balances || [];
-      const loadedEmployees: EmployeeSummaryItem[] = empData.employees || [];
+      const loadedEmployees: EmployeeSummaryItem[] = (empData.employees || []).filter(
+        (employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN'
+      );
+      const visibleEmployeeIds = new Set(loadedEmployees.map((employee) => Number(employee.id)));
+      // The balance API may return all balances to an administrator; only include real employees here.
+      const loadedBalances: LeaveBalanceItem[] = (balData.balances || []).filter(
+        (balance: LeaveBalanceItem) => visibleEmployeeIds.has(Number(balance.employeeId))
+      );
       const loadedTypes: LeaveTypeItem[] = ltData.leaveTypes || [];
 
       setBalances(loadedBalances);
       setEmployees(loadedEmployees);
       setLeaveTypes(loadedTypes);
 
-      // Pre-select first employee for individual view if none selected
-      if (!individualEmpId && loadedEmployees.length > 0) {
+      // Never keep a hidden Super Admin account selected in the employee drilldown.
+      if (
+        loadedEmployees.length > 0 &&
+        (!individualEmpId || !loadedEmployees.some((employee) => String(employee.id) === String(individualEmpId)))
+      ) {
         setIndividualEmpId(loadedEmployees[0].id);
+      } else if (loadedEmployees.length === 0) {
+        setIndividualEmpId('');
       }
     } catch (err: any) {
       setError(err.message || 'Error fetching balance records');
