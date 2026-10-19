@@ -80,7 +80,11 @@ export function registerApiRoutes(app: express.Express) {
         .filter((employee: any) => String(employee.role || '').toUpperCase() === 'SUPER_ADMIN')
         .map((employee: any) => Number(employee.id))
     );
-    return requests.filter((request: any) => !superAdminEmployeeIds.has(Number(request.employeeId)));
+    return requests.filter((request: any) => {
+      const employeeId = Number(request?.employeeId);
+      // Fail closed for malformed/unlinked records so they cannot expose a hidden account.
+      return Number.isFinite(employeeId) && !superAdminEmployeeIds.has(employeeId);
+    });
   };
 
   // ----------------------------------------------------
