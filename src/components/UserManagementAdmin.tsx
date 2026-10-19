@@ -128,6 +128,7 @@ export function UserManagementAdmin({
   });
 
   const [newPassword, setNewPassword] = useState('');
+  const [confirmResetPassword, setConfirmResetPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const activeRole = getActiveRole();
 
@@ -300,6 +301,10 @@ export function UserManagementAdmin({
     if (!selectedUser) return;
     setError(null);
     setSuccessMsg(null);
+    if (newPassword !== confirmResetPassword) {
+      setError('New password and confirm password do not match.');
+      return;
+    }
 
     try {
       const res = await apiFetch(`/api/users/${selectedUser.id}/reset-password`, {
@@ -316,6 +321,7 @@ export function UserManagementAdmin({
       setSuccessMsg(`Password reset successfully for user '${selectedUser.username}'!`);
       setIsResetPasswordOpen(false);
       setNewPassword('');
+      setConfirmResetPassword('');
     } catch (err: any) {
       setError(err.message);
     }
@@ -730,18 +736,21 @@ export function UserManagementAdmin({
                       <span>Edit</span>
                     </button>
 
+                    {activeRole === 'SUPER_ADMIN' && (
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedUser(user);
                         setNewPassword('');
+                        setConfirmResetPassword('');
                         setIsResetPasswordOpen(true);
                       }}
                       className="min-h-[40px] px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer inline-flex items-center gap-1"
                     >
                       <Key className="w-3.5 h-3.5" />
-                      <span>Password</span>
+                      <span>Reset Password</span>
                     </button>
+                    )}
 
                     <button
                       type="button"
@@ -961,17 +970,20 @@ export function UserManagementAdmin({
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setNewPassword('');
-                            setIsResetPasswordOpen(true);
-                          }}
-                          className="p-1 rounded text-neutral-500 hover:text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer"
-                          title="Reset Password"
-                        >
-                          <Key className="w-3.5 h-3.5" />
-                        </button>
+                        {activeRole === 'SUPER_ADMIN' && (
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setNewPassword('');
+                              setConfirmResetPassword('');
+                              setIsResetPasswordOpen(true);
+                            }}
+                            className="p-1 rounded text-neutral-500 hover:text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer"
+                            title="Reset Password (Super Admin only)"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
                         <button
                           onClick={() => handleToggleStatus(user)}
@@ -1356,7 +1368,7 @@ export function UserManagementAdmin({
 
             <form onSubmit={handleResetPassword} className="space-y-3.5 mt-4 text-xs">
               <p className="text-neutral-600">
-                Set a new password for user <strong>@{selectedUser.username}</strong> ({selectedUser.fullName}):
+                Set a new password for user <strong>@{selectedUser.username}</strong> ({selectedUser.fullName}). You do not need the old password.
               </p>
 
               <div>
@@ -1364,7 +1376,7 @@ export function UserManagementAdmin({
                   New Password (min 6 chars) <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  type="text"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   minLength={6}
                   value={newPassword}
@@ -1374,10 +1386,35 @@ export function UserManagementAdmin({
                 />
               </div>
 
+              <div>
+                <label className="block text-neutral-700 font-medium mb-1">
+                  Confirm New Password <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={confirmResetPassword}
+                  onChange={(e) => setConfirmResetPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  className="w-full px-3 py-1.5 border border-neutral-200 rounded-lg focus:outline-none focus:border-red-700"
+                />
+              </div>
+
+              <label className="inline-flex items-center gap-2 text-neutral-600">
+                <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
+                Show passwords
+              </label>
+
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-100">
                 <button
                   type="button"
-                  onClick={() => setIsResetPasswordOpen(false)}
+                  onClick={() => {
+                    setIsResetPasswordOpen(false);
+                    setNewPassword('');
+                    setConfirmResetPassword('');
+                    setShowPassword(false);
+                  }}
                   className="px-3.5 py-1.5 border border-neutral-200 text-neutral-600 rounded-lg hover:bg-neutral-50 cursor-pointer font-medium"
                 >
                   Cancel
