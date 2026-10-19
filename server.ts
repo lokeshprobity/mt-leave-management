@@ -2877,13 +2877,10 @@ export function registerApiRoutes(app: express.Express) {
         if (req.query.isActive !== undefined) filter.isActive = req.query.isActive === 'true';
 
         const allEmployees = await UserService.getEmployees(filter);
-        const employees = (req.user?.role === 'SUPER_ADMIN'
-          ? allEmployees
-          : allEmployees.filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN'))
+        // SUPER_ADMIN is an administrative account, never an employee-list row—even for itself.
+        const employees = allEmployees
+          .filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN')
           .sort((a: any, b: any) => {
-            const aIsAdmin = String(a.role || '').toUpperCase() === 'SUPER_ADMIN';
-            const bIsAdmin = String(b.role || '').toUpperCase() === 'SUPER_ADMIN';
-            if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
             const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
             const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
             if (aCode && bCode) return Number(aCode[1]) - Number(bCode[1]);

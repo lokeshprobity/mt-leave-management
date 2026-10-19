@@ -181,6 +181,26 @@ async function runLeaveBalanceDashboardTests() {
     );
   });
 
+  test('4.3 Super Admin is excluded from Leave Balance employee rows and totals', () => {
+    const adminPath = path.resolve(process.cwd(), 'src/components/AdminLeaveBalance.tsx');
+    const serverPath = path.resolve(process.cwd(), 'server.ts');
+    const adminContent = fs.readFileSync(adminPath, 'utf-8');
+    const serverContent = fs.readFileSync(serverPath, 'utf-8');
+
+    assert.ok(
+      adminContent.includes("String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN'"),
+      'Leave Balance must filter Super Admin from employee rows'
+    );
+    assert.ok(
+      adminContent.includes('visibleEmployeeIds.has(Number(balance.employeeId))'),
+      'Leave Balance totals must only include balances for visible employees'
+    );
+    assert.ok(
+      serverContent.includes('// SUPER_ADMIN is an administrative account, never an employee-list row—even for itself.'),
+      'Employee directory API must exclude Super Admin for every role'
+    );
+  });
+
   // ------------------------------------------------------------------
   // 5. Task: " Days" Display Verification
   // ------------------------------------------------------------------
