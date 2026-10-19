@@ -72,6 +72,17 @@ export function registerApiRoutes(app: express.Express) {
     return true;
   };
 
+  const excludeSuperAdminRequests = async (requests: any[], actorRole?: string): Promise<any[]> => {
+    if (actorRole === 'SUPER_ADMIN' || !Array.isArray(requests)) return requests;
+    const allEmployees = await UserService.getAllEmployees();
+    const superAdminEmployeeIds = new Set(
+      allEmployees
+        .filter((employee: any) => String(employee.role || '').toUpperCase() === 'SUPER_ADMIN')
+        .map((employee: any) => Number(employee.id))
+    );
+    return requests.filter((request: any) => !superAdminEmployeeIds.has(Number(request.employeeId)));
+  };
+
   // ----------------------------------------------------
   // API Routes
   // ----------------------------------------------------
@@ -1237,6 +1248,7 @@ export function registerApiRoutes(app: express.Express) {
         if (!result) {
           return res.status(404).json({ error: `Leave request with ID ${id} not found` });
         }
+        if (await denySuperAdminEmployeeTarget(result.request?.employeeId, req, res)) return;
         res.json({ leaveRequest: result.request, events: result.events });
       } catch (err: any) {
         if (err.message?.includes('Forbidden')) {
@@ -1287,7 +1299,8 @@ export function registerApiRoutes(app: express.Express) {
       try {
         const status = req.query.status as string | undefined;
         const search = req.query.search as string | undefined;
-        const list = await ApprovalService.getRequestsForTeamLeader({ status, search }, req.user!);
+        const rawList = await ApprovalService.getRequestsForTeamLeader({ status, search }, req.user!);
+        const list = await excludeSuperAdminRequests(rawList, req.user?.role);
         res.json({ leaveRequests: list, requests: list });
       } catch (err: any) {
         if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
@@ -1387,7 +1400,8 @@ export function registerApiRoutes(app: express.Express) {
       try {
         const status = req.query.status as string | undefined;
         const search = req.query.search as string | undefined;
-        const list = await ApprovalService.getRequestsForHr({ status, search }, req.user!);
+        const rawList = await ApprovalService.getRequestsForHr({ status, search }, req.user!);
+        const list = await excludeSuperAdminRequests(rawList, req.user?.role);
         res.json({ leaveRequests: list });
       } catch (err: any) {
         if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
@@ -1402,7 +1416,8 @@ export function registerApiRoutes(app: express.Express) {
     requireRole(['SUPER_ADMIN', 'HR']),
     async (req: Request, res: Response) => {
       try {
-        const overview = await LeaveRequestService.getTopManagementLeaveOverview(req.user!);
+        const rawOverview = await LeaveRequestService.getTopManagementLeaveOverview(req.user!);
+        const overview = await excludeSuperAdminRequests(rawOverview, req.user?.role);
         res.json({ leaveRequests: overview });
       } catch (err: any) {
         if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
@@ -1463,7 +1478,8 @@ export function registerApiRoutes(app: express.Express) {
       try {
         const status = req.query.status as string | undefined;
         const search = req.query.search as string | undefined;
-        const list = await ApprovalService.getRequestsForManagement({ status, search }, req.user!);
+        const rawList = await ApprovalService.getRequestsForManagement({ status, search }, req.user!);
+        const list = await excludeSuperAdminRequests(rawList, req.user?.role);
         res.json({ leaveRequests: list });
       } catch (err: any) {
         if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
