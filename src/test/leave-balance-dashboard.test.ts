@@ -181,6 +181,30 @@ async function runLeaveBalanceDashboardTests() {
     );
   });
 
+  test('4.4 CL debit records usage without reducing annual allocation', () => {
+    const servicePath = path.resolve(process.cwd(), 'src/services/leaveService.ts');
+    const adminPath = path.resolve(process.cwd(), 'src/components/AdminLeaveBalance.tsx');
+    const serviceContent = fs.readFileSync(servicePath, 'utf-8');
+    const adminContent = fs.readFileSync(adminPath, 'utf-8');
+
+    assert.ok(
+      serviceContent.includes("const debitAsUsage = isCasualLeave && input.adjustmentType === 'DEBIT'"),
+      'CL DEBIT must be handled as consumed leave'
+    );
+    assert.ok(
+      serviceContent.includes('const newAlloc = debitAsUsage ? oldAlloc : oldAlloc + delta'),
+      'CL DEBIT must preserve allocated entitlement'
+    );
+    assert.ok(
+      serviceContent.includes('const newUsed = debitAsUsage ? oldUsed + qty : oldUsed'),
+      'CL DEBIT must increase used leave'
+    );
+    assert.ok(
+      adminContent.includes('Record consumed CL as Used; annual allocation stays unchanged'),
+      'Adjustment UI must explain CL debit behavior'
+    );
+  });
+
   test('4.3 Super Admin is excluded from Leave Balance employee rows and totals', () => {
     const adminPath = path.resolve(process.cwd(), 'src/components/AdminLeaveBalance.tsx');
     const serverPath = path.resolve(process.cwd(), 'server.ts');

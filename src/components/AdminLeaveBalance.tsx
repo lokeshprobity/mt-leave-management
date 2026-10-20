@@ -301,15 +301,24 @@ export function AdminLeaveBalance() {
         : Math.max(0, alloc - used);
 
     const qty = parseFloat(adjustQuantity) || 0;
+    const selectedLeaveType = leaveTypes.find((type) => type.id === targetTypeNumeric);
+    const isCasualLeave = String(selectedLeaveType?.code || '').toUpperCase() === 'CL';
     let delta = 0;
     let newAlloc = alloc;
+    let newUsed = used;
 
     if (adjustType === 'CREDIT') {
       delta = qty;
       newAlloc = alloc + qty;
     } else if (adjustType === 'DEBIT') {
       delta = -qty;
-      newAlloc = Math.max(0, alloc - qty);
+      if (isCasualLeave) {
+        // CL debit is consumption, not an entitlement reduction.
+        newAlloc = alloc;
+        newUsed = used + qty;
+      } else {
+        newAlloc = Math.max(0, alloc - qty);
+      }
     } else {
       // SET
       newAlloc = qty;
@@ -324,10 +333,12 @@ export function AdminLeaveBalance() {
       currentRemaining: remaining,
       delta,
       newAllocated: newAlloc,
+      newUsed,
       newRemaining,
       isNegative: newRemaining < 0,
+      isCasualLeave,
     };
-  }, [currentAdjustBalance, adjustQuantity, adjustType]);
+  }, [currentAdjustBalance, adjustQuantity, adjustType, leaveTypes]);
 
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -376,7 +387,7 @@ export function AdminLeaveBalance() {
       }
 
       setAdjustSuccessMsg(
-        `Successfully updated balance! New Entitlement: ${currentAdjustStats.newAllocated.toFixed(1)} Days, Remaining: ${currentAdjustStats.newRemaining.toFixed(1)} Days.`
+        `Successfully updated balance! Allocated: ${currentAdjustStats.newAllocated.toFixed(1)} Days, Used: ${currentAdjustStats.newUsed.toFixed(1)} Days, Remaining: ${currentAdjustStats.newRemaining.toFixed(1)} Days.`
       );
 
       // Refresh master data and individual employee view
@@ -1589,7 +1600,9 @@ export function AdminLeaveBalance() {
                       <span>DEDUCTION (Debit)</span>
                     </div>
                     <div className="text-[10px] text-neutral-500 mt-0.5">
-                      Deduct / correct excess balance
+                      {Number(adjustLeaveTypeId) === Number(leaveTypes.find((type) => type.code.toUpperCase() === 'CL')?.id)
+                        ? 'Record consumed CL as Used; annual allocation stays unchanged'
+                        : 'Deduct / correct excess entitlement'}
                     </div>
                   </button>
                 </div>
@@ -1645,6 +1658,14 @@ export function AdminLeaveBalance() {
                     {currentAdjustStats.newAllocated.toFixed(1)} Days
                   </span>
                 </div>
+                {currentAdjustStats.isCasualLeave && (
+                  <div className="flex items-center justify-between text-neutral-700 mt-1">
+                    <span>New Used:</span>
+                    <span className="font-bold font-mono text-amber-800">
+                      {currentAdjustStats.newUsed.toFixed(1)} Days
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-neutral-700 mt-1">
                   <span>New Remaining Balance:</span>
                   <span
