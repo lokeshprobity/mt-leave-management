@@ -301,7 +301,8 @@ export function AdminLeaveBalance() {
         : Math.max(0, alloc - used);
 
     const qty = parseFloat(adjustQuantity) || 0;
-    const selectedLeaveType = leaveTypes.find((type) => type.id === targetTypeNumeric);
+    const targetTypeNumeric = Number(adjustLeaveTypeId);
+    const selectedLeaveType = leaveTypes.find((type) => Number(type.id) === targetTypeNumeric);
     const isCasualLeave = String(selectedLeaveType?.code || '').toUpperCase() === 'CL';
     let delta = 0;
     let newAlloc = alloc;
