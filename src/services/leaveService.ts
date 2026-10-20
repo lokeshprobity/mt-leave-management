@@ -1136,8 +1136,7 @@ export class LeaveService {
           const newAvail =
             Number(row.openingBalance || 0) +
             newAlloc +
-            Number(row.carryForward || 0) +
-            newAdj -
+            Number(row.carryForward || 0) -
             newUsed -
             Number(row.reserved || 0);
 
