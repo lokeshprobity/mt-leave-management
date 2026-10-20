@@ -1098,6 +1098,11 @@ export class LeaveService {
     if (!remarkText) {
       throw new ValidationError('A reason / remark is mandatory for balance adjustments');
     }
+    const leaveType = await this.getLeaveTypeById(input.leaveTypeId);
+    const isCasualLeave = String(leaveType?.code || '').toUpperCase() === 'CL';
+    // For CL, DEBIT means consumed leave: keep annual allocation unchanged and increase used.
+    // CREDIT remains an entitlement adjustment; non-CL adjustment behavior remains unchanged.
+    const debitAsUsage = isCasualLeave && input.adjustmentType === 'DEBIT';
     const delta = input.adjustmentType === 'CREDIT' ? qty : -qty;
 
     if (isDbConfigured()) {
@@ -1121,13 +1126,19 @@ export class LeaveService {
           const row = rows[0];
           balId = row.id;
           const oldAlloc = Number(row.allocated || 0);
-          const newAlloc = oldAlloc + delta;
-          const newAdj = Number(row.adjustments || 0) + delta;
+          const oldUsed = Number(row.used || 0);
+          const newAlloc = debitAsUsage ? oldAlloc : oldAlloc + delta;
+          const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
+          const newAdj = debitAsUsage ? Number(row.adjustments || 0) : Number(row.adjustments || 0) + delta;
+          if (debitAsUsage && newUsed + Number(row.reserved || 0) > Number(row.openingBalance || 0) + newAlloc + Number(row.carryForward || 0) + newAdj) {
+            throw new ValidationError('CL debit exceeds the employee’s remaining balance.');
+          }
           const newAvail =
             Number(row.openingBalance || 0) +
             newAlloc +
-            Number(row.carryForward || 0) -
-            Number(row.used || 0) -
+            Number(row.carryForward || 0) +
+            newAdj -
+            newUsed -
             Number(row.reserved || 0);
 
           if (newAvail < 0) {
@@ -1140,6 +1151,7 @@ export class LeaveService {
             .update(leaveBalances)
             .set({
               allocated: String(newAlloc.toFixed(2)),
+              used: String(newUsed.toFixed(2)),
               adjustments: String(newAdj.toFixed(2)),
               available: String(newAvail.toFixed(2)),
               updatedAt: new Date(),
@@ -1148,7 +1160,8 @@ export class LeaveService {
             .returning();
           updatedRow = u;
         } else {
-          // Initialize balance row
+          // A CL consumption debit must use an existing entitlement/balance record.
+          // Never create a negative or zero entitlement to represent consumption.
           if (delta < 0) {
             throw new ValidationError('Cannot deduct from an uninitialized balance record (0 Days).');
           }
@@ -1176,9 +1189,9 @@ export class LeaveService {
           employeeId: numericEmpId,
           leaveTypeId: input.leaveTypeId,
           leaveBalanceId: balId,
-          transactionType: 'ADJUSTMENT',
+          transactionType: debitAsUsage ? 'ADJUSTMENT' : 'ADJUSTMENT',
           quantity: String(delta.toFixed(2)),
-          referenceType: 'MANUAL_ADJUSTMENT',
+          referenceType: debitAsUsage ? 'MANUAL_CL_CONSUMPTION' : 'MANUAL_ADJUSTMENT',
           referenceId: `ADJ_${Date.now()}`,
           remarks: remarkText,
           createdBy: actor.userId || null,
@@ -1246,13 +1259,20 @@ export class LeaveService {
       memoryLeaveBalances.push(memBal);
     } else {
       const oldAlloc = Number(memBal.allocated || 0);
-      const newAlloc = oldAlloc + delta;
-      const newAdj = Number(memBal.adjustments || 0) + delta;
+      const oldUsed = Number(memBal.used || 0);
+      const newAlloc = debitAsUsage ? oldAlloc : oldAlloc + delta;
+      const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
+      const newAdj = debitAsUsage ? Number(memBal.adjustments || 0) : Number(memBal.adjustments || 0) + delta;
+      const newEntitlement = Number(memBal.openingBalance || 0) + newAlloc + Number(memBal.carryForward || 0) + newAdj;
+      if (debitAsUsage && newUsed + Number(memBal.reserved || 0) > newEntitlement) {
+        throw new ValidationError('CL debit exceeds the employee’s remaining balance.');
+      }
       const newAvail =
         Number(memBal.openingBalance || 0) +
         newAlloc +
-        Number(memBal.carryForward || 0) -
-        Number(memBal.used || 0) -
+        Number(memBal.carryForward || 0) +
+        newAdj -
+        newUsed -
         Number(memBal.reserved || 0);
 
       if (newAvail < 0) {
@@ -1262,6 +1282,7 @@ export class LeaveService {
       }
 
       memBal.allocated = newAlloc.toFixed(2);
+      memBal.used = newUsed.toFixed(2);
       memBal.adjustments = newAdj.toFixed(2);
       memBal.available = newAvail.toFixed(2);
       memBal.updatedAt = new Date().toISOString();
@@ -1274,7 +1295,7 @@ export class LeaveService {
       leaveBalanceId: memBal.id,
       transactionType: 'ADJUSTMENT',
       quantity: delta.toFixed(2),
-      referenceType: 'MANUAL_ADJUSTMENT',
+      referenceType: debitAsUsage ? 'MANUAL_CL_CONSUMPTION' : 'MANUAL_ADJUSTMENT',
       referenceId: `ADJ_${Date.now()}`,
       remarks: remarkText,
       createdBy: actor.userId || null,
