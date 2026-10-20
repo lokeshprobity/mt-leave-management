@@ -107,12 +107,12 @@ export function AdminLeaveBalance() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
 
-  // Dynamic configurable year range extending into past and future
+  // Allow selecting historical and future leave years without a hard-coded 2036 limit.
   const availableYears = useMemo(() => {
-    const startYear = 2022;
-    const maxFuture = Math.max(currentYear + 10, selectedYear + 5, 2035);
+    const startYear = 1900;
+    const endYear = 2100;
     const list: number[] = [];
-    for (let y = startYear; y <= maxFuture; y++) {
+    for (let y = startYear; y <= endYear; y++) {
       list.push(y);
     }
     if (!list.includes(selectedYear)) {
@@ -120,7 +120,7 @@ export function AdminLeaveBalance() {
       list.sort((a, b) => a - b);
     }
     return list;
-  }, [currentYear, selectedYear]);
+  }, [selectedYear]);
 
   // Manual Balance Adjustment Modal State
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
