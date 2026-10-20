@@ -1130,7 +1130,7 @@ export class LeaveService {
           const newAlloc = debitAsUsage ? oldAlloc : oldAlloc + delta;
           const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
           const newAdj = debitAsUsage ? Number(row.adjustments || 0) : Number(row.adjustments || 0) + delta;
-          if (debitAsUsage && newUsed + Number(row.reserved || 0) > Number(row.openingBalance || 0) + newAlloc + Number(row.carryForward || 0) + newAdj) {
+          if (debitAsUsage && newUsed + Number(row.reserved || 0) > Number(row.openingBalance || 0) + newAlloc + Number(row.carryForward || 0)) {
             throw new ValidationError('CL debit exceeds the employee’s remaining balance.');
           }
           const newAvail =
@@ -1263,15 +1263,14 @@ export class LeaveService {
       const newAlloc = debitAsUsage ? oldAlloc : oldAlloc + delta;
       const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
       const newAdj = debitAsUsage ? Number(memBal.adjustments || 0) : Number(memBal.adjustments || 0) + delta;
-      const newEntitlement = Number(memBal.openingBalance || 0) + newAlloc + Number(memBal.carryForward || 0) + newAdj;
+      const newEntitlement = Number(memBal.openingBalance || 0) + newAlloc + Number(memBal.carryForward || 0);
       if (debitAsUsage && newUsed + Number(memBal.reserved || 0) > newEntitlement) {
         throw new ValidationError('CL debit exceeds the employee’s remaining balance.');
       }
       const newAvail =
         Number(memBal.openingBalance || 0) +
         newAlloc +
-        Number(memBal.carryForward || 0) +
-        newAdj -
+        Number(memBal.carryForward || 0) -
         newUsed -
         Number(memBal.reserved || 0);
 
