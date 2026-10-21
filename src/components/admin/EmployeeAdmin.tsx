@@ -835,7 +835,7 @@ export function EmployeeAdmin({
 
                         {canManage && (
                           <button
-                            onClick={() => handleToggleStatus(emp)
+                            onClick={() => handleToggleStatus(emp)}
                             title={emp.employmentStatus === 'ACTIVE' ? 'Deactivate Employee' : 'Activate Employee'}
                             className={`p-1 rounded hover:bg-neutral-100 cursor-pointer ${
                               emp.employmentStatus === 'ACTIVE' ? 'text-amber-600 hover:text-amber-700' : 'text-emerald-600 hover:text-emerald-700'
