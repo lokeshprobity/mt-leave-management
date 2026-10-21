@@ -355,31 +355,89 @@ export class WorkingDaysService {
 
     let newRecord: MemoryEmployeeWeeklyOff;
 
+    const previousDay = (date: string) => {
+      const d = new Date(`${date}T00:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() - 1);
+      return d.toISOString().slice(0, 10);
+    };
+    const nextDay = (date: string) => {
+      const d = new Date(`${date}T00:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + 1);
+      return d.toISOString().slice(0, 10);
+    };
+    const newEnd = input.effectiveTo || null;
+
     if (isDbConfigured()) {
       const db = getDb()!;
-      const [inserted] = await db
-        .insert(employeeWeeklyOffAssignments)
-        .values({
-          employeeId: targetEmpId,
-          weeklyOffDays: validDays,
-          effectiveFrom: input.effectiveFrom,
-          effectiveTo: input.effectiveTo || null,
-          remarks: input.remarks?.trim() || null,
-          createdBy: actor?.userId || null,
-        })
-        .returning();
+      const existingRows = await db.select().from(employeeWeeklyOffAssignments)
+        .where(eq(employeeWeeklyOffAssignments.employeeId, targetEmpId));
+
+      // Replace overlapping schedules so a previous Sunday assignment cannot remain active after switching to Saturday.
+      for (const oldRow of existingRows) {
+        const oldStart = String(oldRow.effectiveFrom).slice(0, 10);
+        const oldEnd = oldRow.effectiveTo ? String(oldRow.effectiveTo).slice(0, 10) : null;
+        const overlaps = oldStart <= (newEnd || '9999-12-31') && (!oldEnd || oldEnd >= input.effectiveFrom);
+        if (!overlaps) continue;
+
+        if (oldStart < input.effectiveFrom) {
+          await db.update(employeeWeeklyOffAssignments)
+            .set({ effectiveTo: previousDay(input.effectiveFrom) })
+            .where(eq(employeeWeeklyOffAssignments.id, oldRow.id));
+          if (newEnd && (!oldEnd || oldEnd > newEnd)) {
+            await db.insert(employeeWeeklyOffAssignments).values({
+              employeeId: targetEmpId,
+              weeklyOffDays: oldRow.weeklyOffDays,
+              effectiveFrom: nextDay(newEnd),
+              effectiveTo: oldEnd,
+              remarks: oldRow.remarks,
+              createdBy: oldRow.createdBy,
+            });
+          }
+        } else if (newEnd && oldEnd && oldEnd > newEnd) {
+          await db.update(employeeWeeklyOffAssignments)
+            .set({ effectiveFrom: nextDay(newEnd) })
+            .where(eq(employeeWeeklyOffAssignments.id, oldRow.id));
+        } else {
+          await db.delete(employeeWeeklyOffAssignments).where(eq(employeeWeeklyOffAssignments.id, oldRow.id));
+        }
+      }
+
+      const [inserted] = await db.insert(employeeWeeklyOffAssignments).values({
+        employeeId: targetEmpId,
+        weeklyOffDays: validDays,
+        effectiveFrom: input.effectiveFrom,
+        effectiveTo: newEnd,
+        remarks: input.remarks?.trim() || null,
+        createdBy: actor?.userId || null,
+      }).returning();
       newRecord = mapDbRowToMemoryWeeklyOff(inserted);
       await this.syncEmployeeWeeklyOffsFromDb();
     } else {
       if (isProductionRuntime()) {
         throw new Error('[WorkingDaysService] PostgreSQL database must be configured in production.');
       }
+      const existingRows = memoryEmployeeWeeklyOffs.filter((row) => row.employeeId === targetEmpId);
+      for (const oldRow of existingRows) {
+        const oldEnd = oldRow.effectiveTo || null;
+        const overlaps = oldRow.effectiveFrom <= (newEnd || '9999-12-31') && (!oldEnd || oldEnd >= input.effectiveFrom);
+        if (!overlaps) continue;
+        if (oldRow.effectiveFrom < input.effectiveFrom) {
+          oldRow.effectiveTo = previousDay(input.effectiveFrom);
+          if (newEnd && (!oldEnd || oldEnd > newEnd)) {
+            memoryEmployeeWeeklyOffs.push({ ...oldRow, id: nextWeeklyOffId++, effectiveFrom: nextDay(newEnd), effectiveTo: oldEnd, createdAt: new Date() });
+          }
+        } else if (newEnd && oldEnd && oldEnd > newEnd) {
+          oldRow.effectiveFrom = nextDay(newEnd);
+        } else {
+          memoryEmployeeWeeklyOffs = memoryEmployeeWeeklyOffs.filter((row) => row.id !== oldRow.id);
+        }
+      }
       newRecord = {
         id: nextWeeklyOffId++,
         employeeId: targetEmpId,
         weeklyOffDays: validDays,
         effectiveFrom: input.effectiveFrom,
-        effectiveTo: input.effectiveTo || null,
+        effectiveTo: newEnd || undefined,
         remarks: input.remarks?.trim() || undefined,
         createdAt: new Date(),
       };
