@@ -334,12 +334,12 @@ export function EmployeeAdmin({
     const aIsAdmin = String(a.role || '').toUpperCase() === 'SUPER_ADMIN';
     const bIsAdmin = String(b.role || '').toUpperCase() === 'SUPER_ADMIN';
     if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
-    const aCode = String(a.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
-    const bCode = String(b.employeeCode || '').toUpperCase().match(/^MT(\d+)$/);
-    if (aCode && bCode) return Number(aCode[1]) - Number(bCode[1]);
+    const aCode = String(a.employeeCode || '').trim();
+    const bCode = String(b.employeeCode || '').trim();
+    if (aCode && bCode) return aCode.localeCompare(bCode, undefined, { numeric: true, sensitivity: 'base' });
     if (aCode) return -1;
     if (bCode) return 1;
-    return String(a.employeeName || a.fullName || '').localeCompare(String(b.employeeName || b.fullName || ''));
+    return String(a.employeeName || a.fullName || '').localeCompare(String(b.employeeName || b.fullName || ''), undefined, { numeric: true, sensitivity: 'base' });
   });
 
   const handleExportEmployeesExcel = () => {
