@@ -822,7 +822,20 @@ export function EmployeeAdmin({
 
                         {canManage && (
                           <button
-                            onClick={() => handleToggleStatus(emp)}
+                            id={`btn-change-weekly-off-${emp.id}`}
+                            type="button"
+                            onClick={() => openEdit(emp)}
+                            title={`Change weekly off for ${emp.employeeName}`}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
+                          >
+                            <Calendar className="w-3 h-3" />
+                            <span>Change Weekly Off</span>
+                          </button>
+                        )}
+
+                        {canManage && (
+                          <button
+                            onClick={() => handleToggleStatus(emp)
                             title={emp.employmentStatus === 'ACTIVE' ? 'Deactivate Employee' : 'Activate Employee'}
                             className={`p-1 rounded hover:bg-neutral-100 cursor-pointer ${
                               emp.employmentStatus === 'ACTIVE' ? 'text-amber-600 hover:text-amber-700' : 'text-emerald-600 hover:text-emerald-700'
