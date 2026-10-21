@@ -1878,7 +1878,7 @@ export default function App() {
                           <span className="truncate">{item.label}</span>
                           {item.id === 'team-leader' && approvalCounts.teamLeader > 0 && <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">{approvalCounts.teamLeader}</span>}
                           {item.id === 'hr' && approvalCounts.hr > 0 && <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">{approvalCounts.hr}</span>}
-                          {item.id === 'management' && approvalCounts.management > 0 && <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">{approvalCounts.management}</span>
+                          {item.id === 'management' && approvalCounts.management > 0 && <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">{approvalCounts.management}</span>}
                         </span>
                         <ChevronRight className={`w-4 h-4 shrink-0 ${isActive ? 'text-white/80' : 'text-neutral-500'}`} />
                       </button>
