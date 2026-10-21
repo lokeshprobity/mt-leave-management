@@ -35,6 +35,7 @@ export function EmployeeAdmin({
   const [departments, setDepartments] = useState<DepartmentDto[]>([]);
   const [designations, setDesignations] = useState<DesignationDto[]>([]);
   const [shifts, setShifts] = useState<ShiftDto[]>([]);
+  const [lastLoginByUserId, setLastLoginByUserId] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
