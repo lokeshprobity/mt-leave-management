@@ -238,6 +238,54 @@ export default function App() {
     getPersistedEmployee360ProfileState()
   );
   const [viewingUser, setViewingUser] = useState<{ userId: number; employeeId: number; employeeName: string; employeeCode?: string; role: UserRole } | null>(null);
+  const [approvalCounts, setApprovalCounts] = useState<{ teamLeader: number; hr: number; management: number }>({
+    teamLeader: 0,
+    hr: 0,
+    management: 0,
+  });
+
+  // Keep navigation badges synchronized with the actual pending approval queues.
+  useEffect(() => {
+    if (!isAuthenticatedState) {
+      setApprovalCounts({ teamLeader: 0, hr: 0, management: 0 });
+      return;
+    }
+    let cancelled = false;
+    const refreshApprovalCounts = async () => {
+      try {
+        const endpoints = [
+          '/api/team-leader/leave-requests?status=PENDING',
+          '/api/hr/leave-requests?status=PENDING',
+          '/api/management/leave-requests?status=PENDING',
+        ];
+        const results = await Promise.all(endpoints.map(async (endpoint) => {
+          const response = await apiFetch(endpoint);
+          if (!response.ok) return [];
+          const payload = await response.json();
+          return Array.isArray(payload.leaveRequests) ? payload.leaveRequests :
+            Array.isArray(payload.requests) ? payload.requests : [];
+        }));
+        const isPending = (request: any) => String(request.finalStatus || 'PENDING').toUpperCase() === 'PENDING';
+        const nextCounts = {
+          teamLeader: results[0].filter((request: any) => isPending(request) && String(request.teamLeaderDecision || 'PENDING').toUpperCase() === 'PENDING').length,
+          hr: results[1].filter((request: any) => isPending(request) && String(request.hrDecision || 'PENDING').toUpperCase() === 'PENDING' && String(request.teamLeaderDecision || 'PENDING').toUpperCase() !== 'REJECTED').length,
+          management: results[2].filter((request: any) => isPending(request) && String(request.managementDecision || 'PENDING').toUpperCase() === 'PENDING').length,
+        };
+        if (!cancelled) setApprovalCounts(nextCounts);
+      } catch {
+        // Keep the last successfully loaded counts if a temporary network error occurs.
+      }
+    };
+    void refreshApprovalCounts();
+    const intervalId = window.setInterval(() => void refreshApprovalCounts(), 30000);
+    window.addEventListener('focus', refreshApprovalCounts);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshApprovalCounts);
+    };
+  }, [isAuthenticatedState, activeRole, currentUserProfile, viewingUser]);
+
 
   useEffect(() => {
     const handleOpenEmployee360 = (e: Event) => {
@@ -1710,6 +1758,15 @@ export default function App() {
               >
                 <Icon className="w-4 h-4" />
                 <span>{item.label}</span>
+                {item.id === 'team-leader' && approvalCounts.teamLeader > 0 && (
+                  <span aria-label={approvalCounts.teamLeader + ' pending approvals'} className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none text-white">{approvalCounts.teamLeader}</span>
+                )}
+                {item.id === 'hr' && approvalCounts.hr > 0 && (
+                  <span aria-label={approvalCounts.hr + ' pending approvals'} className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none text-white">{approvalCounts.hr}</span>
+                )}
+                {item.id === 'management' && approvalCounts.management > 0 && (
+                  <span aria-label={approvalCounts.management + ' pending approvals'} className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none text-white">{approvalCounts.management}</span>
+                )}
               </button>
             );
           })}
@@ -1819,6 +1876,9 @@ export default function App() {
                         <span className="flex items-center gap-3 min-w-0">
                           <Icon className="w-4 h-4 shrink-0" />
                           <span className="truncate">{item.label}</span>
+                          {item.id === 'team-leader' && approvalCounts.teamLeader > 0 && <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">{approvalCounts.teamLeader}</span>}
+                          {item.id === 'hr' && approvalCounts.hr > 0 && <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">{approvalCounts.hr}</span>}
+                          {item.id === 'management' && approvalCounts.management > 0 && <span className="ml-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">{approvalCounts.management}</span>
                         </span>
                         <ChevronRight className={`w-4 h-4 shrink-0 ${isActive ? 'text-white/80' : 'text-neutral-500'}`} />
                       </button>
@@ -2797,6 +2857,9 @@ export default function App() {
             >
               <Icon className="w-5 h-5 shrink-0" />
               <span className="truncate max-w-full px-0.5">{item.mobileLabel}</span>
+            {item.id === 'team-leader' && approvalCounts.teamLeader > 0 && <span className="absolute -top-1 right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{approvalCounts.teamLeader}</span>}
+            {item.id === 'hr' && approvalCounts.hr > 0 && <span className="absolute -top-1 right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{approvalCounts.hr}</span>}
+            {item.id === 'management' && approvalCounts.management > 0 && <span className="absolute -top-1 right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{approvalCounts.management}</span>
             </button>
           );
         })}
