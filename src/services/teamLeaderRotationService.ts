@@ -120,32 +120,53 @@ function addOneDay(dateStr: string): string {
 }
 
 function createDefaultRotationRules(): TeamLeaderRotationRuleDto[] {
-  const now = new Date('2026-01-01T00:00:00.000Z').toISOString();
+  // Resolve the AR department and its two scheduled leaders from the authoritative
+  // employee/department records. This avoids relying on different seeded DB IDs.
+  const dept =
+    UserService.resolveDepartmentRecordSync('AR_TNSPRT_USA') ||
+    UserService.resolveDepartmentRecordSync('AR_TRANS') ||
+    UserService.resolveDepartmentRecordSync('AR Transport') ||
+    UserService.resolveDepartmentRecordSync('A R Transportation');
+
+  const firstLeader =
+    UserService.resolveEmployeeRecordSync('MT021') ||
+    UserService.resolveEmployeeRecordSync('Anil Sharma') ||
+    UserService.resolveEmployeeRecordSync('ANIL');
+  const secondLeader =
+    UserService.resolveEmployeeRecordSync('MT022') ||
+    UserService.resolveEmployeeRecordSync('Akash Sharma') ||
+    UserService.resolveEmployeeRecordSync('AKASH');
+
+  // Do not create a partial or incorrectly targeted rule when authoritative records
+  // are unavailable. The normal Reporting Person remains the fallback in that case.
+  if (!dept || !firstLeader || !secondLeader) return [];
+
+  const now = new Date().toISOString();
   return [
     {
       id: 1,
-      teamId: 8,
-      teamName: 'Import Team',
-      teamCode: 'IMP',
+      teamId: dept.id,
+      teamName: dept.name,
+      teamCode: dept.code,
       rotationType: 'FIRST_HALF_SECOND_HALF',
       firstHalfStartDay: 1,
       firstHalfEndDay: 15,
-      firstHalfLeaderUserId: 8,
-      firstHalfLeaderEmployeeId: 8,
-      firstHalfLeaderEmployeeCode: 'MT-TL-002',
-      firstHalfLeaderName: 'ANIL',
-      firstHalfLeaderEmail: 'anil@maestro.com',
+      firstHalfLeaderUserId: firstLeader.id,
+      firstHalfLeaderEmployeeId: firstLeader.employeeId ?? firstLeader.id,
+      firstHalfLeaderEmployeeCode: firstLeader.employeeCode ?? null,
+      firstHalfLeaderName: firstLeader.employeeName || firstLeader.username,
+      firstHalfLeaderEmail: firstLeader.email,
       secondHalfStartDay: 16,
-      secondHalfLeaderUserId: 9,
-      secondHalfLeaderEmployeeId: 9,
-      secondHalfLeaderEmployeeCode: 'MT-TL-003',
-      secondHalfLeaderName: 'AKASH',
-      secondHalfLeaderEmail: 'akash@maestro.com',
+      secondHalfLeaderUserId: secondLeader.id,
+      secondHalfLeaderEmployeeId: secondLeader.employeeId ?? secondLeader.id,
+      secondHalfLeaderEmployeeCode: secondLeader.employeeCode ?? null,
+      secondHalfLeaderName: secondLeader.employeeName || secondLeader.username,
+      secondHalfLeaderEmail: secondLeader.email,
       effectiveFrom: '2026-01-01',
       effectiveTo: null,
       status: 'ACTIVE',
       isActive: true,
-      remarks: 'Default 15-day Team Leader rotation: 01–15 ANIL, 16–Month End AKASH',
+      remarks: 'Default AR Team 15-day rotation: 01–15 Anil Sharma, 16–Month End Akash Sharma',
       createdBy: 1,
       createdByName: 'System Super Admin',
       createdAt: now,
@@ -160,8 +181,10 @@ function createDefaultAssignments(): TeamLeaderAssignmentDto[] {
   return [];
 }
 
-let memoryRotationRules: TeamLeaderRotationRuleDto[] = createDefaultRotationRules();
+let memoryRotationRules: TeamLeaderRotationRuleDto[] = [];
 let memoryAssignments: TeamLeaderAssignmentDto[] = createDefaultAssignments();
+let rotationDefaultsInitialized = false;
+let legacyDefaultRotationNeedsMigration = false;
 
 function saveRotationStoreToDisk(): void {
   try {
@@ -182,28 +205,56 @@ function saveRotationStoreToDisk(): void {
 function loadRotationStoreFromDisk(): void {
   try {
     if (!fs.existsSync(ROTATION_STORE_FILE)) {
-      memoryRotationRules = createDefaultRotationRules();
+      // Defaults are initialized lazily after UserService has loaded the authoritative
+      // database records. Calling it during module initialization can use stale seed IDs.
+      memoryRotationRules = [];
       memoryAssignments = createDefaultAssignments();
-      saveRotationStoreToDisk();
+      rotationDefaultsInitialized = false;
+      legacyDefaultRotationNeedsMigration = false;
       return;
     }
+
     const raw = fs.readFileSync(ROTATION_STORE_FILE, 'utf8');
     const parsed = JSON.parse(raw) as Partial<PersistedRotationStore>;
-    if (Array.isArray(parsed.rotationRules) && parsed.rotationRules.length > 0) {
-      memoryRotationRules = parsed.rotationRules;
-    } else {
-      memoryRotationRules = createDefaultRotationRules();
-    }
-    if (Array.isArray(parsed.assignments)) {
-      memoryAssignments = parsed.assignments;
-    } else {
-      memoryAssignments = createDefaultAssignments();
-    }
+    const parsedRules = Array.isArray(parsed.rotationRules) ? parsed.rotationRules : [];
+
+    // Migrate the old built-in Import Team seed rule. It was a shipped default, not an
+    // administrator-created assignment, and the only rotating team is AR Transport.
+    const isLegacySeedRule = (rule: TeamLeaderRotationRuleDto) =>
+      rule.teamId === 8 &&
+      rule.firstHalfLeaderEmployeeId === 8 &&
+      rule.secondHalfLeaderEmployeeId === 9 &&
+      String(rule.remarks || '').startsWith('Default 15-day Team Leader rotation');
+
+    legacyDefaultRotationNeedsMigration = parsedRules.some(isLegacySeedRule);
+    memoryRotationRules = parsedRules.filter((rule) => !isLegacySeedRule(rule));
+    memoryAssignments = Array.isArray(parsed.assignments)
+      ? parsed.assignments
+      : createDefaultAssignments();
+    rotationDefaultsInitialized =
+      memoryRotationRules.length > 0 && !legacyDefaultRotationNeedsMigration;
   } catch (err) {
     console.warn('Could not load team_leader_rotation.json, using defaults:', err);
-    memoryRotationRules = createDefaultRotationRules();
+    memoryRotationRules = [];
     memoryAssignments = createDefaultAssignments();
+    rotationDefaultsInitialized = false;
+    legacyDefaultRotationNeedsMigration = false;
   }
+}
+
+function ensureDefaultRotationRules(): void {
+  if (rotationDefaultsInitialized) return;
+
+  const defaults = createDefaultRotationRules();
+  if (legacyDefaultRotationNeedsMigration) {
+    memoryRotationRules = [...memoryRotationRules, ...defaults];
+    legacyDefaultRotationNeedsMigration = false;
+  } else if (memoryRotationRules.length === 0) {
+    memoryRotationRules = defaults;
+  }
+
+  rotationDefaultsInitialized = true;
+  if (defaults.length > 0) saveRotationStoreToDisk();
 }
 
 loadRotationStoreFromDisk();
@@ -213,8 +264,11 @@ export class TeamLeaderRotationService {
    * Resets in-memory Team Leader rotation rules and assignments to clean defaults.
    */
   public static resetMemoryStores(): void {
-    memoryRotationRules = createDefaultRotationRules();
+    memoryRotationRules = [];
     memoryAssignments = createDefaultAssignments();
+    rotationDefaultsInitialized = false;
+    legacyDefaultRotationNeedsMigration = false;
+    ensureDefaultRotationRules();
     saveRotationStoreToDisk();
   }
 
@@ -437,6 +491,7 @@ export class TeamLeaderRotationService {
     teamId: number | string | null | undefined,
     targetDateInput: string | Date,
     options?: {
+    ensureDefaultRotationRules();
       fallbackEmployeeId?: number | string | null;
       allowInactiveForHistory?: boolean;
     }
@@ -698,6 +753,7 @@ export class TeamLeaderRotationService {
    * Checks whether a given team has any active date-effective assignments or rotation rules.
    */
   public static hasTeamDateEffectiveConfig(teamId: number | string | null | undefined): boolean {
+    ensureDefaultRotationRules();
     if (!teamId) return false;
     const dept = UserService.resolveDepartmentRecordSync(teamId);
     const tid = dept ? dept.id : Number(teamId);
@@ -1167,6 +1223,7 @@ export class TeamLeaderRotationService {
    * Lists reusable 15-day Team Leader rotation rules.
    */
   public static async getRotationRules(filters?: {
+    ensureDefaultRotationRules();
     teamId?: number | string;
     activeOnly?: boolean;
   }): Promise<TeamLeaderRotationRuleDto[]> {
@@ -1187,7 +1244,8 @@ export class TeamLeaderRotationService {
    * Preserves historical rotation rules when a team's rotation is updated for a new effective date.
    */
   public static async configureRotationRule(
-    input: CreateTeamLeaderRotationRuleInput & { replaceExistingActive?: boolean },
+    input: CreateTeamLeaderRotationRuleInput & {
+    ensureDefaultRotationRules(); replaceExistingActive?: boolean },
     actor: AuthContext
   ): Promise<TeamLeaderRotationRuleDto> {
     await this.assertCanManageRotation(actor);
@@ -1598,6 +1656,7 @@ export class TeamLeaderRotationService {
   public static async getAllTeamRotationSummaries(
     referenceDateInput?: string | Date
   ): Promise<TeamRotationSummaryDto[]> {
+    ensureDefaultRotationRules();
     const depts = await UserService.getDepartments();
     const summaries: TeamRotationSummaryDto[] = [];
     for (const dept of depts) {
