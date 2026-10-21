@@ -624,6 +624,7 @@ export function EmployeeAdmin({
               <tr>
                 <th className="py-3 px-4">Code / ID</th>
                 <th className="py-3 px-4">Employee Name</th>
+                {isSuperAdmin && <th className="py-3 px-4">Last Login (IST)</th>}
                 <th className="py-3 px-4">Department & Designation</th>
                 <th className="py-3 px-4">Reporting Manager</th>
                 <th className="py-3 px-4">Employment Type</th>
@@ -636,11 +637,11 @@ export function EmployeeAdmin({
             <tbody className="divide-y divide-neutral-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-neutral-500">Loading employees...</td>
+                  <td colSpan={isSuperAdmin ? 10 : 9} className="text-center py-8 text-neutral-500">Loading employees...</td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-neutral-500">No employees found matching criteria.</td>
+                  <td colSpan={isSuperAdmin ? 10 : 9} className="text-center py-8 text-neutral-500">No employees found matching criteria.</td>
                 </tr>
               ) : (
                 filteredEmployees.map((emp) => (
@@ -685,6 +686,24 @@ export function EmployeeAdmin({
                         </div>
                       </div>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="py-3 px-4 min-w-[150px]">
+                        {emp.userId && lastLoginByUserId[String(emp.userId)] ? (
+                          <>
+                            <div className="font-semibold text-neutral-800">
+                              {new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(lastLoginByUserId[String(emp.userId)]))}
+                            </div>
+                            <div className="text-[11px] text-neutral-500">
+                              {new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).format(new Date(lastLoginByUserId[String(emp.userId)]))}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-[11px] text-neutral-500 italic">
+                            {emp.userId ? 'No login record' : 'No login account'}
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className="py-3 px-4">
                       <div className="font-medium text-neutral-800">{emp.departmentName || '—'}</div>
                       <div className="text-[11px] text-neutral-500">{emp.designationName || '—'}</div>
