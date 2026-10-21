@@ -822,19 +822,6 @@ export function EmployeeAdmin({
 
                         {canManage && (
                           <button
-                            id={`btn-change-weekly-off-${emp.id}`}
-                            type="button"
-                            onClick={() => openEdit(emp)}
-                            title={`Change weekly off for ${emp.employeeName}`}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
-                          >
-                            <Calendar className="w-3 h-3" />
-                            <span>Change Weekly Off</span>
-                          </button>
-                        )}
-
-                        {canManage && (
-                          <button
                             onClick={() => handleToggleStatus(emp)}
                             title={emp.employmentStatus === 'ACTIVE' ? 'Deactivate Employee' : 'Activate Employee'}
                             className={`p-1 rounded hover:bg-neutral-100 cursor-pointer ${
@@ -1249,24 +1236,6 @@ export function EmployeeAdmin({
                       ? "Super Admin control: Switching ON routes this employee's requests through HR. Switching OFF routes approved TL requests directly to Top Management."
                       : "Read-only: Only Super Administrator can modify an employee's HR approval workflow."}
                   </p>
-                </div>
-
-                <div>
-                  <label className="block text-neutral-700 font-medium mb-1">Weekly Off Schedule</label>
-                  <select
-                    id="input-emp-weekly-off-edit"
-                    value={formData.weeklyOff}
-                    onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value })}
-                    className="w-full px-3 py-1.5 border border-neutral-200 rounded-lg"
-                  >
-                    <option value="1">Monday</option>
-                    <option value="2">Tuesday</option>
-                    <option value="3">Wednesday</option>
-                    <option value="4">Thursday</option>
-                    <option value="5">Friday</option>
-                    <option value="6">Saturday</option>
-                    <option value="0">Sunday</option>
-                  </select>
                 </div>
 
                 <div>
