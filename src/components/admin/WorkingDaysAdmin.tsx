@@ -186,10 +186,15 @@ export function WorkingDaysAdmin({
     }
   };
 
+    const localToday = () => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    };
+
   const openNewWeeklyOffAssignment = () => {
     setEditingAssignmentId(null);
     setSelectedDays([0]);
-    setEffectiveFrom(new Date().toLocaleDateString('en-CA'));
+    setEffectiveFrom(localToday());
     setEffectiveTo('');
     setAssignRemarks('');
     setError(null);
@@ -201,7 +206,7 @@ export function WorkingDaysAdmin({
     setEditingAssignmentId(Number(assignment.id));
     setAssignEmpId(assignment.employeeId);
     setSelectedDays(Array.isArray(assignment.weeklyOffDays) ? assignment.weeklyOffDays : [0]);
-    setEffectiveFrom(String(assignment.effectiveFrom || new Date().toLocaleDateString('en-CA')).slice(0, 10));
+    setEffectiveFrom(String(assignment.effectiveFrom || localToday()).slice(0, 10));
     setEffectiveTo(assignment.effectiveTo ? String(assignment.effectiveTo).slice(0, 10) : '');
     setAssignRemarks(assignment.remarks || '');
     setError(null);
