@@ -102,7 +102,7 @@ export function DepartmentAdmin() {
     departments.find(
       (d) =>
         /AR_TNSPRT_USA|AR_TRANS/i.test(d.code || '') ||
-        /A\\s*R\\s*Transport/i.test(d.name || '')
+        /A\s*R\s*Transport/i.test(d.name || '')
     );
 
   const getPreferredLeader = (leaderName: 'anil' | 'akash') =>
