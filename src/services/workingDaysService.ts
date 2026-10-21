@@ -393,7 +393,7 @@ export class WorkingDaysService {
               createdBy: oldRow.createdBy,
             });
           }
-        } else if (newEnd && oldEnd && oldEnd > newEnd) {
+        } else if (newEnd && (!oldEnd || oldEnd > newEnd)) {
           await db.update(employeeWeeklyOffAssignments)
             .set({ effectiveFrom: nextDay(newEnd) })
             .where(eq(employeeWeeklyOffAssignments.id, oldRow.id));
@@ -426,7 +426,7 @@ export class WorkingDaysService {
           if (newEnd && (!oldEnd || oldEnd > newEnd)) {
             memoryEmployeeWeeklyOffs.push({ ...oldRow, id: nextWeeklyOffId++, effectiveFrom: nextDay(newEnd), effectiveTo: oldEnd, createdAt: new Date() });
           }
-        } else if (newEnd && oldEnd && oldEnd > newEnd) {
+        } else if (newEnd && (!oldEnd || oldEnd > newEnd)) {
           oldRow.effectiveFrom = nextDay(newEnd);
         } else {
           memoryEmployeeWeeklyOffs = memoryEmployeeWeeklyOffs.filter((row) => row.id !== oldRow.id);
