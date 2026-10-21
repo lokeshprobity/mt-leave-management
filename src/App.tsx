@@ -2256,7 +2256,7 @@ export default function App() {
                 </button>
               )}
 
-              {canAccessAdminTab('weekly-offs', activeRole) && (
+              {(activeRole === 'SUPER_ADMIN' || activeRole === 'HR' || canAccessAdminTab('weekly-offs', activeRole)) && (
                 <button
                   id="tab-weekly-offs"
                   onClick={() => setAdminTab('weekly-offs')}
@@ -2468,7 +2468,7 @@ export default function App() {
             {isCurrentAdminTabAuthorized && adminTab === 'working-days' && <WorkingDaysAdmin initialSubTab="working-days" />}
 
             {/* Tab: Weekly-Off Overrides */}
-            {isCurrentAdminTabAuthorized && adminTab === 'weekly-offs' && <WorkingDaysAdmin initialSubTab="weekly-off" />}
+            {(activeRole === 'SUPER_ADMIN' || activeRole === 'HR' || isCurrentAdminTabAuthorized) && adminTab === 'weekly-offs' && <WorkingDaysAdmin initialSubTab="weekly-off" />}
 
             {/* Tab: Shifts Master */}
             {isCurrentAdminTabAuthorized && adminTab === 'shifts' && <ShiftScheduleAdmin initialSubTab="shifts" />}
