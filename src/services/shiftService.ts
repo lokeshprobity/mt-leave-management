@@ -2539,8 +2539,10 @@ export class ShiftService {
         ? holiday.departmentName
         : null;
 
-    // 2. Weekly-off configuration check (including employee-specific weekly off overrides)
+    // 2. Weekly-off configuration check. An explicit employee override is authoritative.
     const weeklyOffs = await WorkingDaysService.getEmployeeWeeklyOffsForDate(employeeId, targetDateStr);
+    const hasEmployeeWeeklyOffOverride =
+      await WorkingDaysService.hasEmployeeWeeklyOffAssignmentForDate(employeeId, targetDateStr);
     const [y, m, d] = targetDateStr.split('-').map(Number);
     const targetDateObj = new Date(Date.UTC(y, m - 1, d));
     const dayOfWeek = targetDateObj.getUTCDay(); // 0 = Sun, 6 = Sat
@@ -2556,16 +2558,18 @@ export class ShiftService {
     if (effectiveAssignment && effectiveAssignment.shift) {
       const shift = effectiveAssignment.shift;
 
-      // Check if employee assignment has a custom workDaysOfWeek override (e.g. "1,2,3,4,5")
+      // An explicit employee weekly-off assignment overrides shift-level weeklyOff and workDaysOfWeek.
+      // Otherwise retain the existing shift/employee schedule inheritance rules.
       let isScheduledWorkDay = true;
-      if (effectiveAssignment.workDaysOfWeek) {
+      if (hasEmployeeWeeklyOffOverride) {
+        isScheduledWorkDay = !weeklyOffs.includes(dayOfWeek);
+      } else if (effectiveAssignment.workDaysOfWeek) {
         const allowedDays = effectiveAssignment.workDaysOfWeek
           .split(',')
           .map((s) => Number(s.trim()))
           .filter((n) => !isNaN(n));
         isScheduledWorkDay = allowedDays.includes(dayOfWeek);
       } else {
-        // Inherit company/employee weekly off and shift-level weeklyOff configuration
         const shiftOffDays = shift.weeklyOff ? parseWeeklyOffToDayIndices(shift.weeklyOff) : [0];
         const isDefaultEmployeeOff = weeklyOffs.length === 1 && weeklyOffs[0] === 0;
         const effectiveOffDays =
@@ -2707,7 +2711,9 @@ export class ShiftService {
       if (effectiveDeptAssignment && effectiveDeptAssignment.shift) {
         const shift = effectiveDeptAssignment.shift;
         let isScheduledWorkDay = true;
-        if (effectiveDeptAssignment.workDaysOfWeek) {
+        if (hasEmployeeWeeklyOffOverride) {
+          isScheduledWorkDay = !weeklyOffs.includes(dayOfWeek);
+        } else if (effectiveDeptAssignment.workDaysOfWeek) {
           const allowedDays = effectiveDeptAssignment.workDaysOfWeek
             .split(',')
             .map((s) => Number(s.trim()))
