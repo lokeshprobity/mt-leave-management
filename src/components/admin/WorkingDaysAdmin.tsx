@@ -114,9 +114,18 @@ export function WorkingDaysAdmin({
 
       if (empRes.ok) {
         const empData = await empRes.json();
-        setEmployees(empData.employees || []);
-        if (empData.employees?.length > 0 && assignEmpId === '') {
-          setAssignEmpId(empData.employees[0].id);
+        const employeeCodeSort = (a: EmployeeDto, b: EmployeeDto) => {
+          const aCode = String(a.employeeCode || '').trim().toUpperCase().match(/^MT(\\d+)$/);
+          const bCode = String(b.employeeCode || '').trim().toUpperCase().match(/^MT(\\d+)$/);
+          if (aCode && bCode) return Number(aCode[1]) - Number(bCode[1]);
+          if (aCode) return -1;
+          if (bCode) return 1;
+          return String(a.employeeCode || a.employeeName || '').localeCompare(String(b.employeeCode || b.employeeName || ''), undefined, { numeric: true, sensitivity: 'base' });
+        };
+        const sortedEmployees = [...(empData.employees || [])].sort(employeeCodeSort);
+        setEmployees(sortedEmployees);
+        if (sortedEmployees.length > 0 && assignEmpId === '') {
+          setAssignEmpId(sortedEmployees[0].id);
         }
       }
 
