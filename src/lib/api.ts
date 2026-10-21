@@ -879,6 +879,9 @@ export function canAccessAdminTab(
   const role = roleOverride || currentRole;
   // System Audit is strictly Super Admin-only, regardless of custom role permissions.
   if (tabId === 'audit') return role === 'SUPER_ADMIN';
+  // Weekly-off overrides are explicitly available to Super Admin and HR, even if
+  // an older/custom Administration module permission set omitted the tab permission.
+  if (tabId === 'weekly-offs' && (role === 'SUPER_ADMIN' || role === 'HR')) return true;
   // HR may manage employee/department/designation records, but never user accounts or system roles.
   if (role === 'HR' && (tabId === 'users' || tabId === 'roles')) return false;
   if (!canAccessModule('administration', role, permissionsOverride)) {
