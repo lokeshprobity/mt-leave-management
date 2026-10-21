@@ -2433,6 +2433,30 @@ export function registerApiRoutes(app: express.Express) {
   // STEP 8: User Management & Employee Administration
   // ==============================================================
 
+  // Super Admin: most recent successful login per user, derived from existing USER_LOGIN audit events.
+  app.get(
+    '/api/admin/user-last-activity',
+    requireRole(['SUPER_ADMIN']),
+    async (_req: Request, res: Response) => {
+      try {
+        const loginEvents = await AuditService.getLogs({ action: 'USER_LOGIN', limit: 5000 });
+        const latestByUser: Record<string, string> = {};
+        for (const event of loginEvents) {
+          const userId = Number(event.actorId ?? event.metadata?.userId ?? event.targetId);
+          if (!Number.isFinite(userId) || userId <= 0 || !event.createdAt) continue;
+          const timestamp = new Date(event.createdAt).toISOString();
+          if (!latestByUser[String(userId)] || timestamp > latestByUser[String(userId)]) {
+            latestByUser[String(userId)] = timestamp;
+          }
+        }
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ success: true, lastLoginByUserId: latestByUser });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message || 'Failed to load user login activity' });
+      }
+    }
+  );
+
   // 46. List Users (Admin/HR)
   app.get(
     '/api/users',
