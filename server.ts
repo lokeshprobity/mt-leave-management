@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as dotenv from 'dotenv';
@@ -12,7 +12,7 @@ import {
   verifyDatabaseConnectivity,
 } from './src/db/index.ts';
 import { runMigrations } from './src/db/migrate.ts';
-import { employees, roles, systemSettings } from './src/db/schema.ts';
+import { employees, roles, systemSettings, systemAuditLogs } from './src/db/schema.ts';
 import { INITIAL_ROLES, INITIAL_SYSTEM_SETTINGS, seedDatabase } from './src/db/seed.ts';
 import { authMiddleware, requireRole } from './src/middleware/auth.ts';
 import { createSessionToken } from './src/services/sessionService.ts';
@@ -2439,7 +2439,17 @@ export function registerApiRoutes(app: express.Express) {
     requireRole(['SUPER_ADMIN']),
     async (_req: Request, res: Response) => {
       try {
-        const loginEvents = await AuditService.getLogs({ action: 'USER_LOGIN', limit: 5000 });
+        const db = getDb();
+        const loginEvents = isDbConfigured() && db
+          ? await db.select({
+              actorId: systemAuditLogs.actorId,
+              targetId: systemAuditLogs.targetId,
+              metadata: systemAuditLogs.metadata,
+              createdAt: systemAuditLogs.createdAt,
+            }).from(systemAuditLogs)
+              .where(eq(systemAuditLogs.action, 'USER_LOGIN'))
+              .orderBy(desc(systemAuditLogs.createdAt))
+          : await AuditService.getLogs({ action: 'USER_LOGIN', limit: 5000 });
         const latestByUser: Record<string, string> = {};
         for (const event of loginEvents) {
           const userId = Number(event.actorId ?? event.metadata?.userId ?? event.targetId);
