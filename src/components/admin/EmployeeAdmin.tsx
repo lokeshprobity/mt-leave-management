@@ -14,7 +14,6 @@ import {
   Briefcase,
   Mail,
   Phone,
-  Calendar,
   Clock,
   ChevronDown,
   X,
