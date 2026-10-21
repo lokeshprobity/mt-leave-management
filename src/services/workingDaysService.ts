@@ -588,6 +588,33 @@ export class WorkingDaysService {
   }
 
   /**
+   * Returns whether an explicit employee-specific weekly-off assignment applies on a date.
+   * When present, it is authoritative over shift-level and department-level weekly-off settings.
+   */
+  public static async hasEmployeeWeeklyOffAssignmentForDate(
+    employeeId: number | string,
+    targetDateStr: string
+  ): Promise<boolean> {
+    let targetEmpId = Number(employeeId);
+    try {
+      const { UserService } = await import('./userService.ts');
+      const emp = UserService.resolveEmployeeRecordSync(employeeId);
+      if (emp) targetEmpId = emp.id;
+    } catch {}
+
+    if (isDbConfigured() && !empWeeklyOffDbSynced) {
+      await this.syncEmployeeWeeklyOffsFromDb();
+    }
+
+    return memoryEmployeeWeeklyOffs.some(
+      (rec) =>
+        rec.employeeId === targetEmpId &&
+        targetDateStr >= rec.effectiveFrom &&
+        (!rec.effectiveTo || targetDateStr <= rec.effectiveTo)
+    );
+  }
+
+  /**
    * Date-effective employee weekly off lookup:
    * 1. Checks specific employee weekly off table for date
    * 2. Checks employee shift assignment workDaysOfWeek override
