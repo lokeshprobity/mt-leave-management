@@ -491,11 +491,11 @@ export class TeamLeaderRotationService {
     teamId: number | string | null | undefined,
     targetDateInput: string | Date,
     options?: {
-    ensureDefaultRotationRules();
       fallbackEmployeeId?: number | string | null;
       allowInactiveForHistory?: boolean;
     }
   ): ResolvedTeamLeaderDto | null {
+    ensureDefaultRotationRules();
     const dateStr = parseStrictIsoDate(targetDateInput, 'Target date');
     const resolvedDept = teamId !== undefined && teamId !== null
       ? UserService.resolveDepartmentRecordSync(teamId)
@@ -1223,10 +1223,10 @@ export class TeamLeaderRotationService {
    * Lists reusable 15-day Team Leader rotation rules.
    */
   public static async getRotationRules(filters?: {
-    ensureDefaultRotationRules();
     teamId?: number | string;
     activeOnly?: boolean;
   }): Promise<TeamLeaderRotationRuleDto[]> {
+    ensureDefaultRotationRules();
     let list = memoryRotationRules.map((r) => this.enrichRotationRule(r));
     if (filters?.teamId !== undefined) {
       const dept = UserService.resolveDepartmentRecordSync(filters.teamId);
@@ -1244,10 +1244,10 @@ export class TeamLeaderRotationService {
    * Preserves historical rotation rules when a team's rotation is updated for a new effective date.
    */
   public static async configureRotationRule(
-    input: CreateTeamLeaderRotationRuleInput & {
-    ensureDefaultRotationRules(); replaceExistingActive?: boolean },
+    input: CreateTeamLeaderRotationRuleInput & { replaceExistingActive?: boolean },
     actor: AuthContext
   ): Promise<TeamLeaderRotationRuleDto> {
+    ensureDefaultRotationRules();
     await this.assertCanManageRotation(actor);
 
     const dept = UserService.resolveDepartmentRecordSync(
