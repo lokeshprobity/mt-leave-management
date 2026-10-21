@@ -103,6 +103,17 @@ export function EmployeeAdmin({
       setDepartments(deptData.departments || []);
       setDesignations(desigData.designations || []);
       setShifts(shiftData.shifts || []);
+      if (isSuperAdmin) {
+        try {
+          const activityRes = await apiFetch('/api/admin/user-last-activity');
+          if (activityRes.ok) {
+            const activityData = await activityRes.json();
+            setLastLoginByUserId(activityData.lastLoginByUserId || {});
+          }
+        } catch {
+          // Keep the employee directory available if login activity cannot be loaded.
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Error loading employee data.');
     } finally {
