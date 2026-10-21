@@ -101,7 +101,46 @@ async function runTeamLeaderRotationTests() {
 
   resetAll();
 
-  const IMPORT_TEAM_ID = 8; // Import Team (IMP)
+  const AR_TEAM_ID = UserService.resolveDepartmentRecordSync('AR_TRANS')?.id ?? 6;
+  const IMPORT_TEAM_ID = 8; // Test-only team; rotation is configured explicitly below.
+
+  assert(
+    TeamLeaderRotationService.hasTeamDateEffectiveConfig(AR_TEAM_ID),
+    'TEST 0A: Default 15-day rotation is assigned to AR Transport'
+  );
+  assert(
+    !TeamLeaderRotationService.hasTeamDateEffectiveConfig(IMPORT_TEAM_ID),
+    'TEST 0B: Import Team does not receive the AR-only default rotation'
+  );
+
+  const defaultArFirstHalf = await TeamLeaderRotationService.resolveTeamLeader(
+    AR_TEAM_ID,
+    '2026-10-15'
+  );
+  const defaultArSecondHalf = await TeamLeaderRotationService.resolveTeamLeader(
+    AR_TEAM_ID,
+    '2026-10-16'
+  );
+  assert(
+    defaultArFirstHalf?.teamLeaderName?.toUpperCase().includes('ANIL') &&
+      defaultArSecondHalf?.teamLeaderName?.toUpperCase().includes('AKASH'),
+    'TEST 0C: AR rotation resolves Anil on days 1–15 and Akash on days 16–month end'
+  );
+
+  // Existing date-boundary and approval tests use an explicit test-only Import Team rule.
+  await TeamLeaderRotationService.configureRotationRule(
+    {
+      teamId: IMPORT_TEAM_ID,
+      rotationType: 'FIRST_HALF_SECOND_HALF',
+      firstHalfLeaderEmployeeId: TL_ANIL.employeeId!,
+      secondHalfLeaderEmployeeId: TL_AKASH.employeeId!,
+      effectiveFrom: '2026-01-01',
+      effectiveTo: null,
+      remarks: 'Test-only rotation fixture; not a production default',
+      replaceExistingActive: true,
+    },
+    SUPER_ADMIN
+  );
 
   // ------------------------------------------------------------------
   // TEST 1: Basic 15-Day Rotation Rule (01–15 → ANIL, 16–30 → AKASH)
