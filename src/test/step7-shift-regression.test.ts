@@ -241,6 +241,30 @@ async function runStep7RegressionTests() {
     );
 
     // ----------------------------------------------------
+    // TEST 12A: Employee-specific weekly off overrides shift-level Sunday and custom workdays
+    // ----------------------------------------------------
+    await WorkingDaysService.assignEmployeeWeeklyOff(
+      {
+        employeeId: 101,
+        weeklyOffDays: [6],
+        effectiveFrom: '2026-06-01',
+        remarks: 'Regression: Saturday is the employee weekly off',
+      },
+      HR_AUTH
+    );
+    const saturdayOverrideSchedule = await ShiftService.resolveEmployeeSchedule(101, '2026-06-13');
+    const sundayOverrideSchedule = await ShiftService.resolveEmployeeSchedule(101, '2026-06-14');
+    assert(
+      !saturdayOverrideSchedule.isWorkingDay && saturdayOverrideSchedule.isWeeklyOff,
+      'Test 12A: Employee weekly-off override marks Saturday OFF'
+    );
+    assert(
+      sundayOverrideSchedule.isWorkingDay && !sundayOverrideSchedule.isWeeklyOff,
+      'Test 12B: Employee Saturday override prevents old shift Sunday from remaining OFF',
+      `Got isWorkingDay=${sundayOverrideSchedule.isWorkingDay}, isWeeklyOff=${sundayOverrideSchedule.isWeeklyOff}`
+    );
+
+    // ----------------------------------------------------
     // TEST 13: Leave calculation preserves 1 FULL-DAY LEAVE = 1 LEAVE DAY
     // Regardless of whether shift is 8 hrs, 9 hrs, or 12 hrs night shift!
     // ----------------------------------------------------
