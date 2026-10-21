@@ -907,7 +907,8 @@ export function canAccessAdminTab(
     case 'working-days':
       return perms.includes('WORKING_DAYS_MANAGE') || perms.includes('WEEKLY_OFF_MANAGE');
     case 'weekly-offs':
-      return perms.includes('WEEKLY_OFF_MANAGE');
+      // Weekly-off changes are an operational admin task; always expose this section to Super Admin and HR.
+      return role === 'SUPER_ADMIN' || role === 'HR' || perms.includes('WEEKLY_OFF_MANAGE');
     case 'leave-balance':
     case 'leave-balances':
       return perms.includes('LEAVE_VIEW_ALL') || perms.includes('EMPLOYEE_EDIT') || role === 'SUPER_ADMIN' || role === 'HR';
