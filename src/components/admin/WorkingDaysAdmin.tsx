@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Clock,
+  Edit2,
   Save,
   CheckCircle2,
   AlertCircle,
@@ -83,6 +84,7 @@ export function WorkingDaysAdmin({
 
   // Employee Weekly-Off Assignment Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [editingAssignmentId, setEditingAssignmentId] = useState<number | null>(null);
   const [confirmDeleteAssignId, setConfirmDeleteAssignId] = useState<number | null>(null);
   const [deletingAssign, setDeletingAssign] = useState(false);
   const [assignEmpId, setAssignEmpId] = useState<number | string>('');
@@ -184,6 +186,29 @@ export function WorkingDaysAdmin({
     }
   };
 
+  const openNewWeeklyOffAssignment = () => {
+    setEditingAssignmentId(null);
+    setSelectedDays([0]);
+    setEffectiveFrom(new Date().toLocaleDateString('en-CA'));
+    setEffectiveTo('');
+    setAssignRemarks('');
+    setError(null);
+    setSuccessMsg(null);
+    setIsAssignModalOpen(true);
+  };
+
+  const openEditWeeklyOffAssignment = (assignment: any) => {
+    setEditingAssignmentId(Number(assignment.id));
+    setAssignEmpId(assignment.employeeId);
+    setSelectedDays(Array.isArray(assignment.weeklyOffDays) ? assignment.weeklyOffDays : [0]);
+    setEffectiveFrom(String(assignment.effectiveFrom || new Date().toLocaleDateString('en-CA')).slice(0, 10));
+    setEffectiveTo(assignment.effectiveTo ? String(assignment.effectiveTo).slice(0, 10) : '');
+    setAssignRemarks(assignment.remarks || '');
+    setError(null);
+    setSuccessMsg(null);
+    setIsAssignModalOpen(true);
+  };
+
   const toggleSelectedDay = (d: number) => {
     setSelectedDays((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
@@ -223,9 +248,10 @@ export function WorkingDaysAdmin({
 
       const emp = employees.find((e) => String(e.id) === String(assignEmpId));
       setSuccessMsg(
-        `Weekly off schedule successfully assigned to ${emp?.employeeName || assignEmpId} effective from ${formatDate(effectiveFrom)}.`
+        `${editingAssignmentId ? 'Weekly off schedule updated for' : 'Weekly off schedule assigned to'} ${emp?.employeeName || assignEmpId} effective from ${formatDate(effectiveFrom)}.`
       );
       setIsAssignModalOpen(false);
+      setEditingAssignmentId(null);
       loadData();
     } catch (err: any) {
       setError(err.message);
@@ -277,10 +303,7 @@ export function WorkingDaysAdmin({
         {canManage && (
           <button
             id="btn-open-assign-weekly-off"
-            onClick={() => {
-              setError(null);
-              setIsAssignModalOpen(true);
-            }}
+            onClick={openNewWeeklyOffAssignment}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-700 text-white rounded-lg text-xs font-semibold hover:bg-red-800 transition-colors shadow-xs cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
@@ -522,6 +545,15 @@ export function WorkingDaysAdmin({
                       {canManage && (
                         <td className="py-3 px-4 text-right">
                           <button
+                            type="button"
+                            onClick={() => openEditWeeklyOffAssignment(a)}
+                            title="Change this employee's weekly-off schedule"
+                            className="inline-flex items-center gap-1 px-2 py-1 mr-2 rounded-md border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            Change
+                          </button>
+                          <button
                             onClick={() => setConfirmDeleteAssignId(a.id)}
                             title="Remove assignment"
                             className="p-1 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50 cursor-pointer"
@@ -547,7 +579,7 @@ export function WorkingDaysAdmin({
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
               <h3 className="font-semibold text-neutral-900 text-sm flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-neutral-700" />
-                <span>Assign Custom Weekly-Off</span>
+                <span>{editingAssignmentId ? 'Change Employee Weekly-Off' : 'Assign Custom Weekly-Off'}</span>
               </h3>
               <button onClick={() => setIsAssignModalOpen(false)} className="text-neutral-500 hover:text-neutral-600 cursor-pointer">
                 ✕
@@ -562,6 +594,7 @@ export function WorkingDaysAdmin({
                 <select
                   id="select-weekly-off-employee"
                   required
+                  disabled={editingAssignmentId !== null}
                   value={assignEmpId}
                   onChange={(e) => setAssignEmpId(e.target.value)}
                   className="w-full px-3 py-1.5 border border-neutral-200 rounded-lg"
@@ -654,7 +687,7 @@ export function WorkingDaysAdmin({
                   disabled={assigning}
                   className="px-4 py-1.5 bg-red-700 text-white rounded-lg hover:bg-red-800 cursor-pointer font-medium disabled:opacity-50"
                 >
-                  {assigning ? 'Saving...' : 'Save Assignment'}
+                  {assigning ? 'Saving...' : editingAssignmentId ? 'Save Weekly-Off Change' : 'Save Assignment'}
                 </button>
               </div>
             </form>
