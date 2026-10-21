@@ -63,9 +63,9 @@ export function DepartmentAdmin() {
     effectiveTo: string;
     remarks: string;
   }>({
-    teamId: 8,
-    firstHalfLeaderEmployeeId: 8,
-    secondHalfLeaderEmployeeId: 9,
+    teamId: '',
+    firstHalfLeaderEmployeeId: '',
+    secondHalfLeaderEmployeeId: '',
     effectiveFrom: '2026-01-01',
     effectiveTo: '',
     remarks: '15-day Team Leader rotation (01–15 / 16–Month End)',
@@ -83,8 +83,8 @@ export function DepartmentAdmin() {
     assignmentType: TeamLeaderAssignmentType;
     reason: string;
   }>({
-    teamId: 8,
-    teamLeaderEmployeeId: 8,
+    teamId: '',
+    teamLeaderEmployeeId: '',
     effectiveFrom: new Date().toISOString().slice(0, 10),
     effectiveTo: new Date().toISOString().slice(0, 10),
     assignmentType: 'STANDARD',
@@ -97,6 +97,24 @@ export function DepartmentAdmin() {
 
   const activeRole = getActiveRole();
   const canManage = activeRole === 'SUPER_ADMIN' || activeRole === 'HR';
+
+  const getArTeam = () =>
+    departments.find(
+      (d) =>
+        /AR_TNSPRT_USA|AR_TRANS/i.test(d.code || '') ||
+        /A\\s*R\\s*Transport/i.test(d.name || '')
+    );
+
+  const getPreferredLeader = (leaderName: 'anil' | 'akash') =>
+    eligibleLeaders.find(
+      (employee) =>
+        (leaderName === 'anil' && /MT021/i.test(employee.employeeCode || '')) ||
+        (leaderName === 'akash' && /MT022/i.test(employee.employeeCode || '')) ||
+        new RegExp(leaderName, 'i').test(employee.employeeName || '')
+    );
+
+  const getDefaultRotationTeamId = () =>
+    getArTeam()?.id || departments.find((d) => d.isActive)?.id || '';
 
   const loadData = async (refDateOverride?: string) => {
     setLoading(true);
@@ -225,12 +243,19 @@ export function DepartmentAdmin() {
 
   // Rotation Rule Handlers
   const openConfigureRotation = (summary?: TeamRotationSummaryDto) => {
-    const defaultTeamId = summary?.teamId || departments.find((d) => d.isActive)?.id || 8;
+    const defaultTeamId = summary?.teamId || getDefaultRotationTeamId();
     const rule = summary?.activeRotationRule;
     const firstLeader =
-      rule?.firstHalfLeaderEmployeeId || eligibleLeaders[0]?.id || 8;
+      rule?.firstHalfLeaderEmployeeId ||
+      getPreferredLeader('anil')?.id ||
+      eligibleLeaders[0]?.id ||
+      '';
     const secondLeader =
-      rule?.secondHalfLeaderEmployeeId || eligibleLeaders[1]?.id || eligibleLeaders[0]?.id || 9;
+      rule?.secondHalfLeaderEmployeeId ||
+      getPreferredLeader('akash')?.id ||
+      eligibleLeaders[1]?.id ||
+      eligibleLeaders[0]?.id ||
+      '';
 
     setRotationForm({
       teamId: defaultTeamId,
@@ -288,8 +313,9 @@ export function DepartmentAdmin() {
   const openAddAssignment = (teamId?: number) => {
     setEditingAssignment(null);
     setAssignmentForm({
-      teamId: teamId || departments.find((d) => d.isActive)?.id || 8,
-      teamLeaderEmployeeId: eligibleLeaders[0]?.id || 8,
+      teamId: teamId || getDefaultRotationTeamId(),
+      teamLeaderEmployeeId:
+        getPreferredLeader('anil')?.id || eligibleLeaders[0]?.id || '',
       effectiveFrom: referenceDate,
       effectiveTo: referenceDate,
       assignmentType: 'STANDARD',
