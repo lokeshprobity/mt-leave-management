@@ -1106,7 +1106,7 @@ export class LeaveService {
     // For CL, DEBIT means consumed leave: keep annual allocation unchanged and increase used.
     // CREDIT remains an entitlement adjustment; non-CL adjustment behavior remains unchanged.
     const debitAsUsage = isCasualLeave && input.adjustmentType === 'DEBIT';
-    let delta = input.adjustmentType === 'CREDIT' ? qty : -qty;
+    let delta = input.adjustmentType === 'CREDIT' || input.adjustmentType === 'SET_OPENING' ? qty : -qty;
 
     if (isDbConfigured()) {
       const db = getDb();
