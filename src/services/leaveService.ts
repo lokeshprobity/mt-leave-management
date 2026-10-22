@@ -1090,12 +1090,12 @@ export class LeaveService {
     const rawEmp = input.employeeId ?? input.employeeCode;
     const resolvedEmp = UserService.resolveEmployeeRecordSync(rawEmp);
     const numericEmpId = resolvedEmp?.employeeId ?? Number(rawEmp);
-    if (input.adjustmentType === 'SET_OPENING' && actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can set an employee opening leave balance.');
+    if ((input.adjustmentType === 'SET' || input.adjustmentType === 'SET_OPENING') && actor.role !== 'SUPER_ADMIN') {
+      throw new Error('Forbidden: Only Super Admin can set an employee leave allocation.');
     }
     const qty = Number(input.quantity ?? input.amount);
-    if (isNaN(qty) || qty < 0 || (qty === 0 && input.adjustmentType !== 'SET_OPENING')) {
-      throw new ValidationError('Adjustment quantity must be valid; opening balance may be set to zero.');
+    if (isNaN(qty) || qty < 0 || (qty === 0 && input.adjustmentType !== 'SET' && input.adjustmentType !== 'SET_OPENING')) {
+      throw new ValidationError('Quantity must be valid; allocation may be set to zero.');
     }
     const remarkText = (input.remarks ?? input.reason ?? '').trim();
     if (!remarkText) {
