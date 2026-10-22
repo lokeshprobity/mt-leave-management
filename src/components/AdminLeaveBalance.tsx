@@ -24,6 +24,7 @@ import {
   Plus,
   Minus,
   Lock,
+  Pencil,
 } from 'lucide-react';
 import { getAuthHeaders, getActiveRole, apiFetch, hasClientPermission } from '../lib/api.ts';
 import { formatDate } from '../utils/dateFormat.ts';
