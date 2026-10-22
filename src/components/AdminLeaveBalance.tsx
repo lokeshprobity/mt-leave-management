@@ -1298,10 +1298,27 @@ export function AdminLeaveBalance() {
                             {b.year}
                           </td>
 
-                          {/* Allocated */}
+                          {/* Allocated — Super Admin can edit the entitlement directly here */}
                           <td className="px-4 py-3.5 text-right font-semibold text-neutral-800">
-                            <span className="text-sm font-bold">{alloc.toFixed(1)}</span>
-                            <span className="text-[11px] text-neutral-500 ml-1">Days</span>
+                            <div className="inline-flex items-center justify-end gap-2">
+                              <span className="text-sm font-bold">{alloc.toFixed(1)}</span>
+                              <span className="text-[11px] text-neutral-500">Days</span>
+                              {isSuperAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleOpenAdjustModal(b.employeeId, b.year, b.leaveTypeId);
+                                    setAdjustType('SET');
+                                    setAdjustQuantity(String(alloc));
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-800 hover:bg-violet-100"
+                                  title={`Edit annual allocation for ${name} — ${code}`}
+                                  aria-label={`Edit allocation for ${name} ${code}`}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </div>
                           </td>
 
                           {/* Used */}
