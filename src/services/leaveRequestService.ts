@@ -1254,18 +1254,41 @@ export class LeaveRequestService {
 
     // 6. Validate balance
     const startYear = parseInt(input.startDate.split('-')[0], 10) || new Date().getFullYear();
+    // Initialize the selected leave year if needed. For CL, this also carries
+    // forward the prior year's unused available balance when policy permits it.
+    await LeaveService.initializeEmployeeBalances(employeeId, startYear, actor);
     const balances = await LeaveService.getLeaveBalances({ employeeId, year: startYear }, actor);
     const balance = balances.find((b) => b.leaveTypeId === input.leaveTypeId);
     const available = balance ? Number(balance.available) : 0;
 
     const emergencyWaiverApplicable = this.isEmergencyWaiverApplicable(input, leaveType, policy);
 
-    // Do not block leave submission based on available balance. A zero-balance
-    // employee may still apply; final approval and balance posting remain separate.
+    // Validate CL against the employee's actual remaining balance. Include other
+    // active, non-terminal CL requests so multiple pending requests cannot overbook it.
+    // Emergency waivers do not waive the CL entitlement balance.
+    const existingRequests = await this.getEmployeeRequests(employeeId);
+    if (String(leaveType.code || '').trim().toUpperCase() === 'CL') {
+      const pendingClDays = existingRequests.reduce((sum, request) => {
+        if (Number(request.leaveTypeId) !== Number(input.leaveTypeId)) return sum;
+        const requestStatus = String(request.status || '').toUpperCase();
+        const finalStatus = String(request.finalStatus || '').toUpperCase();
+        if (
+          ['CANCELLED', 'REJECTED', 'APPROVED'].includes(requestStatus) ||
+          ['CANCELLED', 'REJECTED', 'APPROVED'].includes(finalStatus)
+        ) return sum;
+        return sum + (Number(request.totalDays) || 0);
+      }, 0);
+      const remainingCl = Math.max(0, available - pendingClDays);
+      if (workingDaysResult.totalDays > remainingCl + 0.0001) {
+        throw new ValidationError(
+          `Requested CL (${workingDaysResult.totalDays} days) exceeds your remaining CL balance of ${remainingCl.toFixed(2)} days.`,
+          { totalDays: `You can apply for up to ${remainingCl.toFixed(2)} remaining CL day(s).` }
+        );
+      }
+    }
 
     // 7. Validate overlap (Check against existing active requests for this employee)
     // Audited: Excludes cancelled and rejected requests. Allows distinct half-days on same date.
-    const existingRequests = await this.getEmployeeRequests(employeeId);
     for (const ex of existingRequests) {
       const isTerminalInactive =
         ex.status === 'CANCELLED' ||
