@@ -1075,7 +1075,7 @@ export class LeaveService {
       employeeCode?: string;
       leaveTypeId: number;
       year: number;
-      adjustmentType: 'CREDIT' | 'DEBIT';
+      adjustmentType: 'CREDIT' | 'DEBIT' | 'SET';
       quantity?: number;
       amount?: number;
       remarks?: string;
@@ -1103,7 +1103,7 @@ export class LeaveService {
     // For CL, DEBIT means consumed leave: keep annual allocation unchanged and increase used.
     // CREDIT remains an entitlement adjustment; non-CL adjustment behavior remains unchanged.
     const debitAsUsage = isCasualLeave && input.adjustmentType === 'DEBIT';
-    const delta = input.adjustmentType === 'CREDIT' ? qty : -qty;
+    let delta = input.adjustmentType === 'CREDIT' ? qty : -qty;
 
     if (isDbConfigured()) {
       const db = getDb();
@@ -1127,7 +1127,8 @@ export class LeaveService {
           balId = row.id;
           const oldAlloc = Number(row.allocated || 0);
           const oldUsed = Number(row.used || 0);
-          const newAlloc = debitAsUsage ? oldAlloc : oldAlloc + delta;
+          if (input.adjustmentType === 'SET') delta = qty - oldAlloc;
+          const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : oldAlloc + delta;
           const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
           const newAdj = debitAsUsage ? Number(row.adjustments || 0) : Number(row.adjustments || 0) + delta;
           if (debitAsUsage && newUsed + Number(row.reserved || 0) > Number(row.openingBalance || 0) + newAlloc + Number(row.carryForward || 0)) {
@@ -1259,7 +1260,8 @@ export class LeaveService {
     } else {
       const oldAlloc = Number(memBal.allocated || 0);
       const oldUsed = Number(memBal.used || 0);
-      const newAlloc = debitAsUsage ? oldAlloc : oldAlloc + delta;
+      if (input.adjustmentType === 'SET') delta = qty - oldAlloc;
+      const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : oldAlloc + delta;
       const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
       const newAdj = debitAsUsage ? Number(memBal.adjustments || 0) : Number(memBal.adjustments || 0) + delta;
       const newEntitlement = Number(memBal.openingBalance || 0) + newAlloc + Number(memBal.carryForward || 0);
