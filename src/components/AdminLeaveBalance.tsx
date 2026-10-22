@@ -637,22 +637,6 @@ export function AdminLeaveBalance() {
             </div>
           )}
 
-          {isSuperAdmin && (
-            <button
-              type="button"
-              id="btn-set-total-leave-allocation"
-              onClick={() => {
-                handleOpenAdjustModal();
-                setAdjustType('SET');
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-800 active:bg-violet-900 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer transition-colors"
-              title="Set an employee's total annual leave allocation"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>SET TOTAL ALLOCATION</span>
-            </button>
-          )}
-
           {/* Dynamic Year selector extending into future */}
           <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-neutral-300 shadow-xs">
             <Calendar className="w-3.5 h-3.5 text-neutral-500" />
@@ -1299,27 +1283,10 @@ export function AdminLeaveBalance() {
                             {b.year}
                           </td>
 
-                          {/* Allocated — Super Admin can edit the entitlement directly here */}
+                          {/* Allocation editing is available inside Adjust Leave Balance > Current Balance Status */}
                           <td className="px-4 py-3.5 text-right font-semibold text-neutral-800">
-                            <div className="inline-flex items-center justify-end gap-2">
-                              <span className="text-sm font-bold">{alloc.toFixed(1)}</span>
-                              <span className="text-[11px] text-neutral-500">Days</span>
-                              {isSuperAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleOpenAdjustModal(b.employeeId, b.year, b.leaveTypeId);
-                                    setAdjustType('SET');
-                                    setAdjustQuantity(String(alloc));
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-800 hover:bg-violet-100"
-                                  title={`Edit annual allocation for ${name} — ${code}`}
-                                  aria-label={`Edit allocation for ${name} ${code}`}
-                                >
-                                  Edit
-                                </button>
-                              )}
-                            </div>
+                            <span className="text-sm font-bold">{alloc.toFixed(1)}</span>
+                            <span className="text-[11px] text-neutral-500 ml-2">Days</span>
                           </td>
 
                           {/* Used */}
@@ -1584,9 +1551,26 @@ export function AdminLeaveBalance() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="p-2 bg-white rounded-lg border border-neutral-200">
                     <span className="text-[10px] text-neutral-500 block">Allocated</span>
-                    <span className="text-xs font-bold text-neutral-800">
-                      {currentAdjustStats.currentAllocated.toFixed(1)} Days
-                    </span>
+                    <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                      <span className="text-xs font-bold text-neutral-800">
+                        {currentAdjustStats.currentAllocated.toFixed(1)} Days
+                      </span>
+                      {isSuperAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdjustType('SET');
+                            setAdjustQuantity(currentAdjustStats.currentAllocated.toFixed(2));
+                            setAdjustError(null);
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-800 hover:bg-violet-100"
+                          title="Edit allocated leave for the selected employee, year and leave type"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-neutral-200">
                     <span className="text-[10px] text-amber-600 block">Used</span>
@@ -1648,20 +1632,6 @@ export function AdminLeaveBalance() {
                   </button>
                 </div>
               </div>
-
-              {isSuperAdmin && (
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-1.5">Annual Leave Allocation Control (Super Admin)</label>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('SET')}
-                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${adjustType === 'SET' ? 'border-violet-600 bg-violet-50 text-violet-900 font-bold shadow-2xs' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}
-                  >
-                    <div className="text-xs font-bold">SET TOTAL ALLOCATION</div>
-                    <div className="text-[10px] text-neutral-500 mt-0.5">Set the employee's annual entitlement directly (e.g. CL 12 days); used and remaining will be recalculated.</div>
-                  </button>
-                </div>
-              )}
 
               {/* 6. Adjustment Amount */}
               <div>
