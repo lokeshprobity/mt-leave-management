@@ -89,7 +89,7 @@ export function AdminLeaveBalance() {
   const activeRole = getActiveRole();
   const isSuperAdmin = activeRole === 'SUPER_ADMIN';
   const isAuthorized = activeRole === 'SUPER_ADMIN' || activeRole === 'HR';
-  const canAdjustLeaveBalance = hasClientPermission('LEAVE_BALANCE_ADJUST');
+  const canAdjustLeaveBalance = isSuperAdmin || hasClientPermission('LEAVE_BALANCE_ADJUST');
 
   // Navigation tab: 'all' = All Employees summary, 'individual' = Particular Employee drilldown
   const [activeTab, setActiveTab] = useState<'all' | 'individual'>('all');
