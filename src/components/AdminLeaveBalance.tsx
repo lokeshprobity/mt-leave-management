@@ -636,6 +636,22 @@ export function AdminLeaveBalance() {
             </div>
           )}
 
+          {isSuperAdmin && (
+            <button
+              type="button"
+              id="btn-set-total-leave-allocation"
+              onClick={() => {
+                handleOpenAdjustModal();
+                setAdjustType('SET');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-800 active:bg-violet-900 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer transition-colors"
+              title="Set an employee's total annual leave allocation"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>SET TOTAL ALLOCATION</span>
+            </button>
+          )}
+
           {/* Dynamic Year selector extending into future */}
           <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-neutral-300 shadow-xs">
             <Calendar className="w-3.5 h-3.5 text-neutral-500" />
@@ -1621,7 +1637,7 @@ export function AdminLeaveBalance() {
                   <button
                     type="button"
                     onClick={() => setAdjustType('SET')}
-                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${adjustType === 'SET_OPENING' ? 'border-violet-600 bg-violet-50 text-violet-900 font-bold shadow-2xs' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${adjustType === 'SET' ? 'border-violet-600 bg-violet-50 text-violet-900 font-bold shadow-2xs' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}
                   >
                     <div className="text-xs font-bold">SET TOTAL ALLOCATION</div>
                     <div className="text-[10px] text-neutral-500 mt-0.5">Set the employee's annual entitlement directly (e.g. CL 12 days); used and remaining will be recalculated.</div>
