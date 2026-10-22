@@ -49,14 +49,14 @@ const buildInitialPolicies = (): LeavePolicyDto[] => [
     leaveTypeName: 'Casual Leave',
     annualAllocation: 12,
     allocationFrequency: 'ANNUAL',
-    carryForwardAllowed: false,
+    carryForwardAllowed: true,
     carryForwardLimit: 0,
     expiryEnabled: false,
     expiryPeriod: null,
     halfDayAllowed: true,
     sameDayAllowed: true,
     minimumNoticeDays: 1,
-    maximumConsecutiveDays: 3,
+    maximumConsecutiveDays: 0,
     lateRequestAllowed: true,
     postStartRequestAllowed: false,
     emergencyExceptionAllowed: true,
@@ -846,10 +846,11 @@ export class LeaveService {
       throw new ValidationError(`Cannot initialize leave balances: employee '${employeeId}' was not found.`);
     }
 
-    const [types, policies, existingBalances, existingTransactions] = await Promise.all([
+    const [types, policies, existingBalances, previousYearBalances, existingTransactions] = await Promise.all([
       this.getLeaveTypes(),
       this.getLeavePolicies(),
       this.getLeaveBalances({ employeeId: numericEmpId, year }),
+      this.getLeaveBalances({ employeeId: numericEmpId, year: year - 1 }),
       isDbConfigured() && getDb()
         ? getDb()!.select().from(leaveBalanceTransactions).where(eq(leaveBalanceTransactions.employeeId, numericEmpId))
         : Promise.resolve([] as any[]),
@@ -908,17 +909,21 @@ export class LeaveService {
       const policy = applicable[0];
       if (!policy) continue;
       const allocation = Number(policy.annualAllocation || 0);
+      const priorYearBalance = previousYearBalances.find((balance) => Number(balance.leaveTypeId) === Number(type.id));
+      const priorAvailable = policy.carryForwardAllowed ? Math.max(0, Number(priorYearBalance?.available || 0)) : 0;
+      const carryForwardLimit = Number(policy.carryForwardLimit || 0);
+      const carryForward = carryForwardLimit > 0 ? Math.min(priorAvailable, carryForwardLimit) : priorAvailable;
       const row = {
         employeeId: numericEmpId,
         leaveTypeId: type.id,
         year,
         openingBalance: '0.00',
         allocated: allocation.toFixed(2),
-        carryForward: '0.00',
+        carryForward: carryForward.toFixed(2),
         adjustments: '0.00',
         used: '0.00',
         reserved: '0.00',
-        available: allocation.toFixed(2),
+        available: (allocation + carryForward).toFixed(2),
         departmentId: resolvedEmp?.departmentId ?? null,
         departmentCode: resolvedEmp?.departmentCode ?? null,
         departmentName: resolvedEmp?.departmentName ?? null,
@@ -942,6 +947,21 @@ export class LeaveService {
             createdBy: null,
           });
           balancesWithAllocationTransaction.add(Number(inserted[0].id));
+        }
+        if (inserted.length > 0 && carryForward > 0) {
+          await db.insert(leaveBalanceTransactions).values({
+            employeeId: numericEmpId,
+            leaveTypeId: type.id,
+            leaveBalanceId: inserted[0].id,
+            leaveTypeCode: type.code,
+            leaveTypeName: type.name,
+            transactionType: 'CARRY_FORWARD',
+            quantity: carryForward.toFixed(2),
+            referenceType: 'YEAR_END_CARRY_FORWARD',
+            referenceId: `${year - 1}->${year}:${type.id}`,
+            remarks: `Unused balance carried forward from ${year - 1} to ${year} under policy #${policy.id}.`,
+            createdBy: null,
+          });
         }
       } else {
         const existingMem = memoryLeaveBalances.find((balance) =>
