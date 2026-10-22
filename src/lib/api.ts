@@ -1135,6 +1135,17 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     invalidateClientSessionAndRedirectToLogin();
   }
 
+  // Refresh navigation approval badges immediately after a successful leave-request mutation.
+  const method = (options.method || 'GET').toUpperCase();
+  if (
+    isBrowserRuntime &&
+    response.ok &&
+    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) &&
+    /\/api\/(?:team-leader|hr|management)\/leave-requests|\/api\/(?:my-leave|leave-requests|leave)\//i.test(url)
+  ) {
+    window.dispatchEvent(new CustomEvent('leave-approval-queue-updated'));
+  }
+
   // Guard response.json() so callers never hit raw "Unexpected token '<', \"<!DOCTYPE \"..."
   response.json = () => parseApiJson(response);
 
