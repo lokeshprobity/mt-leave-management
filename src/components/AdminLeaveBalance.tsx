@@ -128,7 +128,7 @@ export function AdminLeaveBalance() {
   const [adjustYear, setAdjustYear] = useState<number>(selectedYear);
   const [adjustLeaveTypeId, setAdjustLeaveTypeId] = useState<number>(1);
   const [adjustType, setAdjustType] = useState<'CREDIT' | 'DEBIT' | 'SET' | 'SET_OPENING'>('CREDIT');
-  const [adjustQuantity, setAdjustQuantity] = useState<string>('2');
+  const [adjustQuantity, setAdjustQuantity] = useState<string>('0');
   const [adjustReason, setAdjustReason] = useState<string>('');
   const [adjustSaving, setAdjustSaving] = useState(false);
   const [adjustError, setAdjustError] = useState<string | null>(null);
@@ -271,7 +271,7 @@ export function AdminLeaveBalance() {
     setAdjustYear(year ?? selectedYear);
     setAdjustLeaveTypeId(typeId ?? (leaveTypes[0]?.id || 1));
     setAdjustType('CREDIT');
-    setAdjustQuantity('2');
+    setAdjustQuantity('0');
     setAdjustReason('');
     setIsAdjustModalOpen(true);
   };
@@ -354,8 +354,9 @@ export function AdminLeaveBalance() {
       setAdjustError('Please select an employee.');
       return;
     }
-    const qty = parseFloat(adjustQuantity);
-    if (isNaN(qty) || qty < 0 || (qty === 0 && adjustType !== 'SET' && adjustType !== 'SET_OPENING')) {
+    const quantityText = adjustQuantity.trim();
+    const qty = Number(quantityText);
+    if (!/^\\d+(?:\\.\\d+)?$/.test(quantityText) || !Number.isFinite(qty) || qty < 0 || (qty === 0 && adjustType !== 'SET' && adjustType !== 'SET_OPENING')) {
       setAdjustError('Please enter a valid quantity. Allocation can be set to 0; credit and debit adjustments must be greater than 0.');
       return;
     }
@@ -1670,12 +1671,20 @@ export function AdminLeaveBalance() {
                 <div className="relative">
                   <input
                     id="adjust-input-quantity"
-                    type="number"
-                    step="0.5"
-                    min={adjustType === 'SET' || adjustType === 'SET_OPENING' ? 0 : 0.5}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    pattern="[0-9]+(\\.[0-9]+)?"
                     required
                     value={adjustQuantity}
-                    onChange={(e) => setAdjustQuantity(e.target.value)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9.]/g, '');
+                      const dotIndex = raw.indexOf('.');
+                      const numericOnly = dotIndex === -1
+                        ? raw
+                        : raw.slice(0, dotIndex + 1) + raw.slice(dotIndex + 1).replace(/\\./g, '');
+                      setAdjustQuantity(numericOnly);
+                    }}
                     placeholder={adjustType === 'SET' || adjustType === 'SET_OPENING' ? "e.g. 0, 4, or 12" : "e.g. 4 or 0.5"}
                     className="w-full text-xs font-mono font-bold p-2.5 bg-white rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700 focus:border-red-700"
                   />
