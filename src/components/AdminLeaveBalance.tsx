@@ -127,7 +127,7 @@ export function AdminLeaveBalance() {
   const [adjustEmpId, setAdjustEmpId] = useState<number | string>('');
   const [adjustYear, setAdjustYear] = useState<number>(selectedYear);
   const [adjustLeaveTypeId, setAdjustLeaveTypeId] = useState<number>(1);
-  const [adjustType, setAdjustType] = useState<'CREDIT' | 'DEBIT' | 'SET'>('CREDIT');
+  const [adjustType, setAdjustType] = useState<'CREDIT' | 'DEBIT' | 'SET' | 'SET_OPENING'>('CREDIT');
   const [adjustQuantity, setAdjustQuantity] = useState<string>('2');
   const [adjustReason, setAdjustReason] = useState<string>('');
   const [adjustSaving, setAdjustSaving] = useState(false);
@@ -308,7 +308,11 @@ export function AdminLeaveBalance() {
     let newAlloc = alloc;
     let newUsed = used;
 
-    if (adjustType === 'CREDIT') {
+    if (adjustType === 'SET_OPENING') {
+      const opening = parseFloat(currentAdjustBalance?.openingBalance || '0') || 0;
+      delta = qty - opening;
+      newAlloc = alloc;
+    } else if (adjustType === 'CREDIT') {
       delta = qty;
       newAlloc = alloc + qty;
     } else if (adjustType === 'DEBIT') {
@@ -351,8 +355,8 @@ export function AdminLeaveBalance() {
       return;
     }
     const qty = parseFloat(adjustQuantity);
-    if (isNaN(qty) || qty <= 0) {
-      setAdjustError('Please enter a valid adjustment quantity greater than 0.');
+    if (isNaN(qty) || qty < 0 || (qty === 0 && adjustType !== 'SET_OPENING')) {
+      setAdjustError('Please enter a valid quantity. Opening balance can be set to 0; other adjustments must be greater than 0.');
       return;
     }
     if (!adjustReason.trim()) {
@@ -1611,6 +1615,20 @@ export function AdminLeaveBalance() {
                 </div>
               </div>
 
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1.5">Opening Balance Control (Super Admin)</label>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustType('SET_OPENING')}
+                    className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer ${adjustType === 'SET_OPENING' ? 'border-violet-600 bg-violet-50 text-violet-900 font-bold shadow-2xs' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                  >
+                    <div className="text-xs font-bold">SET OPENING BALANCE</div>
+                    <div className="text-[10px] text-neutral-500 mt-0.5">Set the employee's opening leave balance directly, including 0 days.</div>
+                  </button>
+                </div>
+              )}
+
               {/* 6. Adjustment Amount */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1">
@@ -1621,11 +1639,11 @@ export function AdminLeaveBalance() {
                     id="adjust-input-quantity"
                     type="number"
                     step="0.5"
-                    min="0.5"
+                    min={adjustType === 'SET_OPENING' ? 0 : 0.5}
                     required
                     value={adjustQuantity}
                     onChange={(e) => setAdjustQuantity(e.target.value)}
-                    placeholder="e.g. 4 or 0.5"
+                    placeholder={adjustType === 'SET_OPENING' ? "e.g. 0, 4, or 12" : "e.g. 4 or 0.5"}
                     className="w-full text-xs font-mono font-bold p-2.5 bg-white rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700 focus:border-red-700"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400 font-semibold pointer-events-none">
