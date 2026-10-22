@@ -870,6 +870,81 @@ export class LeaveService {
     for (const type of activeTypes) {
       const existingBalance = existingBalances.find((balance) => Number(balance.leaveTypeId) === Number(type.id));
       if (existingBalance) {
+        // A current-year balance may have been pre-created before year-end rollover.
+        // Apply CL carry-forward to that row exactly once as well as on newly created rows.
+        const hasCarryForwardTransaction = existingTransactions.some((transaction: any) =>
+          Number(transaction.leaveBalanceId) === Number(existingBalance.id) &&
+          transaction.transactionType === 'CARRY_FORWARD' &&
+          transaction.referenceType === 'YEAR_END_CARRY_FORWARD'
+        );
+        const carryPolicyForExisting = policies.find((policy) =>
+          policy.isActive &&
+          Number(policy.leaveTypeId) === Number(type.id) &&
+          policy.carryForwardAllowed
+        );
+        if (
+          String(type.code || '').toUpperCase() === 'CL' &&
+          carryPolicyForExisting &&
+          !hasCarryForwardTransaction &&
+          Number(existingBalance.carryForward || 0) <= 0
+        ) {
+          const previous = previousYearBalances.find((balance) => Number(balance.leaveTypeId) === Number(type.id));
+          const priorAvailable = Math.max(0, Number(previous?.available || 0));
+          const limit = Number(carryPolicyForExisting.carryForwardLimit || 0);
+          const carryAmount = limit > 0 ? Math.min(priorAvailable, limit) : priorAvailable;
+          if (carryAmount > 0) {
+            const nextCarry = Number(existingBalance.carryForward || 0) + carryAmount;
+            const nextAvailable =
+              Number(existingBalance.openingBalance || 0) +
+              Number(existingBalance.allocated || 0) +
+              nextCarry +
+              Number(existingBalance.adjustments || 0) -
+              Number(existingBalance.used || 0) -
+              Number(existingBalance.reserved || 0);
+            if (isDbConfigured()) {
+              const db = getDb();
+              if (!db) throw new Error('Database is configured but unavailable while applying CL carry-forward.');
+              await db.update(leaveBalances).set({
+                carryForward: nextCarry.toFixed(2),
+                available: nextAvailable.toFixed(2),
+                updatedAt: new Date(),
+              }).where(eq(leaveBalances.id, Number(existingBalance.id)));
+              await db.insert(leaveBalanceTransactions).values({
+                employeeId: numericEmpId,
+                leaveTypeId: type.id,
+                leaveBalanceId: Number(existingBalance.id),
+                leaveTypeCode: type.code,
+                leaveTypeName: type.name,
+                transactionType: 'CARRY_FORWARD',
+                quantity: carryAmount.toFixed(2),
+                referenceType: 'YEAR_END_CARRY_FORWARD',
+                referenceId: `${year - 1}->${year}:${type.id}`,
+                remarks: `Unused CL balance carried forward from ${year - 1} to ${year} under policy #${carryPolicyForExisting.id}.`,
+                createdBy: null,
+              });
+            } else {
+              const memBalance = memoryLeaveBalances.find((balance) => Number(balance.id) === Number(existingBalance.id));
+              if (memBalance) {
+                memBalance.carryForward = nextCarry.toFixed(2);
+                memBalance.available = nextAvailable.toFixed(2);
+                memBalance.updatedAt = new Date().toISOString();
+              }
+              memoryTransactions.push({
+                id: nextTxId++,
+                employeeId: numericEmpId,
+                leaveTypeId: type.id,
+                leaveBalanceId: Number(existingBalance.id),
+                transactionType: 'CARRY_FORWARD',
+                quantity: carryAmount.toFixed(2),
+                referenceType: 'YEAR_END_CARRY_FORWARD',
+                referenceId: `${year - 1}->${year}:${type.id}`,
+                remarks: `Unused CL balance carried forward from ${year - 1} to ${year} under policy #${carryPolicyForExisting.id}.`,
+                createdBy: null,
+                createdAt: new Date().toISOString(),
+              });
+            }
+          }
+        }
         if (isDbConfigured() && Number(existingBalance.allocated || 0) > 0 && !balancesWithAllocationTransaction.has(Number(existingBalance.id))) {
           const db = getDb();
           if (!db) throw new Error('Database is configured but unavailable while reconciling leave allocation history.');
