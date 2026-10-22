@@ -372,8 +372,10 @@ export function AdminLeaveBalance() {
         employeeId: adjustEmpId,
         leaveTypeId: adjustLeaveTypeId,
         year: adjustYear,
-        adjustmentType: currentAdjustStats.delta >= 0 ? 'CREDIT' : 'DEBIT',
-        quantity: Math.abs(currentAdjustStats.delta),
+        // Send the selected operation and entered quantity directly.
+        // Deriving CREDIT/DEBIT from the preview delta breaks explicit DEBIT/SET semantics.
+        adjustmentType: adjustType,
+        quantity: qty,
         remarks: adjustReason.trim(),
       };
 
