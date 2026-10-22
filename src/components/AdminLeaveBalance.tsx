@@ -356,7 +356,7 @@ export function AdminLeaveBalance() {
     }
     const quantityText = adjustQuantity.trim();
     const qty = Number(quantityText);
-    if (!/^\\d+(?:\\.\\d+)?$/.test(quantityText) || !Number.isFinite(qty) || qty < 0 || (qty === 0 && adjustType !== 'SET' && adjustType !== 'SET_OPENING')) {
+    if (!/^\d+(?:\.\d+)?$/.test(quantityText) || !Number.isFinite(qty) || qty < 0 || (qty === 0 && adjustType !== 'SET' && adjustType !== 'SET_OPENING')) {
       setAdjustError('Please enter a valid quantity. Allocation can be set to 0; credit and debit adjustments must be greater than 0.');
       return;
     }
@@ -1674,7 +1674,7 @@ export function AdminLeaveBalance() {
                     type="text"
                     inputMode="decimal"
                     autoComplete="off"
-                    pattern="[0-9]+(\\.[0-9]+)?"
+                    pattern="[0-9]+(\.[0-9]+)?"
                     required
                     value={adjustQuantity}
                     onChange={(e) => {
@@ -1682,7 +1682,7 @@ export function AdminLeaveBalance() {
                       const dotIndex = raw.indexOf('.');
                       const numericOnly = dotIndex === -1
                         ? raw
-                        : raw.slice(0, dotIndex + 1) + raw.slice(dotIndex + 1).replace(/\\./g, '');
+                        : raw.slice(0, dotIndex + 1) + raw.slice(dotIndex + 1).replace(/\./g, '');
                       setAdjustQuantity(numericOnly);
                     }}
                     placeholder={adjustType === 'SET' || adjustType === 'SET_OPENING' ? "e.g. 0, 4, or 12" : "e.g. 4 or 0.5"}
