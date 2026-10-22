@@ -259,7 +259,7 @@ export default function App() {
           '/api/management/leave-requests?status=PENDING',
         ];
         const results = await Promise.all(endpoints.map(async (endpoint) => {
-          const response = await apiFetch(endpoint);
+          const response = await apiFetch(endpoint, { cache: 'no-store' });
           if (!response.ok) return [];
           const payload = await response.json();
           return Array.isArray(payload.leaveRequests) ? payload.leaveRequests :
@@ -277,12 +277,14 @@ export default function App() {
       }
     };
     void refreshApprovalCounts();
-    const intervalId = window.setInterval(() => void refreshApprovalCounts(), 30000);
+    const intervalId = window.setInterval(() => void refreshApprovalCounts(), 10000);
     window.addEventListener('focus', refreshApprovalCounts);
+    window.addEventListener('leave-approval-queue-updated', refreshApprovalCounts);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
       window.removeEventListener('focus', refreshApprovalCounts);
+      window.removeEventListener('leave-approval-queue-updated', refreshApprovalCounts);
     };
   }, [isAuthenticatedState, activeRole, currentUserProfile, viewingUser]);
 
