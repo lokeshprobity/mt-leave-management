@@ -636,16 +636,13 @@ export class LeaveRequestService {
 
     // Available Balance Check
     const startYear = parseInt(input.startDate.split('-')[0], 10) || new Date().getFullYear();
+    await LeaveService.initializeEmployeeBalances(employeeId, startYear, actor);
     const balances = await LeaveService.getLeaveBalances({ employeeId, year: startYear }, actor);
     const balance = balances.find((b) => b.leaveTypeId === input.leaveTypeId);
     const available = balance ? Number(balance.available) : 0;
     const remaining = available - workingDaysResult.totalDays;
 
     const emergencyWaiver = this.isEmergencyWaiverApplicable(input, leaveType, policy);
-
-    // Balance is informational at application time. Employees may apply with zero
-    // balance; any resulting negative balance is handled by the existing ledger
-    // when Top Management gives final approval.
 
     const requiresDoc = Boolean(leaveType?.requiresDocument || policy?.documentRequired);
 
@@ -675,6 +672,24 @@ export class LeaveRequestService {
     }
 
     const existingRequests = await this.getEmployeeRequests(employeeId);
+    if (String(leaveType?.code || '').trim().toUpperCase() === 'CL') {
+      const pendingClDays = existingRequests.reduce((sum, request) => {
+        if (Number(request.leaveTypeId) !== Number(input.leaveTypeId)) return sum;
+        const requestStatus = String(request.status || '').toUpperCase();
+        const finalStatus = String(request.finalStatus || '').toUpperCase();
+        if (
+          ['CANCELLED', 'REJECTED', 'APPROVED'].includes(requestStatus) ||
+          ['CANCELLED', 'REJECTED', 'APPROVED'].includes(finalStatus)
+        ) return sum;
+        return sum + (Number(request.totalDays) || 0);
+      }, 0);
+      const remainingCl = Math.max(0, available - pendingClDays);
+      if (workingDaysResult.totalDays > remainingCl + 0.0001) {
+        validationErrors.push(
+          `Requested CL (${workingDaysResult.totalDays} days) exceeds your remaining CL balance of ${remainingCl.toFixed(2)} days.`
+        );
+      }
+    }
     for (const ex of existingRequests) {
       const isTerminalInactive =
         ex.status === 'CANCELLED' ||
