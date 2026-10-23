@@ -759,11 +759,12 @@ export function canAccessModule(
     return true;
   }
 
+  if (moduleId === 'attendance') return role === 'SUPER_ADMIN';
+
   const selfServiceModules = [
     'my-leave',
     'leave-balance',
     'my-schedule',
-    'attendance',
     'holidays',
   ];
   if (selfServiceModules.includes(moduleId)) {
@@ -779,7 +780,6 @@ export function canAccessModule(
         perms.includes('ALL_PERMISSIONS')
       );
     }
-    if (moduleId === 'attendance') return role === 'SUPER_ADMIN';
     if (moduleId === 'my-schedule' || moduleId === 'holidays') {
       return (
         perms.includes('SCHEDULE_VIEW_OWN') ||
