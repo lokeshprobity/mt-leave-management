@@ -2168,7 +2168,7 @@ export default function App() {
           </section>
         )}
 
-        {/* Module: Employee self-service attendance */}
+        {/* Module: My Attendance (read-only; no employee punch in/out) */}
         {!drillDownTarget && isCurrentModuleAuthorized && activeModule === 'attendance' && (
           <section id="module-attendance" className="space-y-6">
             <AttendanceAdmin canManage={false} />
