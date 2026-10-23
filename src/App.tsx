@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard,
   Calendar,
@@ -221,6 +221,7 @@ export default function App() {
   // even when the user clicks the already-selected navigation item.
   const [navigationResetKey, setNavigationResetKey] = useState(0);
   const [adminTab, setAdminTabState] = useState<AdminTab>(initialNav.tab);
+  const adminDropdownNavRef = useRef<HTMLDivElement | null>(null);
   const [activeRole, setActiveRoleState] = useState<UserRole>(initialRole);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserDto | null>(null);
   const [companyBranding, setCompanyBranding] = useState<CompanyBrandingDto>({
@@ -248,6 +249,22 @@ export default function App() {
     hr: 0,
     management: 0,
   });
+
+  // Close Administration dropdowns when the user clicks elsewhere or presses Escape.
+  useEffect(() => {
+    const closeAdminDropdowns = () => {
+      adminDropdownNavRef.current?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach((item) => {
+        item.open = false;
+      });
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (adminDropdownNavRef.current && !adminDropdownNavRef.current.contains(event.target as Node)) closeAdminDropdowns();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') closeAdminDropdowns(); };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => { document.removeEventListener('pointerdown', handlePointerDown); document.removeEventListener('keydown', handleKeyDown); };
+  }, []);
 
   // Keep navigation badges synchronized with the actual pending approval queues.
   useEffect(() => {
@@ -2241,7 +2258,7 @@ export default function App() {
             </div>
 
             {/* Categorized Administration dropdown navigation */}
-            <div id="desktop-admin-dropdown-nav" className="hidden md:flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-3">
+            <div id="desktop-admin-dropdown-nav" ref={adminDropdownNavRef} className="hidden md:flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-3">
               {([
                 { label: 'People & Organization', icon: Users, tabs: ['users', 'employees', 'roles', 'departments', 'designations'] as AdminTab[] },
                 { label: 'Work Schedule & Attendance', icon: CalendarDays, tabs: ['working-days', 'weekly-offs', 'shifts', 'employee-shifts', 'department-shifts', 'overtime', 'attendance'] as AdminTab[] },
@@ -2353,7 +2370,7 @@ export default function App() {
             {isCurrentAdminTabAuthorized && adminTab === 'overtime' && <OvertimeAdmin />}
 
             {/* Tab: Employee Attendance */}
-            {isCurrentAdminTabAuthorized && adminTab === 'attendance' && <AttendanceAdmin canManage={activeRole === 'SUPER_ADMIN'} />}
+            {isCurrentAdminTabAuthorized && adminTab === 'attendance' && <AttendanceAdmin canManage={isCurrentAdminTabAuthorized} />}
 
             {/* Tab: System Audit Trail */}
             {isCurrentAdminTabAuthorized && adminTab === 'audit' && <SystemAuditAdmin />}
