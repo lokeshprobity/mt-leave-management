@@ -43,7 +43,13 @@ function currentTime(): string {
 }
 function validateDate(date: string): string {
   const value = String(date || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value + 'T00:00:00Z'))) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new ValidationError('Attendance date must be a valid YYYY-MM-DD date.');
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) {
     throw new ValidationError('Attendance date must be a valid YYYY-MM-DD date.');
   }
   return value;
@@ -106,62 +112,46 @@ export class AttendanceService {
     return { employees, records };
   }
 
-  static async mark(input: any, actor: AuthContext): Promise<AttendanceRecordDto> {
+  static async mark(input: any, actor: AuthContext, dbOverride?: any): Promise<AttendanceRecordDto> {
     const canManage = actor.role === 'SUPER_ADMIN' || actor.role === 'HR';
-    const rawEmployeeId = input.employeeId ?? input.employeeCode ?? actor.employeeId;
+    if (!canManage) throw new Error('Forbidden: Only HR or Super Admin can mark or correct attendance.');
+    const action = String(input.action || '').toUpperCase();
+    if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
+      throw new ValidationError('Self-service punch in/out is disabled. HR or Super Admin must mark attendance.');
+    }
+    const rawEmployeeId = input.employeeId ?? input.employeeCode;
+    if (rawEmployeeId === undefined || rawEmployeeId === null || String(rawEmployeeId).trim() === '') {
+      throw new ValidationError('A valid employee must be selected.');
+    }
     const target = UserService.resolveEmployeeRecordSync(rawEmployeeId);
     if (!target) throw new ValidationError('A valid employee must be selected.');
-    if (!canManage && Number(target.id) !== Number(actor.employeeId)) {
-      throw new Error('Forbidden: You can only record your own attendance.');
-    }
     if (String(target.role || '').toUpperCase() === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN') {
       throw new Error('Forbidden: This employee record is not available.');
     }
     const date = validateDate(input.attendanceDate || input.date || todayLocalDate());
-    const action = String(input.action || '').toUpperCase();
-    if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
-      throw new Error('Self-service punch in/out is disabled. HR or Super Admin must mark attendance.');
-    }
+    const db = dbOverride ?? (isDbConfigured() ? getDb() : null);
     let status: AttendanceStatus;
     let checkIn: string | null = input.checkIn ? validateTime(input.checkIn, 'Check-in time') : null;
     let checkOut: string | null = input.checkOut ? validateTime(input.checkOut, 'Check-out time') : null;
-    let source: AttendanceSource = canManage ? 'HR' : 'SELF_SERVICE';
+    const source: AttendanceSource = 'HR';
     const existingMemory = memoryRecords.find((r) => r.employeeId === Number(target.id) && r.attendanceDate === date);
     let existingDb: any = null;
-    if (isDbConfigured()) {
-      const db = getDb();
-      if (db) {
-        const rows = await db.select().from(attendanceRecords).where(and(
-          eq(attendanceRecords.employeeId, Number(target.id)),
-          eq(attendanceRecords.attendanceDate, date)
-        )).limit(1);
-        existingDb = rows[0] || null;
-      }
+    if (db) {
+      const found = await db.select().from(attendanceRecords).where(and(
+        eq(attendanceRecords.employeeId, Number(target.id)),
+        eq(attendanceRecords.attendanceDate, date)
+      )).limit(1);
+      existingDb = found[0] || null;
     }
     const existing: any = existingDb || existingMemory;
-    if (action === 'CHECK_IN') {
-      if (existing?.checkIn || existing?.check_in) throw new ValidationError('Check-in is already recorded for this date.');
-      checkIn = currentTime();
-      checkOut = existing?.checkOut ?? existing?.check_out ?? null;
-      status = statusFromCheckIn(checkIn);
-      source = 'SELF_SERVICE';
-    } else if (action === 'CHECK_OUT') {
-      if (!(existing?.checkIn || existing?.check_in)) throw new ValidationError('Please check in before checking out.');
-      if (existing?.checkOut || existing?.check_out) throw new ValidationError('Check-out is already recorded for this date.');
-      checkIn = existing.checkIn ?? existing.check_in;
-      checkOut = currentTime();
-      status = (existing.status === 'LATE' ? 'LATE' : existing.status) as AttendanceStatus;
-      source = 'SELF_SERVICE';
-    } else {
-      status = String(input.status || '').toUpperCase() as AttendanceStatus;
-      if (!ALLOWED_STATUSES.has(status)) throw new ValidationError('Select a valid attendance status.');
-      if (input.checkIn) checkIn = validateTime(input.checkIn, 'Check-in time');
-      if (input.checkOut) checkOut = validateTime(input.checkOut, 'Check-out time');
-      if (checkIn && checkOut && checkOut < checkIn) throw new ValidationError('Check-out cannot be earlier than check-in.');
-      if (status === 'PRESENT' && checkIn && statusFromCheckIn(checkIn) === 'LATE') status = 'LATE';
+    status = String(input.status || '').toUpperCase() as AttendanceStatus;
+    if (!ALLOWED_STATUSES.has(status)) throw new ValidationError('Select a valid attendance status.');
+    if (checkIn && checkOut && checkOut < checkIn) throw new ValidationError('Check-out cannot be earlier than check-in.');
+    if (status === 'PRESENT' && checkIn) {
+      const derivedStatus = statusFromCheckIn(checkIn);
+      if (derivedStatus === 'LATE' || derivedStatus === 'POST_START') status = derivedStatus;
     }
     const remarks = input.remarks == null ? (existing?.remarks ?? null) : String(input.remarks).trim().slice(0, 500) || null;
-    const db = isDbConfigured() ? getDb() : null;
     let saved: any;
     if (db) {
       const values = {
@@ -198,10 +188,42 @@ export class AttendanceService {
     if (actor.role !== 'SUPER_ADMIN' && actor.role !== 'HR') throw new Error('Forbidden: Only HR or Super Admin can mark attendance for employees.');
     const date = validateDate(input.attendanceDate || input.date || todayLocalDate());
     if (!Array.isArray(input.records) || input.records.length === 0) throw new ValidationError('Select at least one employee to mark attendance.');
-    const records: AttendanceRecordDto[] = [];
-    for (const item of input.records) {
-      records.push(await this.mark({ ...item, attendanceDate: date }, actor));
-    }
+
+    // Validate all rows before the first write, avoiding partial saves from predictable input errors.
+    const seenEmployees = new Set<number>();
+    const normalized = input.records.map((item: any) => {
+      const rawEmployeeId = item?.employeeId ?? item?.employeeCode;
+      if (rawEmployeeId === undefined || rawEmployeeId === null || String(rawEmployeeId).trim() === '') {
+        throw new ValidationError('A valid employee must be selected for every attendance row.');
+      }
+      const target = UserService.resolveEmployeeRecordSync(rawEmployeeId);
+      if (!target) throw new ValidationError('A valid employee must be selected for every attendance row.');
+      if (String(target.role || '').toUpperCase() === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN') {
+        throw new ValidationError('This employee record is not available.');
+      }
+      if (seenEmployees.has(Number(target.id))) throw new ValidationError('An employee appears more than once in this bulk attendance request.');
+      seenEmployees.add(Number(target.id));
+      const action = String(item.action || '').toUpperCase();
+      if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
+        throw new ValidationError('Self-service punch in/out is disabled. HR or Super Admin must mark attendance.');
+      }
+      const status = String(item.status || '').toUpperCase() as AttendanceStatus;
+      if (!ALLOWED_STATUSES.has(status)) throw new ValidationError('Select a valid attendance status.');
+      const checkIn = item.checkIn ? validateTime(item.checkIn, 'Check-in time') : null;
+      const checkOut = item.checkOut ? validateTime(item.checkOut, 'Check-out time') : null;
+      if (checkIn && checkOut && checkOut < checkIn) throw new ValidationError('Check-out cannot be earlier than check-in.');
+      return { ...item, employeeId: Number(target.id), attendanceDate: date, status, checkIn, checkOut };
+    });
+
+    const db = isDbConfigured() ? getDb() : null;
+    const saveRows = async (transactionDb?: any) => {
+      const records: AttendanceRecordDto[] = [];
+      for (const item of normalized) records.push(await this.mark(item, actor, transactionDb));
+      return records;
+    };
+    const records = db?.transaction
+      ? await db.transaction(async (tx: any) => saveRows(tx))
+      : await saveRows();
     return { count: records.length, records };
   }
 }
