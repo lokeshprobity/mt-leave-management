@@ -159,6 +159,7 @@ const VALID_MODULE_AND_TAB_IDS = new Set([
   'my-leave',
   'leave-balance',
   'my-schedule',
+  'attendance',
   'holidays',
   'my-profile',
   'team-leader',
@@ -969,6 +970,7 @@ export function getAllowedNavModules(
     'my-leave',
     'leave-balance',
     'my-schedule',
+    'attendance',
     'my-profile',
     'team-leader',
     'hr',
@@ -988,6 +990,7 @@ export function getVisibleNavModules(
     'my-leave',
     'leave-balance',
     'my-schedule',
+    'attendance',
     'holidays',
     'my-profile',
     'team-leader',
@@ -1016,6 +1019,7 @@ export function getVisibleAdminTabs(
     'holidays',
     'shifts',
     'overtime',
+    'attendance',
     'audit',
   ];
   return allTabs.filter((t) => canAccessAdminTab(t, roleOverride, permissionsOverride));
