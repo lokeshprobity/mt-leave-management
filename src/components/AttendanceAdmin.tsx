@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, Clock3, Download, RefreshCw, Save } from 'lucide-react';
+import { CalendarDays, Download, RefreshCw, Save } from 'lucide-react';
 import { apiFetch } from '../lib/api.ts';
 
 type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'POST_START' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
@@ -76,20 +76,9 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'attendance-' + date + '.csv'; a.click(); URL.revokeObjectURL(url);
   };
-  const selfAction = async (action: 'CHECK_IN' | 'CHECK_OUT') => {
-    setSaving(true); setMessage('');
-    try {
-      const response = await apiFetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, attendanceDate: date }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to record attendance.');
-      setMessage(action === 'CHECK_IN' ? 'Check-in recorded.' : 'Check-out recorded.');
-      await load();
-    } catch (e: any) { setMessage(e.message || 'Unable to record attendance.'); }
-    finally { setSaving(false); }
-  };
   return <div className="space-y-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">HR can mark or correct attendance for any employee, individually or in bulk. Every change is audited.</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">HR can mark or correct attendance for any employee, individually or in bulk. Employees can view their own records only. Every change is audited.</p></div>
       <div className="flex flex-wrap gap-2"><button onClick={() => void load()} className={inputClass}><RefreshCw className="mr-1 inline h-4 w-4"/> Refresh</button><button onClick={exportCsv} className={inputClass}><Download className="mr-1 inline h-4 w-4"/> Export CSV</button></div>
     </div>
     <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
@@ -99,7 +88,6 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
       {canManage && <button disabled={saving || loading} onClick={() => void save()} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save className="mr-1 inline h-4 w-4"/>{saving ? 'Saving…' : 'Save Attendance'}</button>}
     </div>
     {message && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">{message}</div>}
-    {!canManage && <div className="flex flex-wrap gap-2"><button disabled={saving} onClick={() => void selfAction('CHECK_IN')} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Clock3 className="mr-1 inline h-4 w-4"/> Check In</button><button disabled={saving} onClick={() => void selfAction('CHECK_OUT')} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"><CheckCircle2 className="mr-1 inline h-4 w-4"/> Check Out</button></div>}
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
       <table className="min-w-[850px] w-full text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Employee</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Check In</th><th className="px-4 py-3">Check Out</th><th className="px-4 py-3">Remarks</th><th className="px-4 py-3">Source</th></tr></thead>
@@ -116,6 +104,5 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
         </tbody>
       </table>
     </div>
-    {!canManage && <p className="text-xs text-slate-500">Self check-in/check-out is recorded with server time. HR can correct attendance when required.</p>}
   </div>;
 }
