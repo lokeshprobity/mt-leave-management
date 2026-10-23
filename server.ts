@@ -3686,12 +3686,12 @@ export function registerApiRoutes(app: express.Express) {
   // (Master roles GET endpoint is registered at /api/roles above)
 
   // ==============================================================
-  // Employee Attendance: temporarily restricted to Super Admin only.
+  // Employee Attendance: access is controlled by the ATTENDANCE_MANAGE role permission.
   app.get(
     '/api/attendance',
-    requireRole(['SUPER_ADMIN']),
     async (req: Request, res: Response) => {
       try {
+        if (!req.user || !(await UserService.hasPermission(req.user, 'ATTENDANCE_MANAGE'))) return res.status(403).json({ error: 'Forbidden: ATTENDANCE_MANAGE permission is required.' });
         const date = String(req.query.date || new Date().toISOString().slice(0, 10));
         const result = await AttendanceService.list(date, req.user!);
         res.json(result);
@@ -3705,10 +3705,10 @@ export function registerApiRoutes(app: express.Express) {
 
   app.post(
     '/api/attendance/bulk',
-    requireRole(['SUPER_ADMIN']),
     async (req: Request, res: Response) => {
       try {
-        const result = await AttendanceService.markBulk(req.body || {}, req.user!);
+        if (!req.user || !(await UserService.hasPermission(req.user, 'ATTENDANCE_MANAGE'))) return res.status(403).json({ error: 'Forbidden: ATTENDANCE_MANAGE permission is required.' });
+        const result = await AttendanceService.markBulk(req.body || {}, req.user);
         res.json({ success: true, ...result });
       } catch (err: any) {
         if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
@@ -3720,10 +3720,10 @@ export function registerApiRoutes(app: express.Express) {
 
   app.post(
     '/api/attendance',
-    requireRole(['SUPER_ADMIN']),
     async (req: Request, res: Response) => {
       try {
-        const record = await AttendanceService.mark(req.body || {}, req.user!);
+        if (!req.user || !(await UserService.hasPermission(req.user, 'ATTENDANCE_MANAGE'))) return res.status(403).json({ error: 'Forbidden: ATTENDANCE_MANAGE permission is required.' });
+        const record = await AttendanceService.mark(req.body || {}, req.user);
         res.json({ success: true, record });
       } catch (err: any) {
         if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
