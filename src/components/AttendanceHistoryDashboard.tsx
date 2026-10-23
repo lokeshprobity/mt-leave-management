@@ -57,7 +57,7 @@ export function AttendanceHistoryDashboard() {
   useEffect(() => {
     let cancelled = false;
     const loadMonthlySummary = async () => {
-      if (!/^\\d{4}-\\d{2}$/.test(summaryMonth)) return;
+      if (!/^\d{4}-\d{2}$/.test(summaryMonth)) return;
       setSummaryLoading(true);
       try {
         const [year, month] = summaryMonth.split('-').map(Number);
