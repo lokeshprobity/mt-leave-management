@@ -37,10 +37,6 @@ function todayLocalDate(): string {
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 10);
 }
-function currentTime(): string {
-  const now = new Date();
-  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
-}
 function validateDate(date: string): string {
   const value = String(date || '').trim();
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
