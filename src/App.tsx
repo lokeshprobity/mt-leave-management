@@ -45,6 +45,7 @@ import { UserManagementAdmin } from './components/UserManagementAdmin.tsx';
 import { WorkingDaysAdmin } from './components/admin/WorkingDaysAdmin.tsx';
 import { MyProfile } from './components/MyProfile.tsx';
 import { OvertimeAdmin } from './components/OvertimeAdmin.tsx';
+import { AttendanceAdmin } from './components/AttendanceAdmin.tsx';
 import { SystemAuditAdmin } from './components/SystemAuditAdmin.tsx';
 import { AdminLeaveBalance } from './components/AdminLeaveBalance.tsx';
 import { AdminSystemSettings } from './components/AdminSystemSettings.tsx';
@@ -109,6 +110,7 @@ type AdminTab =
   | 'employee-shifts'
   | 'department-shifts'
   | 'overtime'
+  | 'attendance'
   | 'audit'
   | 'leave-types'
   | 'leave-policies'
@@ -155,6 +157,7 @@ const VALID_ADMIN_TABS: AdminTab[] = [
   'employee-shifts',
   'department-shifts',
   'overtime',
+  'attendance',
   'audit',
   'leave-types',
   'leave-policies',
@@ -964,6 +967,7 @@ export default function App() {
     { id: 'employee-shifts', label: 'Employee Shift Roster', icon: User },
     { id: 'department-shifts', label: 'Dept Shift Roster', icon: Building },
     { id: 'overtime', label: 'Overtime', icon: Clock },
+    { id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
     { id: 'audit', label: 'System Audit', icon: ShieldCheck },
     { id: 'leave-types', label: 'Leave Types', icon: FileSpreadsheet },
     { id: 'leave-policies', label: 'Leave Policies', icon: Sliders },
@@ -2393,6 +2397,19 @@ export default function App() {
                 </button>
               )}
 
+              {canAccessAdminTab('attendance', activeRole) && (
+                <button
+                  id="tab-attendance"
+                  onClick={() => setAdminTab('attendance')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    adminTab === 'attendance' ? MT_THEME.pillTabActive : MT_THEME.pillTabInactive
+                  }`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span>Attendance</span>
+                </button>
+              )}
+
               {canAccessAdminTab('audit', activeRole) && (
                 <button
                   id="tab-audit"
@@ -2543,6 +2560,9 @@ export default function App() {
 
             {/* Tab: Overtime Management */}
             {isCurrentAdminTabAuthorized && adminTab === 'overtime' && <OvertimeAdmin />}
+
+            {/* Tab: Employee Attendance */}
+            {isCurrentAdminTabAuthorized && adminTab === 'attendance' && <AttendanceAdmin canManage={activeRole === 'SUPER_ADMIN' || activeRole === 'HR'} />}
 
             {/* Tab: System Audit Trail */}
             {isCurrentAdminTabAuthorized && adminTab === 'audit' && <SystemAuditAdmin />}

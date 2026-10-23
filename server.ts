@@ -26,6 +26,7 @@ import { AttachmentService } from './src/services/attachmentService.ts';
 import { ShiftService } from './src/services/shiftService.ts';
 import { UserService } from './src/services/userService.ts';
 import { OvertimeService } from './src/services/overtimeService.ts';
+import { AttendanceService } from './src/services/attendanceService.ts';
 import { AuditService } from './src/services/auditService.ts';
 import { ValidationError } from './src/services/validation.ts';
 import { TeamLeaderRotationService } from './src/services/teamLeaderRotationService.ts';
@@ -3685,6 +3686,53 @@ export function registerApiRoutes(app: express.Express) {
   // (Master roles GET endpoint is registered at /api/roles above)
 
   // ==============================================================
+  // Employee Attendance: HR/Super Admin can mark any employee and bulk-save daily registers.
+  app.get(
+    '/api/attendance',
+    requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
+    async (req: Request, res: Response) => {
+      try {
+        const date = String(req.query.date || new Date().toISOString().slice(0, 10));
+        const result = await AttendanceService.list(date, req.user!);
+        res.json(result);
+      } catch (err: any) {
+        if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message || 'Unable to load attendance.' });
+      }
+    }
+  );
+
+  app.post(
+    '/api/attendance/bulk',
+    requireRole(['SUPER_ADMIN', 'HR']),
+    async (req: Request, res: Response) => {
+      try {
+        const result = await AttendanceService.markBulk(req.body || {}, req.user!);
+        res.json({ success: true, ...result });
+      } catch (err: any) {
+        if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message || 'Unable to save attendance.' });
+      }
+    }
+  );
+
+  app.post(
+    '/api/attendance',
+    requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
+    async (req: Request, res: Response) => {
+      try {
+        const record = await AttendanceService.mark(req.body || {}, req.user!);
+        res.json({ success: true, record });
+      } catch (err: any) {
+        if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message || 'Unable to record attendance.' });
+      }
+    }
+  );
+
   // STEP 8: Overtime (OT) Request & Approval Routes
   // ==============================================================
 
