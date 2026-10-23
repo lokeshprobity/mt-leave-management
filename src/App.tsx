@@ -91,6 +91,7 @@ type NavModule =
   | 'my-leave'
   | 'leave-balance'
   | 'my-schedule'
+  | 'attendance'
   | 'my-profile'
   | 'team-leader'
   | 'hr'
@@ -137,6 +138,7 @@ const VALID_MODULES: NavModule[] = [
   'my-leave',
   'leave-balance',
   'my-schedule',
+  'attendance',
   'my-profile',
   'team-leader',
   'hr',
@@ -947,6 +949,7 @@ export default function App() {
     { id: 'my-leave' as NavModule, label: 'My Leave', mobileLabel: 'My Leave', icon: Calendar },
     { id: 'leave-balance' as NavModule, label: 'Leave Balance', mobileLabel: 'Balances', icon: PieChart },
     { id: 'my-schedule' as NavModule, label: 'My Schedule', mobileLabel: 'Schedule', icon: Clock },
+    { id: 'attendance' as NavModule, label: 'My Attendance', mobileLabel: 'Attendance', icon: CalendarDays }, 
     { id: 'my-profile' as NavModule, label: 'My Profile', mobileLabel: 'Profile', icon: User },
     { id: 'team-leader' as NavModule, label: 'Reporting Person Approval', mobileLabel: 'Approvals', icon: ShieldCheck },
     { id: 'hr' as NavModule, label: 'HR', mobileLabel: 'HR Desk', icon: Users },
@@ -978,7 +981,7 @@ export default function App() {
     { id: 'system-overview', label: 'System Overview', icon: Layers },
   ];
 
-  const navItems = allNavItems.filter((item) => canAccessModule(item.id, activeRole));
+  const navItems = allNavItems.filter((item) => canAccessModule(item.id, activeRole) && !(item.id === 'attendance' && (activeRole === 'HR' || activeRole === 'SUPER_ADMIN')));
   const authorizedAdminTabs = allAdminTabItems.filter((tab) => canAccessAdminTab(tab.id, activeRole));
   const isCurrentModuleAuthorized = canAccessModule(activeModule, activeRole);
   const isCurrentAdminTabAuthorized = canAccessAdminTab(adminTab, activeRole);
@@ -2162,6 +2165,13 @@ export default function App() {
         {!drillDownTarget && activeModule === 'my-schedule' && (
           <section id="module-my-schedule" className="space-y-6">
             <MySchedule key={`schedule-${activeRole}`} />
+          </section>
+        )}
+
+        {/* Module: Employee self-service attendance */}
+        {!drillDownTarget && isCurrentModuleAuthorized && activeModule === 'attendance' && (
+          <section id="module-attendance" className="space-y-6">
+            <AttendanceAdmin canManage={false} />
           </section>
         )}
 
