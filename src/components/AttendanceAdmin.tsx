@@ -72,13 +72,18 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
       const r = rows[Number(e.id)];
       csvRows.push([e.employeeCode || e.employeeId || '', e.employeeName || e.fullName || '', date, r?.status || 'NOT_MARKED', r?.checkIn || '', r?.checkOut || '', r?.remarks || '']);
     }
-    const csv = csvRows.map(row => row.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    // Prefix spreadsheet formula-leading values so employee-entered remarks cannot execute as formulas.
+    const csv = csvRows.map(row => row.map(v => {
+      let value = String(v ?? '');
+      if (/^[=+\-@\t\r]/.test(value)) value = "'" + value;
+      return '"' + value.replace(/"/g, '""') + '"';
+    }).join(',')).join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'attendance-' + date + '.csv'; a.click(); URL.revokeObjectURL(url);
   };
   return <div className="space-y-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">HR can mark or correct attendance for any employee, individually or in bulk. Employees can view their own records only. Every change is audited.</p></div>
+      <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">Only HR or Super Admin can mark or correct attendance for any employee, individually or in bulk. Employees can view their own records only; self-service punch in/out is disabled. Every change is audited.</p></div>
       <div className="flex flex-wrap gap-2"><button onClick={() => void load()} className={inputClass}><RefreshCw className="mr-1 inline h-4 w-4"/> Refresh</button><button onClick={exportCsv} className={inputClass}><Download className="mr-1 inline h-4 w-4"/> Export CSV</button></div>
     </div>
     <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
