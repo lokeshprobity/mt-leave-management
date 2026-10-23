@@ -119,6 +119,9 @@ export class AttendanceService {
     }
     const date = validateDate(input.attendanceDate || input.date || todayLocalDate());
     const action = String(input.action || '').toUpperCase();
+    if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
+      throw new Error('Self-service punch in/out is disabled. HR or Super Admin must mark attendance.');
+    }
     let status: AttendanceStatus;
     let checkIn: string | null = input.checkIn ? validateTime(input.checkIn, 'Check-in time') : null;
     let checkOut: string | null = input.checkOut ? validateTime(input.checkOut, 'Check-out time') : null;
