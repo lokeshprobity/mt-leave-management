@@ -762,6 +762,7 @@ export function canAccessModule(
     'my-leave',
     'leave-balance',
     'my-schedule',
+    'attendance',
     'holidays',
   ];
   if (selfServiceModules.includes(moduleId)) {
@@ -776,6 +777,9 @@ export function canAccessModule(
         perms.includes('LEAVE_VIEW_ALL') ||
         perms.includes('ALL_PERMISSIONS')
       );
+    }
+    if (moduleId === 'attendance') {
+      return perms.includes('SCHEDULE_VIEW_OWN') || perms.includes('LEAVE_APPLY') || perms.includes('EMPLOYEE_VIEW') || perms.includes('ALL_PERMISSIONS');
     }
     if (moduleId === 'my-schedule' || moduleId === 'holidays') {
       return (
