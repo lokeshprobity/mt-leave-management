@@ -84,6 +84,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'SHIFT_VIEW',
     'SHIFT_ASSIGN',
     'OVERTIME_REVIEW',
+    'ATTENDANCE_MANAGE',
     'HOLIDAY_MANAGE',
     'WEEKLY_OFF_MANAGE',
     'AUDIT_LOG_VIEW',
@@ -856,6 +857,7 @@ export function canAccessModule(
           'HOLIDAY_MANAGE',
           'OVERTIME_REVIEW',
           'OVERTIME_MANAGE',
+          'ATTENDANCE_MANAGE',
           'AUDIT_LOG_VIEW',
         ].includes(p)
       );
@@ -929,7 +931,7 @@ export function canAccessAdminTab(
         perms.includes('SHIFT_CREATE')
       );
     case 'attendance':
-      return role === 'SUPER_ADMIN';
+      return perms.includes('ATTENDANCE_MANAGE');
     case 'overtime':
       return perms.includes('OVERTIME_REVIEW') || perms.includes('OVERTIME_MANAGE');
     case 'holidays':
