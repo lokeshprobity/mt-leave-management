@@ -3686,7 +3686,7 @@ export function registerApiRoutes(app: express.Express) {
   // (Master roles GET endpoint is registered at /api/roles above)
 
   // ==============================================================
-  // Employee Attendance: HR/Super Admin can mark any employee and bulk-save daily registers.
+  // Employee Attendance: only HR/Super Admin can mark or correct attendance. Employees are read-only.
   app.get(
     '/api/attendance',
     requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
@@ -3720,7 +3720,7 @@ export function registerApiRoutes(app: express.Express) {
 
   app.post(
     '/api/attendance',
-    requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT', 'TEAM_LEADER', 'EMPLOYEE']),
+    requireRole(['SUPER_ADMIN', 'HR']),
     async (req: Request, res: Response) => {
       try {
         const record = await AttendanceService.mark(req.body || {}, req.user!);
