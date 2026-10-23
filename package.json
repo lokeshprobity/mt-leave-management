@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx src/test/leave-foundation.test.ts && tsx src/test/leave-engine.runner.ts && tsx src/test/approval-engine.test.ts && tsx src/test/deep-audit.test.ts && tsx src/test/step6-regression.test.ts && tsx src/test/step7-shift-regression.test.ts && tsx src/test/step8-user-shift-ot.test.ts && tsx src/test/step9-dept-holiday.test.ts && tsx src/test/final-business-rules.test.ts && tsx src/test/super-admin-profile-operate.test.ts && tsx src/test/logout-photo-logo.test.ts && tsx src/test/team-leader-rotation.test.ts && tsx src/test/authoritative-business-ids.test.ts && tsx src/test/mobile-shell.test.ts && tsx src/test/mobile-viewport-responsiveness.test.ts && tsx src/test/login-password-show-hide.test.ts",
+    "test": "tsx src/test/leave-foundation.test.ts && tsx src/test/leave-engine.runner.ts && tsx src/test/approval-engine.test.ts && tsx src/test/deep-audit.test.ts && tsx src/test/step6-regression.test.ts && tsx src/test/step7-shift-regression.test.ts && tsx src/test/step8-user-shift-ot.test.ts && tsx src/test/step9-dept-holiday.test.ts && tsx src/test/final-business-rules.test.ts && tsx src/test/super-admin-profile-operate.test.ts && tsx src/test/logout-photo-logo.test.ts && tsx src/test/team-leader-rotation.test.ts && tsx src/test/authoritative-business-ids.test.ts && tsx src/test/mobile-shell.test.ts && tsx src/test/mobile-viewport-responsiveness.test.ts && tsx src/test/login-password-show-hide.test.ts && tsx src/test/attendance-service.test.ts",
     "lint": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",

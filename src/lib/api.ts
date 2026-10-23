@@ -159,6 +159,7 @@ const VALID_MODULE_AND_TAB_IDS = new Set([
   'my-leave',
   'leave-balance',
   'my-schedule',
+  'attendance',
   'holidays',
   'my-profile',
   'team-leader',
@@ -758,6 +759,8 @@ export function canAccessModule(
     return true;
   }
 
+  if (moduleId === 'attendance') return role === 'SUPER_ADMIN';
+
   const selfServiceModules = [
     'my-leave',
     'leave-balance',
@@ -879,6 +882,7 @@ export function canAccessAdminTab(
   const role = roleOverride || currentRole;
   // System Audit is strictly Super Admin-only, regardless of custom role permissions.
   if (tabId === 'audit') return role === 'SUPER_ADMIN';
+  // Attendance management is restricted to HR and Super Admin; employees use self-service elsewhere.
   // Weekly-off overrides are explicitly available to Super Admin and HR, even if
   // an older/custom Administration module permission set omitted the tab permission.
   if (tabId === 'weekly-offs' && (role === 'SUPER_ADMIN' || role === 'HR')) return true;
@@ -924,6 +928,8 @@ export function canAccessAdminTab(
         perms.includes('SHIFT_EDIT') ||
         perms.includes('SHIFT_CREATE')
       );
+    case 'attendance':
+      return role === 'SUPER_ADMIN';
     case 'overtime':
       return perms.includes('OVERTIME_REVIEW') || perms.includes('OVERTIME_MANAGE');
     case 'holidays':
@@ -962,6 +968,7 @@ export function getAllowedNavModules(
     'my-leave',
     'leave-balance',
     'my-schedule',
+    'attendance',
     'my-profile',
     'team-leader',
     'hr',
@@ -981,6 +988,7 @@ export function getVisibleNavModules(
     'my-leave',
     'leave-balance',
     'my-schedule',
+    'attendance',
     'holidays',
     'my-profile',
     'team-leader',
@@ -1009,6 +1017,7 @@ export function getVisibleAdminTabs(
     'holidays',
     'shifts',
     'overtime',
+    'attendance',
     'audit',
   ];
   return allTabs.filter((t) => canAccessAdminTab(t, roleOverride, permissionsOverride));

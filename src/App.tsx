@@ -45,6 +45,7 @@ import { UserManagementAdmin } from './components/UserManagementAdmin.tsx';
 import { WorkingDaysAdmin } from './components/admin/WorkingDaysAdmin.tsx';
 import { MyProfile } from './components/MyProfile.tsx';
 import { OvertimeAdmin } from './components/OvertimeAdmin.tsx';
+import { AttendanceAdmin } from './components/AttendanceAdmin.tsx';
 import { SystemAuditAdmin } from './components/SystemAuditAdmin.tsx';
 import { AdminLeaveBalance } from './components/AdminLeaveBalance.tsx';
 import { AdminSystemSettings } from './components/AdminSystemSettings.tsx';
@@ -90,6 +91,7 @@ type NavModule =
   | 'my-leave'
   | 'leave-balance'
   | 'my-schedule'
+  | 'attendance'
   | 'my-profile'
   | 'team-leader'
   | 'hr'
@@ -109,6 +111,7 @@ type AdminTab =
   | 'employee-shifts'
   | 'department-shifts'
   | 'overtime'
+  | 'attendance'
   | 'audit'
   | 'leave-types'
   | 'leave-policies'
@@ -135,6 +138,7 @@ const VALID_MODULES: NavModule[] = [
   'my-leave',
   'leave-balance',
   'my-schedule',
+  'attendance',
   'my-profile',
   'team-leader',
   'hr',
@@ -155,6 +159,7 @@ const VALID_ADMIN_TABS: AdminTab[] = [
   'employee-shifts',
   'department-shifts',
   'overtime',
+  'attendance',
   'audit',
   'leave-types',
   'leave-policies',
@@ -944,6 +949,7 @@ export default function App() {
     { id: 'my-leave' as NavModule, label: 'My Leave', mobileLabel: 'My Leave', icon: Calendar },
     { id: 'leave-balance' as NavModule, label: 'Leave Balance', mobileLabel: 'Balances', icon: PieChart },
     { id: 'my-schedule' as NavModule, label: 'My Schedule', mobileLabel: 'Schedule', icon: Clock },
+    { id: 'attendance' as NavModule, label: 'My Attendance', mobileLabel: 'Attendance', icon: CalendarDays }, 
     { id: 'my-profile' as NavModule, label: 'My Profile', mobileLabel: 'Profile', icon: User },
     { id: 'team-leader' as NavModule, label: 'Reporting Person Approval', mobileLabel: 'Approvals', icon: ShieldCheck },
     { id: 'hr' as NavModule, label: 'HR', mobileLabel: 'HR Desk', icon: Users },
@@ -964,6 +970,7 @@ export default function App() {
     { id: 'employee-shifts', label: 'Employee Shift Roster', icon: User },
     { id: 'department-shifts', label: 'Dept Shift Roster', icon: Building },
     { id: 'overtime', label: 'Overtime', icon: Clock },
+    { id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
     { id: 'audit', label: 'System Audit', icon: ShieldCheck },
     { id: 'leave-types', label: 'Leave Types', icon: FileSpreadsheet },
     { id: 'leave-policies', label: 'Leave Policies', icon: Sliders },
@@ -974,7 +981,7 @@ export default function App() {
     { id: 'system-overview', label: 'System Overview', icon: Layers },
   ];
 
-  const navItems = allNavItems.filter((item) => canAccessModule(item.id, activeRole));
+  const navItems = allNavItems.filter((item) => canAccessModule(item.id, activeRole) && item.id !== 'attendance');
   const authorizedAdminTabs = allAdminTabItems.filter((tab) => canAccessAdminTab(tab.id, activeRole));
   const isCurrentModuleAuthorized = canAccessModule(activeModule, activeRole);
   const isCurrentAdminTabAuthorized = canAccessAdminTab(adminTab, activeRole);
@@ -2161,6 +2168,13 @@ export default function App() {
           </section>
         )}
 
+        {/* Module: My Attendance (read-only; no employee punch in/out) */}
+        {!drillDownTarget && isCurrentModuleAuthorized && activeModule === 'attendance' && (
+          <section id="module-attendance" className="space-y-6">
+            <AttendanceAdmin canManage={false} />
+          </section>
+        )}
+
         {/* Module: My Profile */}
         {!drillDownTarget && activeModule === 'my-profile' && (
           <section id="module-my-profile" className="space-y-6 w-full max-w-full min-w-0">
@@ -2393,6 +2407,19 @@ export default function App() {
                 </button>
               )}
 
+              {activeRole === 'SUPER_ADMIN' && canAccessAdminTab('attendance', activeRole) && (
+                <button
+                  id="tab-attendance"
+                  onClick={() => setAdminTab('attendance')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    adminTab === 'attendance' ? MT_THEME.pillTabActive : MT_THEME.pillTabInactive
+                  }`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span>Attendance</span>
+                </button>
+              )}
+
               {canAccessAdminTab('audit', activeRole) && (
                 <button
                   id="tab-audit"
@@ -2543,6 +2570,9 @@ export default function App() {
 
             {/* Tab: Overtime Management */}
             {isCurrentAdminTabAuthorized && adminTab === 'overtime' && <OvertimeAdmin />}
+
+            {/* Tab: Employee Attendance */}
+            {isCurrentAdminTabAuthorized && adminTab === 'attendance' && <AttendanceAdmin canManage={activeRole === 'SUPER_ADMIN'} />}
 
             {/* Tab: System Audit Trail */}
             {isCurrentAdminTabAuthorized && adminTab === 'audit' && <SystemAuditAdmin />}
