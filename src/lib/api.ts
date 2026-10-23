@@ -779,9 +779,7 @@ export function canAccessModule(
         perms.includes('ALL_PERMISSIONS')
       );
     }
-    if (moduleId === 'attendance') {
-      return perms.includes('SCHEDULE_VIEW_OWN') || perms.includes('LEAVE_APPLY') || perms.includes('EMPLOYEE_VIEW') || perms.includes('ALL_PERMISSIONS');
-    }
+    if (moduleId === 'attendance') return role === 'SUPER_ADMIN';
     if (moduleId === 'my-schedule' || moduleId === 'holidays') {
       return (
         perms.includes('SCHEDULE_VIEW_OWN') ||
@@ -931,7 +929,7 @@ export function canAccessAdminTab(
         perms.includes('SHIFT_CREATE')
       );
     case 'attendance':
-      return role === 'SUPER_ADMIN' || role === 'HR' || perms.includes('ATTENDANCE_MANAGE');
+      return role === 'SUPER_ADMIN';
     case 'overtime':
       return perms.includes('OVERTIME_REVIEW') || perms.includes('OVERTIME_MANAGE');
     case 'holidays':
