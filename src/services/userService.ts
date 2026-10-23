@@ -495,7 +495,7 @@ const DEFAULT_ROLES: RoleDto[] = [
       'EMPLOYEE_VIEW', 'EMPLOYEE_EDIT', 'EMPLOYEE_CREATE',
       'DEPARTMENT_MANAGE', 'BRANCH_MANAGE', 'TEAM_LEADER_ROTATION_MANAGE',
       'LEAVE_HR_APPROVE', 'LEAVE_VIEW_ALL', 'LEAVE_BALANCE_ADJUST', 'SHIFT_ASSIGN', 'OVERTIME_REVIEW',
-      'HOLIDAY_MANAGE', 'WEEKLY_OFF_MANAGE', 'AUDIT_LOG_VIEW', 'REPORT_VIEW'
+      'HOLIDAY_MANAGE', 'WEEKLY_OFF_MANAGE', 'ATTENDANCE_MANAGE', 'AUDIT_LOG_VIEW', 'REPORT_VIEW'
     ]
   },
   {
@@ -560,6 +560,7 @@ export const ALL_SYSTEM_PERMISSIONS: Array<{
   { code: 'HOLIDAY_MANAGE', label: 'Manage Holiday Calendar', category: 'Calendar & Shifts' },
   { code: 'WORKING_DAYS_MANAGE', label: 'Manage Working Days & Office Timing', category: 'Calendar & Shifts' },
   { code: 'WEEKLY_OFF_MANAGE', label: 'Manage Weekly-Off Configurations', category: 'Calendar & Shifts' },
+  { code: 'ATTENDANCE_MANAGE', label: 'View, Mark & Update Employee Attendance', category: 'Calendar & Shifts' },
   { code: 'SHIFT_VIEW', label: 'View Shift Master & Rosters', category: 'Calendar & Shifts' },
   { code: 'SHIFT_CREATE', label: 'Create Shifts', category: 'Calendar & Shifts' },
   { code: 'SHIFT_EDIT', label: 'Edit Shifts', category: 'Calendar & Shifts' },
