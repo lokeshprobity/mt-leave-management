@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Download, RefreshCw, Save } from 'lucide-react';
 import { apiFetch } from '../lib/api.ts';
+import { AttendanceHistoryDashboard } from './AttendanceHistoryDashboard.tsx';
 
 type Status = '' | 'PRESENT' | 'ABSENT' | 'LATE' | 'POST_START' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
 type Employee = { id: number; employeeCode?: string; employeeId?: string; employeeName?: string; fullName?: string; role?: string };
@@ -87,7 +88,8 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     const a = document.createElement('a'); a.href = url; a.download = 'attendance-' + date + '.xls'; a.click();
     URL.revokeObjectURL(url);
   };
-  return <div className="space-y-5">
+  return <div className="space-y-6">
+    <AttendanceHistoryDashboard />
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">Only HR or Super Admin can mark or correct attendance for any employee, individually or in bulk. Employees can view their own records only; self-service punch in/out is disabled. Every change is audited.</p></div>
       <div className="flex flex-wrap gap-2"><button onClick={() => void load()} className={inputClass}><RefreshCw className="mr-1 inline h-4 w-4"/> Refresh</button><button onClick={exportExcel} className={inputClass}><Download className="mr-1 inline h-4 w-4"/> Download Excel</button></div>
