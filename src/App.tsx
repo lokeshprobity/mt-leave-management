@@ -258,7 +258,8 @@ export default function App() {
       });
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (adminDropdownNavRef.current && !adminDropdownNavRef.current.contains(event.target as Node)) closeAdminDropdowns();
+      const openDetails = adminDropdownNavRef.current?.querySelector<HTMLDetailsElement>('details[open]');
+      if (openDetails && !openDetails.contains(event.target as Node)) closeAdminDropdowns();
     };
     const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') closeAdminDropdowns(); };
     document.addEventListener('pointerdown', handlePointerDown);
