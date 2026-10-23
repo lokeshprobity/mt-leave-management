@@ -84,13 +84,11 @@ export class AttendanceService {
   static resetMemoryStores(): void { memoryRecords = []; nextId = 1; }
 
   static async list(dateInput: string, actor: AuthContext): Promise<{ employees: any[]; records: AttendanceRecordDto[] }> {
+    if (actor.role !== 'SUPER_ADMIN') throw new Error('Forbidden: Attendance is currently available to Super Admin only.');
     const date = validateDate(dateInput || todayLocalDate());
     const all = await UserService.getAllEmployees();
     const visibleEmployees = all.filter((e: any) => actor.role === 'SUPER_ADMIN' || String(e.role || '').toUpperCase() !== 'SUPER_ADMIN');
-    const canManage = actor.role === 'SUPER_ADMIN' || actor.role === 'HR';
-    const employees = canManage ? visibleEmployees : visibleEmployees.filter((e: any) =>
-      Number(e.id) === Number(actor.employeeId) || String(e.employeeCode || '').toUpperCase() === String(actor.employeeCode || '').toUpperCase()
-    );
+    const employees = visibleEmployees;
     let rows: any[] = [];
     if (isDbConfigured()) {
       const db = getDb();
@@ -103,14 +101,12 @@ export class AttendanceService {
     }
     const employeeById = new Map(employees.map((e: any) => [Number(e.id), e]));
     const records = rows
-      .filter((r: any) => canManage || employeeById.has(Number(r.employeeId ?? r.employee_id)))
       .map((r: any) => rowToDto(r, employeeById.get(Number(r.employeeId ?? r.employee_id))));
     return { employees, records };
   }
 
   static async mark(input: any, actor: AuthContext, dbOverride?: any): Promise<AttendanceRecordDto> {
-    const canManage = actor.role === 'SUPER_ADMIN' || actor.role === 'HR';
-    if (!canManage) throw new Error('Forbidden: Only HR or Super Admin can mark or correct attendance.');
+    if (actor.role !== 'SUPER_ADMIN') throw new Error('Forbidden: Attendance is currently available to Super Admin only.');
     const action = String(input.action || '').toUpperCase();
     if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
       throw new ValidationError('Self-service punch in/out is disabled. HR or Super Admin must mark attendance.');
@@ -181,7 +177,7 @@ export class AttendanceService {
   }
 
   static async markBulk(input: any, actor: AuthContext): Promise<{ count: number; records: AttendanceRecordDto[] }> {
-    if (actor.role !== 'SUPER_ADMIN' && actor.role !== 'HR') throw new Error('Forbidden: Only HR or Super Admin can mark attendance for employees.');
+    if (actor.role !== 'SUPER_ADMIN') throw new Error('Forbidden: Attendance is currently available to Super Admin only.');
     const date = validateDate(input.attendanceDate || input.date || todayLocalDate());
     if (!Array.isArray(input.records) || input.records.length === 0) throw new ValidationError('Select at least one employee to mark attendance.');
 
