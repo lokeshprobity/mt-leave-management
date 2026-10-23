@@ -78,7 +78,7 @@ export class AttendanceService {
   static resetMemoryStores(): void { memoryRecords = []; nextId = 1; }
 
   static async list(dateInput: string, actor: AuthContext): Promise<{ employees: any[]; records: AttendanceRecordDto[] }> {
-    if (actor.role !== 'SUPER_ADMIN') throw new Error('Forbidden: Attendance is currently available to Super Admin only.');
+    if (actor.role !== 'SUPER_ADMIN' && !(await UserService.hasPermission(actor, 'ATTENDANCE_MANAGE'))) throw new Error('Forbidden: ATTENDANCE_MANAGE permission is required.');
     const date = validateDate(dateInput || todayLocalDate());
     const all = await UserService.getAllEmployees();
     const visibleEmployees = all.filter((e: any) => actor.role === 'SUPER_ADMIN' || String(e.role || '').toUpperCase() !== 'SUPER_ADMIN');
@@ -100,7 +100,7 @@ export class AttendanceService {
   }
 
   static async mark(input: any, actor: AuthContext, dbOverride?: any): Promise<AttendanceRecordDto> {
-    if (actor.role !== 'SUPER_ADMIN') throw new Error('Forbidden: Attendance is currently available to Super Admin only.');
+    if (actor.role !== 'SUPER_ADMIN' && !(await UserService.hasPermission(actor, 'ATTENDANCE_MANAGE'))) throw new Error('Forbidden: ATTENDANCE_MANAGE permission is required.');
     const action = String(input.action || '').toUpperCase();
     if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
       throw new ValidationError('Self-service punch in/out is disabled. HR or Super Admin must mark attendance.');
@@ -167,7 +167,7 @@ export class AttendanceService {
   }
 
   static async markBulk(input: any, actor: AuthContext): Promise<{ count: number; records: AttendanceRecordDto[] }> {
-    if (actor.role !== 'SUPER_ADMIN') throw new Error('Forbidden: Attendance is currently available to Super Admin only.');
+    if (actor.role !== 'SUPER_ADMIN' && !(await UserService.hasPermission(actor, 'ATTENDANCE_MANAGE'))) throw new Error('Forbidden: ATTENDANCE_MANAGE permission is required.');
     const date = validateDate(input.attendanceDate || input.date || todayLocalDate());
     if (!Array.isArray(input.records) || input.records.length === 0) throw new ValidationError('Select at least one employee to mark attendance.');
 
