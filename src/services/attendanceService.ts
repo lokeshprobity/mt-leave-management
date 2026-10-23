@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { getDb, isDbConfigured } from '../db/index.ts';
 import { attendanceRecords } from '../db/schema.ts';
 import { AuthContext } from '../types/leave.ts';
@@ -6,7 +6,7 @@ import { AuditService } from './auditService.ts';
 import { UserService } from './userService.ts';
 import { ValidationError } from './validation.ts';
 
-export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'POST_START' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
 export type AttendanceSource = 'HR' | 'SELF_SERVICE';
 
 export interface AttendanceRecordDto {
@@ -27,7 +27,7 @@ export interface AttendanceRecordDto {
 }
 
 const ALLOWED_STATUSES = new Set<AttendanceStatus>([
-  'PRESENT', 'ABSENT', 'LATE', 'HALF_DAY', 'WEEKLY_OFF', 'HOLIDAY', 'ON_LEAVE',
+  'PRESENT', 'ABSENT', 'LATE', 'POST_START', 'HALF_DAY', 'WEEKLY_OFF', 'HOLIDAY', 'ON_LEAVE',
 ]);
 let memoryRecords: AttendanceRecordDto[] = [];
 let nextId = 1;
@@ -54,8 +54,10 @@ function validateTime(value: unknown, label: string): string {
   return time;
 }
 function statusFromCheckIn(checkIn: string): AttendanceStatus {
-  // Existing office policy: start at 08:30; arrival after 07:00 and before 08:30 is late.
-  return checkIn > '07:00' && checkIn < '08:30' ? 'LATE' : 'PRESENT';
+  // Office policy: LATE is 07:01–08:29; arrival at/after 08:30 is POST_START.
+  if (checkIn > '07:00' && checkIn < '08:30') return 'LATE';
+  if (checkIn >= '08:30') return 'POST_START';
+  return 'PRESENT';
 }
 function rowToDto(row: any, employee?: any): AttendanceRecordDto {
   return {
