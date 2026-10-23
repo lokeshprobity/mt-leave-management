@@ -1074,7 +1074,7 @@ export const systemAuditLogsRelations = relations(systemAuditLogs, ({ one }) => 
 
 /**
  * 20. attendance_records
- * Daily attendance marked by HR/Admin or captured through employee self-service.
+ * Daily attendance records entered or corrected by HR or Super Admin.
  */
 export const attendanceRecords = pgTable(
   'attendance_records',
