@@ -55,12 +55,6 @@ function validateTime(value: unknown, label: string): string {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new ValidationError(label + ' must use 24-hour HH:mm format.');
   return time;
 }
-function statusFromCheckIn(checkIn: string): AttendanceStatus {
-  // Office policy: LATE is 07:01–08:29; arrival at/after 08:30 is POST_START.
-  if (checkIn > '07:00' && checkIn < '08:30') return 'LATE';
-  if (checkIn >= '08:30') return 'POST_START';
-  return 'PRESENT';
-}
 function rowToDto(row: any, employee?: any): AttendanceRecordDto {
   return {
     id: Number(row.id),
@@ -139,10 +133,6 @@ export class AttendanceService {
     status = String(input.status || '').toUpperCase() as AttendanceStatus;
     if (!ALLOWED_STATUSES.has(status)) throw new ValidationError('Select a valid attendance status.');
     if (checkIn && checkOut && checkOut < checkIn) throw new ValidationError('Check-out cannot be earlier than check-in.');
-    if (status === 'PRESENT' && checkIn) {
-      const derivedStatus = statusFromCheckIn(checkIn);
-      if (derivedStatus === 'LATE' || derivedStatus === 'POST_START') status = derivedStatus;
-    }
     const remarks = input.remarks == null ? (existing?.remarks ?? null) : String(input.remarks).trim().slice(0, 500) || null;
     let saved: any;
     if (db) {

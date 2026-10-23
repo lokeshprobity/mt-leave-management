@@ -63,6 +63,10 @@ async function runAttendanceServiceTests() {
   assert(canAccessAdminTab('attendance', 'SUPER_ADMIN'), 'Super Admin can access attendance administration tab');
   assert(getVisibleAdminTabs('SUPER_ADMIN').includes('attendance'), 'Attendance appears in Super Admin admin tabs');
 
+  const attendanceServiceSource = fs.readFileSync('src/services/attendanceService.ts', 'utf8');
+  assert(!attendanceServiceSource.includes('statusFromCheckIn') && !attendanceServiceSource.includes("status = derivedStatus"),
+    'Preserve the attendance status explicitly selected by Super Admin, regardless of check-in time');
+
   const attendanceUi = fs.readFileSync('src/components/AttendanceAdmin.tsx', 'utf8');
   assert(!attendanceUi.includes('Check In</button>') && !attendanceUi.includes('Check Out</button>'),
     'Attendance UI contains no employee Punch In/Punch Out buttons');
