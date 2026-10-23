@@ -1073,7 +1073,34 @@ export const systemAuditLogsRelations = relations(systemAuditLogs, ({ one }) => 
 }));
 
 /**
- * 20. overtime_requests
+ * 20. attendance_records
+ * Daily attendance marked by HR/Admin or captured through employee self-service.
+ */
+export const attendanceRecords = pgTable(
+  'attendance_records',
+  {
+    id: serial('id').primaryKey(),
+    employeeId: integer('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+    attendanceDate: text('attendance_date').notNull(),
+    status: text('status').default('PRESENT').notNull(),
+    checkIn: text('check_in'),
+    checkOut: text('check_out'),
+    source: text('source').default('HR').notNull(),
+    remarks: text('remarks'),
+    markedBy: integer('marked_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedBy: integer('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('attendance_employee_date_uidx').on(table.employeeId, table.attendanceDate),
+    index('attendance_date_idx').on(table.attendanceDate),
+    index('attendance_status_idx').on(table.status),
+  ]
+);
+
+/**
+ * 21. overtime_requests
  * Operational overtime requests and approvals
  */
 export const overtimeRequests = pgTable(
