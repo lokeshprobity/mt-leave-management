@@ -33,11 +33,11 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     finally { setLoading(false); }
   }, [date]);
   useEffect(() => { void load(); }, [load]);
-  const visibleEmployees = useMemo(() => employees.filter(e => {
+  const visibleEmployees = useMemo(() => employees.filter(e => (e.role || '').toUpperCase() !== 'SUPER_ADMIN').filter(e => {
     const name = e.employeeName || e.fullName || '';
     const code = e.employeeCode || e.employeeId || '';
     return (name + ' ' + code).toLowerCase().includes(search.toLowerCase());
-  }), [employees, search]);
+  }).sort((a, b) => String(a.employeeCode || a.employeeId || '').localeCompare(String(b.employeeCode || b.employeeId || ''), undefined, { numeric: true, sensitivity: 'base' })), [employees, search]);
   const update = (employee: Employee, patch: Partial<RecordRow>) => {
     const id = Number(employee.id);
     setRows(prev => {
@@ -66,25 +66,31 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     } catch (e: any) { setMessage(e.message || 'Unable to save attendance.'); }
     finally { setSaving(false); }
   };
-  const exportCsv = () => {
-    const csvRows = [['Employee Code', 'Employee Name', 'Date', 'Status', 'Check In', 'Check Out', 'Remarks']];
-    for (const e of visibleEmployees) {
-      const r = rows[Number(e.id)];
-      csvRows.push([e.employeeCode || e.employeeId || '', e.employeeName || e.fullName || '', date, r?.status || 'NOT_MARKED', r?.checkIn || '', r?.checkOut || '', r?.remarks || '']);
-    }
-    // Prefix spreadsheet formula-leading values so employee-entered remarks cannot execute as formulas.
-    const csv = csvRows.map(row => row.map(v => {
-      let value = String(v ?? '');
-      if (/^[=+\-@\t\r]/.test(value)) value = "'" + value;
-      return '"' + value.replace(/"/g, '""') + '"';
-    }).join(',')).join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'attendance-' + date + '.csv'; a.click(); URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    const safeCell = (value: unknown) => {
+      let text = String(value ?? '');
+      if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+    const tableRows = [
+      ['Employee Code', 'Employee Name', 'Date', 'Status', 'Remarks'],
+      ...visibleEmployees.map(e => {
+        const r = rows[Number(e.id)];
+        return [e.employeeCode || e.employeeId || '', e.employeeName || e.fullName || '', date, r?.status || 'NOT_MARKED', r?.remarks || ''];
+      }),
+    ];
+    const html = '<html><head><meta charset="UTF-8"></head><body><table>' +
+      tableRows.map((row, index) => '<tr>' + row.map(value => '<td' + (index === 0 ? ' style="font-weight:bold"' : '') + '>' + safeCell(value) + '</td>').join('') + '</tr>').join('') +
+      '</table></body></html>';
+    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'attendance-' + date + '.xls'; a.click();
+    URL.revokeObjectURL(url);
   };
   return <div className="space-y-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">Only HR or Super Admin can mark or correct attendance for any employee, individually or in bulk. Employees can view their own records only; self-service punch in/out is disabled. Every change is audited.</p></div>
-      <div className="flex flex-wrap gap-2"><button onClick={() => void load()} className={inputClass}><RefreshCw className="mr-1 inline h-4 w-4"/> Refresh</button><button onClick={exportCsv} className={inputClass}><Download className="mr-1 inline h-4 w-4"/> Export CSV</button></div>
+      <div className="flex flex-wrap gap-2"><button onClick={() => void load()} className={inputClass}><RefreshCw className="mr-1 inline h-4 w-4"/> Refresh</button><button onClick={exportExcel} className={inputClass}><Download className="mr-1 inline h-4 w-4"/> Download Excel</button></div>
     </div>
     <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
       <label className="grid gap-1 text-xs font-semibold text-slate-600"><span><CalendarDays className="mr-1 inline h-4 w-4"/> Attendance Date</span><input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputClass}/></label>
@@ -94,18 +100,15 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     </div>
     {message && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">{message}</div>}
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-      <table className="min-w-[850px] w-full text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Employee</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Check In</th><th className="px-4 py-3">Check Out</th><th className="px-4 py-3">Remarks</th><th className="px-4 py-3">Source</th></tr></thead>
+      <table className="min-w-[650px] w-full text-left text-sm">
+        <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Employee</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Remarks</th></tr></thead>
         <tbody className="divide-y divide-slate-100">
-          {loading ? <tr><td colSpan={6} className="p-8 text-center text-slate-500">Loading attendance…</td></tr> : visibleEmployees.length ? visibleEmployees.map(e => {
+          {loading ? <tr><td colSpan={3} className="p-8 text-center text-slate-500">Loading attendance…</td></tr> : visibleEmployees.length ? visibleEmployees.map(e => {
             const id = Number(e.id); const r = rows[id] || { employeeId: id, attendanceDate: date, status: 'PRESENT' as Status, checkIn: null, checkOut: null, remarks: '' };
             return <tr key={id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="font-semibold text-slate-900">{e.employeeName || e.fullName || 'Employee'}</div><div className="text-xs text-slate-500">{e.employeeCode || e.employeeId || ''}</div></td>
               <td className="px-4 py-3">{canManage ? <select value={r.status} onChange={ev => update(e, { status: ev.target.value as Status })} className={inputClass}>{STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select> : <span className="font-medium">{rows[id] ? r.status.replace('_', ' ') : 'Not Marked'}</span>}</td>
-              <td className="px-4 py-3">{canManage ? <input type="time" value={r.checkIn || ''} onChange={ev => update(e, { checkIn: ev.target.value || null })} className={inputClass}/> : (r.checkIn || '—')}</td>
-              <td className="px-4 py-3">{canManage ? <input type="time" value={r.checkOut || ''} onChange={ev => update(e, { checkOut: ev.target.value || null })} className={inputClass}/> : (r.checkOut || '—')}</td>
-              <td className="px-4 py-3">{canManage ? <input value={r.remarks || ''} onChange={ev => update(e, { remarks: ev.target.value })} maxLength={500} placeholder="Optional" className={inputClass}/> : (r.remarks || '—')}</td>
-              <td className="px-4 py-3 text-xs text-slate-500">{r.source || 'Not marked'}</td></tr>;
-          }) : <tr><td colSpan={6} className="p-8 text-center text-slate-500">No employees found.</td></tr>}
+              <td className="px-4 py-3">{canManage ? <input value={r.remarks || ''} onChange={ev => update(e, { remarks: ev.target.value })} maxLength={500} placeholder="Optional" className={inputClass}/> : (r.remarks || '—')}</td></tr>;
+          }) : <tr><td colSpan={3} className="p-8 text-center text-slate-500">No employees found.</td></tr>}
         </tbody>
       </table>
     </div>
