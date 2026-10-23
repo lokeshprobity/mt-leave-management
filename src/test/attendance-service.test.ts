@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { AttendanceService } from '../services/attendanceService.ts';
 import { ValidationError } from '../services/validation.ts';
 import { AuthContext } from '../types/leave.ts';
@@ -55,6 +56,10 @@ async function runAttendanceServiceTests() {
   assert(getVisibleNavModules('EMPLOYEE').includes('attendance'), 'My Attendance appears in eligible role navigation');
   assert(canAccessAdminTab('attendance', 'HR'), 'HR can access attendance administration tab');
   assert(getVisibleAdminTabs('HR').includes('attendance'), 'Attendance is included in visible admin tabs');
+
+  const attendanceUi = fs.readFileSync('src/components/AttendanceAdmin.tsx', 'utf8');
+  assert(!attendanceUi.includes('Check In</button>') && !attendanceUi.includes('Check Out</button>'),
+    'Attendance UI contains no employee Punch In/Punch Out buttons');
 
   console.log(`Attendance tests: ${passed} passed, ${failed} failed.`);
   if (failed > 0) process.exitCode = 1;
