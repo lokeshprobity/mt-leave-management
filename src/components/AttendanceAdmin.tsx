@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Clock3, Download, RefreshCw, Save } from 'lucide-react';
 import { apiFetch } from '../lib/api.ts';
 
-type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
+type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'POST_START' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
 type Employee = { id: number; employeeCode?: string; employeeId?: string; employeeName?: string; fullName?: string; role?: string };
 type RecordRow = { id?: number; employeeId: number; employeeCode?: string; employeeName?: string; attendanceDate: string; status: Status; checkIn?: string | null; checkOut?: string | null; remarks?: string | null; source?: string };
 const STATUSES: { value: Status; label: string }[] = [
-  { value: 'PRESENT', label: 'Present' }, { value: 'ABSENT', label: 'Absent' }, { value: 'LATE', label: 'Late' },
+  { value: 'PRESENT', label: 'Present' }, { value: 'ABSENT', label: 'Absent' }, { value: 'LATE', label: 'Late' }, { value: 'POST_START', label: 'Post Start (08:30+)' },
   { value: 'HALF_DAY', label: 'Half Day' }, { value: 'WEEKLY_OFF', label: 'Weekly Off' }, { value: 'HOLIDAY', label: 'Holiday' }, { value: 'ON_LEAVE', label: 'On Leave' },
 ];
 const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -87,7 +87,6 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     } catch (e: any) { setMessage(e.message || 'Unable to record attendance.'); }
     finally { setSaving(false); }
   };
-  const myRow = rows[Number(employees[0]?.id)];
   return <div className="space-y-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">HR can mark or correct attendance for any employee, individually or in bulk. Every change is audited.</p></div>
