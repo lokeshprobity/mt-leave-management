@@ -981,7 +981,7 @@ export default function App() {
     { id: 'system-overview', label: 'System Overview', icon: Layers },
   ];
 
-  const navItems = allNavItems.filter((item) => canAccessModule(item.id, activeRole) && !(item.id === 'attendance' && (activeRole === 'HR' || activeRole === 'SUPER_ADMIN')));
+  const navItems = allNavItems.filter((item) => canAccessModule(item.id, activeRole) && item.id !== 'attendance');
   const authorizedAdminTabs = allAdminTabItems.filter((tab) => canAccessAdminTab(tab.id, activeRole));
   const isCurrentModuleAuthorized = canAccessModule(activeModule, activeRole);
   const isCurrentAdminTabAuthorized = canAccessAdminTab(adminTab, activeRole);
@@ -2407,7 +2407,7 @@ export default function App() {
                 </button>
               )}
 
-              {canAccessAdminTab('attendance', activeRole) && (
+              {activeRole === 'SUPER_ADMIN' && canAccessAdminTab('attendance', activeRole) && (
                 <button
                   id="tab-attendance"
                   onClick={() => setAdminTab('attendance')}
@@ -2572,7 +2572,7 @@ export default function App() {
             {isCurrentAdminTabAuthorized && adminTab === 'overtime' && <OvertimeAdmin />}
 
             {/* Tab: Employee Attendance */}
-            {isCurrentAdminTabAuthorized && adminTab === 'attendance' && <AttendanceAdmin canManage={activeRole === 'SUPER_ADMIN' || activeRole === 'HR'} />}
+            {isCurrentAdminTabAuthorized && adminTab === 'attendance' && <AttendanceAdmin canManage={activeRole === 'SUPER_ADMIN'} />}
 
             {/* Tab: System Audit Trail */}
             {isCurrentAdminTabAuthorized && adminTab === 'audit' && <SystemAuditAdmin />}
