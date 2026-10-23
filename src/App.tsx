@@ -2240,288 +2240,69 @@ export default function App() {
               </button>
             </div>
 
-            {/* Desktop Administration Sub-Navigation Tabs (Preserved Unchanged for Desktop) */}
-            <div className="hidden md:flex items-center gap-1.5 border-b border-neutral-200 pb-3 overflow-x-auto">
-              {canAccessAdminTab('users', activeRole) && (
-                <button
-                  id="tab-users"
-                  onClick={() => setAdminTab('users')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'users'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Users</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('employees', activeRole) && (
-                <button
-                  id="tab-employees"
-                  onClick={() => setAdminTab('employees')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'employees'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>Employees</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('roles', activeRole) && (
-                <button
-                  id="tab-roles"
-                  onClick={() => setAdminTab('roles')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'roles'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Roles</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('departments', activeRole) && (
-                <button
-                  id="tab-departments"
-                  onClick={() => setAdminTab('departments')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'departments'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Building className="w-3.5 h-3.5" />
-                  <span>Departments</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('designations', activeRole) && (
-                <button
-                  id="tab-designations"
-                  onClick={() => setAdminTab('designations')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'designations'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Award className="w-3.5 h-3.5" />
-                  <span>Designations</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('working-days', activeRole) && (
-                <button
-                  id="tab-working-days"
-                  onClick={() => setAdminTab('working-days')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'working-days'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Working Days & Timing</span>
-                </button>
-              )}
-
-              {(activeRole === 'SUPER_ADMIN' || activeRole === 'HR' || canAccessAdminTab('weekly-offs', activeRole)) && (
-                <button
-                  id="tab-weekly-offs"
-                  onClick={() => setAdminTab('weekly-offs')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'weekly-offs'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  <span>Weekly-Off Overrides</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('shifts', activeRole) && (
-                <button
-                  id="tab-shifts"
-                  onClick={() => setAdminTab('shifts')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'shifts'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Shifts Master</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('employee-shifts', activeRole) && (
-                <button
-                  id="tab-employee-shifts"
-                  onClick={() => setAdminTab('employee-shifts')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'employee-shifts'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>Employee Shift Roster</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('department-shifts', activeRole) && (
-                <button
-                  id="tab-department-shifts"
-                  onClick={() => setAdminTab('department-shifts')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'department-shifts'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Building className="w-3.5 h-3.5" />
-                  <span>Dept Shift Roster</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('overtime', activeRole) && (
-                <button
-                  id="tab-overtime"
-                  onClick={() => setAdminTab('overtime')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'overtime'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Overtime</span>
-                </button>
-              )}
-
-              {activeRole === 'SUPER_ADMIN' && canAccessAdminTab('attendance', activeRole) && (
-                <button
-                  id="tab-attendance"
-                  onClick={() => setAdminTab('attendance')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'attendance' ? MT_THEME.pillTabActive : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  <span>Attendance</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('audit', activeRole) && (
-                <button
-                  id="tab-audit"
-                  onClick={() => setAdminTab('audit')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'audit'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>System Audit</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('leave-types', activeRole) && (
-                <button
-                  id="tab-leave-types"
-                  onClick={() => setAdminTab('leave-types')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'leave-types'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>Leave Types</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('leave-policies', activeRole) && (
-                <button
-                  id="tab-leave-policies"
-                  onClick={() => setAdminTab('leave-policies')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'leave-policies'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>Leave Policies</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('holidays', activeRole) && (
-                <button
-                  id="tab-holidays"
-                  onClick={() => setAdminTab('holidays')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'holidays'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Holidays</span>
-                </button>
-              )}
-
-              {canAccessAdminTab('leave-requests', activeRole) && (
-                <button
-                  id="tab-leave-requests"
-                  onClick={() => setAdminTab('leave-requests')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'leave-requests'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>Leave Request Management</span>
-                </button>
-              )}
-              {canAccessAdminTab('workflow-settings', activeRole) && (
-                <button
-                  id="tab-workflow-settings"
-                  onClick={() => setAdminTab('workflow-settings')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'workflow-settings'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>Leave Workflow Settings</span>
-                </button>
-              )}
-              {canAccessAdminTab('system-overview', activeRole) && (
-                <button
-                  id="tab-system-overview"
-                  onClick={() => setAdminTab('system-overview')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                    adminTab === 'system-overview'
-                      ? MT_THEME.pillTabActive
-                      : MT_THEME.pillTabInactive
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>System Overview</span>
-                </button>
-              )}
+            {/* Categorized Administration dropdown navigation */}
+            <div id="desktop-admin-dropdown-nav" className="hidden md:flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-3">
+              {([
+                { label: 'People & Organization', icon: Users, tabs: ['users', 'employees', 'roles', 'departments', 'designations'] as AdminTab[] },
+                { label: 'Work Schedule & Attendance', icon: CalendarDays, tabs: ['working-days', 'weekly-offs', 'shifts', 'employee-shifts', 'department-shifts', 'overtime', 'attendance'] as AdminTab[] },
+                { label: 'Leave Management', icon: Calendar, tabs: ['leave-types', 'leave-policies', 'leave-balances', 'leave-requests', 'holidays', 'workflow-settings'] as AdminTab[] },
+                { label: 'System & Security', icon: ShieldCheck, tabs: ['audit', 'system-overview'] as AdminTab[] },
+              ]).map((group) => {
+                const groupItems = group.tabs
+                  .map((id) => allAdminTabItems.find((item) => item.id === id))
+                  .filter((item): item is (typeof allAdminTabItems)[number] => Boolean(item))
+                  .filter((item) => item.id === 'weekly-offs'
+                    ? activeRole === 'SUPER_ADMIN' || activeRole === 'HR' || canAccessAdminTab(item.id, activeRole)
+                    : canAccessAdminTab(item.id, activeRole));
+                if (!groupItems.length) return null;
+                const isGroupActive = groupItems.some((item) => item.id === adminTab);
+                const GroupIcon = group.icon;
+                return (
+                  <details key={group.label} className="relative">
+                    <summary
+                      className={`list-none inline-flex min-h-[40px] items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold cursor-pointer select-none transition-colors [&::-webkit-details-marker]:hidden ${
+                        isGroupActive
+                          ? 'border-red-300 bg-red-50 text-red-800'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300'
+                      }`}
+                    >
+                      <GroupIcon className="h-4 w-4 shrink-0" />
+                      <span>{group.label}</span>
+                      {isGroupActive && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </summary>
+                    <div className="absolute left-0 top-full z-40 mt-1 min-w-[240px] max-w-[320px] rounded-xl border border-neutral-200 bg-white p-1.5 shadow-xl">
+                      {groupItems.map((item) => {
+                        const ItemIcon = item.icon;
+                        const selected = adminTab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            id={`admin-dropdown-${item.id}`}
+                            type="button"
+                            onClick={(event) => {
+                              setAdminTab(item.id);
+                              const details = (event.currentTarget as HTMLButtonElement).closest('details');
+                              if (details) details.open = false;
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition-colors ${
+                              selected ? 'bg-red-50 text-red-800' : 'text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                          >
+                            <ItemIcon className="h-4 w-4 shrink-0" />
+                            <span className="min-w-0 flex-1">{item.label}</span>
+                            {selected && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-red-700" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </details>
+                );
+              })}
+              <span className="ml-auto hidden xl:inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
+                <Settings className="h-3.5 w-3.5" />
+                {activeAdminTabObj?.label || 'Administration'}
+              </span>
             </div>
 
             {!isCurrentAdminTabAuthorized && (
