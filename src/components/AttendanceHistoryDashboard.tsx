@@ -19,6 +19,9 @@ export function AttendanceHistoryDashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [employeeSearch, setEmployeeSearch] = useState('');
+  const [summaryMonth, setSummaryMonth] = useState(today().slice(0, 7));
+  const [summaryRecords, setSummaryRecords] = useState<AttendanceRow[]>([]);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!fromDate || !toDate || fromDate > toDate) { setMessage('Select a valid date range.'); return; }
@@ -51,6 +54,36 @@ export function AttendanceHistoryDashboard() {
   }, [fromDate, toDate]);
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadMonthlySummary = async () => {
+      if (!/^\\d{4}-\\d{2}$/.test(summaryMonth)) return;
+      setSummaryLoading(true);
+      try {
+        const [year, month] = summaryMonth.split('-').map(Number);
+        const dayCount = new Date(year, month, 0).getDate();
+        const datesInMonth = Array.from({ length: dayCount }, (_, i) => year + '-' + String(month).padStart(2, '0') + '-' + String(i + 1).padStart(2, '0'));
+        const results: any[] = [];
+        for (let i = 0; i < datesInMonth.length; i += 7) {
+          const batch = await Promise.all(datesInMonth.slice(i, i + 7).map(async date => {
+            const response = await apiFetch('/api/attendance?date=' + encodeURIComponent(date), { cache: 'no-store' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Unable to load monthly attendance summary.');
+            return data;
+          }));
+          results.push(...batch);
+        }
+        if (!cancelled) setSummaryRecords(results.flatMap(x => Array.isArray(x.records) ? x.records : []));
+      } catch (error: any) {
+        if (!cancelled) { setSummaryRecords([]); setMessage(error?.message || 'Unable to load monthly attendance summary.'); }
+      } finally {
+        if (!cancelled) setSummaryLoading(false);
+      }
+    };
+    void loadMonthlySummary();
+    return () => { cancelled = true; };
+  }, [summaryMonth]);
+
   const dates = useMemo(() => {
     if (!fromDate || !toDate || fromDate > toDate) return [];
     const start = new Date(fromDate + 'T12:00:00');
@@ -60,6 +93,16 @@ export function AttendanceHistoryDashboard() {
   const visibleEmployees = useMemo(() => employees.filter(e => ((e.employeeName || e.fullName || '') + ' ' + (e.employeeCode || e.employeeId || '')).toLowerCase().includes(employeeSearch.toLowerCase())), [employees, employeeSearch]);
   const recordMap = useMemo(() => new Map(records.map(r => [String(r.employeeId) + '|' + r.attendanceDate, r])), [records]);
   const statusCounts = useMemo(() => { const out: Record<string, number> = { marked: 0 }; for (const r of records) { out.marked++; out[r.status] = (out[r.status] || 0) + 1; } return out; }, [records]);
+  const monthlyCounts = useMemo(() => {
+    const byEmployee = new Map<number, Record<string, number>>();
+    for (const r of summaryRecords) {
+      const counts = byEmployee.get(Number(r.employeeId)) || { marked: 0, PRESENT: 0, ABSENT: 0, LATE: 0, POST_START: 0, HALF_DAY: 0, WEEKLY_OFF: 0, HOLIDAY: 0, ON_LEAVE: 0 };
+      counts.marked++;
+      counts[r.status] = (counts[r.status] || 0) + 1;
+      byEmployee.set(Number(r.employeeId), counts);
+    }
+    return byEmployee;
+  }, [summaryRecords]);
 
   const exportExcel = () => {
     const safe = (v: unknown) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
@@ -93,6 +136,29 @@ export function AttendanceHistoryDashboard() {
         </tr>) : <tr><td colSpan={dates.length + 2} className="p-8 text-center text-slate-500">No employees found.</td></tr>}</tbody>
       </table>
     </div>
+    <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h3 className="text-lg font-bold text-slate-900">Month-wise Employee Attendance Summary</h3><p className="text-sm text-slate-500">Monthly totals are calculated from saved attendance records. Blank dates are not counted.</p></div>
+        <label className="grid gap-1 text-xs font-semibold text-slate-600">Select month<input type="month" value={summaryMonth} max={today().slice(0, 7)} onChange={e => setSummaryMonth(e.target.value)} className={inputClass} /></label>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="min-w-[1050px] w-full text-left text-xs">
+          <thead className="bg-slate-100 text-slate-600"><tr>
+            <th className="sticky left-0 bg-slate-100 px-3 py-3">Employee</th><th className="px-3 py-3">Code</th><th className="px-3 py-3">Total Attendance*</th><th className="px-3 py-3">Present</th><th className="px-3 py-3">Late</th><th className="px-3 py-3">Post Start</th><th className="px-3 py-3">Half Day</th><th className="px-3 py-3">Absent</th><th className="px-3 py-3">Weekly Off</th><th className="px-3 py-3">Holiday</th><th className="px-3 py-3">On Leave</th><th className="px-3 py-3">Marked Days</th>
+          </tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {summaryLoading ? <tr><td colSpan={12} className="p-6 text-center text-slate-500">Calculating monthly totals…</td></tr> : visibleEmployees.length ? visibleEmployees.map(e => {
+              const x = monthlyCounts.get(Number(e.id)) || { marked: 0, PRESENT: 0, ABSENT: 0, LATE: 0, POST_START: 0, HALF_DAY: 0, WEEKLY_OFF: 0, HOLIDAY: 0, ON_LEAVE: 0 };
+              const total = Number(x.PRESENT || 0) + Number(x.LATE || 0) + Number(x.POST_START || 0) + Number(x.HALF_DAY || 0) * 0.5;
+              return <tr key={e.id} className="hover:bg-slate-50">
+                <th className="sticky left-0 bg-white px-3 py-3 text-left font-semibold text-slate-900">{e.employeeName || e.fullName || 'Employee'}</th><td className="px-3 py-3">{e.employeeCode || e.employeeId || '—'}</td><td className="px-3 py-3 font-bold">{Number.isInteger(total) ? total : total.toFixed(1)}</td><td className="px-3 py-3">{x.PRESENT || 0}</td><td className="px-3 py-3">{x.LATE || 0}</td><td className="px-3 py-3">{x.POST_START || 0}</td><td className="px-3 py-3">{x.HALF_DAY || 0}</td><td className="px-3 py-3">{x.ABSENT || 0}</td><td className="px-3 py-3">{x.WEEKLY_OFF || 0}</td><td className="px-3 py-3">{x.HOLIDAY || 0}</td><td className="px-3 py-3">{x.ON_LEAVE || 0}</td><td className="px-3 py-3">{x.marked || 0}</td>
+              </tr>;
+            }) : <tr><td colSpan={12} className="p-6 text-center text-slate-500">No employees found.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-slate-500">* Total Attendance = Present + Late + Post Start + half of each Half Day. Weekly Off, Holiday, Absent and On Leave are shown separately.</p>
+    </section>
     <div className="flex flex-wrap gap-2 text-xs">{(Object.entries(LABEL) as [Status, string][]).map(([s, label]) => <span key={s} className={'rounded-full px-2.5 py-1 font-semibold ' + COLORS[s]}>{label}</span>)}</div>
   </section>;
 }
