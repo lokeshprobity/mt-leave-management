@@ -62,7 +62,7 @@ export function AttendanceHistoryDashboard() {
   const statusCounts = useMemo(() => { const out: Record<string, number> = { marked: 0 }; for (const r of records) { out.marked++; out[r.status] = (out[r.status] || 0) + 1; } return out; }, [records]);
 
   const exportExcel = () => {
-    const safe = (v: unknown) => { let s = String(v ?? ''); if (/^[=+\\-@\\t\\r]/.test(s)) s = "'" + s; return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    const safe = (v: unknown) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
     const rows = [['Employee Code', 'Employee Name', ...dates], ...visibleEmployees.map(e => [e.employeeCode || e.employeeId || '', e.employeeName || e.fullName || '', ...dates.map(d => { const r = recordMap.get(String(e.id) + '|' + d); return r ? LABEL[r.status] || r.status : ''; })])];
     const html = '<html><head><meta charset="UTF-8"></head><body><table>' + rows.map((row, i) => '<tr>' + row.map(v => '<td' + (i === 0 ? ' style="font-weight:bold"' : '') + '>' + safe(v) + '</td>').join('') + '</tr>').join('') + '</table></body></html>';
     const blob = new Blob(['\\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
