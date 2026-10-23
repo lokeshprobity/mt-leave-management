@@ -13,6 +13,7 @@ const STATUSES: { value: Status; label: string }[] = [
 const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const inputClass = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
+  const [activeView, setActiveView] = useState<'dashboard' | 'input'>('dashboard');
   const [date, setDate] = useState(today());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rows, setRows] = useState<Record<number, RecordRow>>({});
@@ -88,8 +89,13 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     const a = document.createElement('a'); a.href = url; a.download = 'attendance-' + date + '.xls'; a.click();
     URL.revokeObjectURL(url);
   };
-  return <div className="space-y-6">
-    <AttendanceHistoryDashboard />
+  return <div className="space-y-5">
+    <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+      <button onClick={() => setActiveView('dashboard')} className={activeView === 'dashboard' ? 'rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white' : inputClass}>Attendance Dashboard</button>
+      <button onClick={() => setActiveView('input')} className={activeView === 'input' ? 'rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white' : inputClass}>Mark / Update Attendance</button>
+    </div>
+    {activeView === 'dashboard' ? <AttendanceHistoryDashboard /> : <>
+    
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div><h2 className="text-xl font-bold text-slate-900">Employee Attendance</h2><p className="mt-1 text-sm text-slate-500">Only HR or Super Admin can mark or correct attendance for any employee, individually or in bulk. Employees can view their own records only; self-service punch in/out is disabled. Every change is audited.</p></div>
       <div className="flex flex-wrap gap-2"><button onClick={() => void load()} className={inputClass}><RefreshCw className="mr-1 inline h-4 w-4"/> Refresh</button><button onClick={exportExcel} className={inputClass}><Download className="mr-1 inline h-4 w-4"/> Download Excel</button></div>
@@ -114,5 +120,6 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
         </tbody>
       </table>
     </div>
+    </>}
   </div>;
 }
