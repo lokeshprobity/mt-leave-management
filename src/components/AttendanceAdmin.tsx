@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Download, RefreshCw, Save } from 'lucide-react';
 import { apiFetch } from '../lib/api.ts';
 
-type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'POST_START' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
+type Status = '' | 'PRESENT' | 'ABSENT' | 'LATE' | 'POST_START' | 'HALF_DAY' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
 type Employee = { id: number; employeeCode?: string; employeeId?: string; employeeName?: string; fullName?: string; role?: string };
 type RecordRow = { id?: number; employeeId: number; employeeCode?: string; employeeName?: string; attendanceDate: string; status: Status; checkIn?: string | null; checkOut?: string | null; remarks?: string | null; source?: string };
 const STATUSES: { value: Status; label: string }[] = [
@@ -41,7 +41,7 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
   const update = (employee: Employee, patch: Partial<RecordRow>) => {
     const id = Number(employee.id);
     setRows(prev => {
-      const current = prev[id] || { employeeId: id, attendanceDate: date, status: 'PRESENT' as Status, checkIn: null, checkOut: null, remarks: '' };
+      const current = prev[id] || { employeeId: id, attendanceDate: date, status: '' as Status, checkIn: null, checkOut: null, remarks: '' };
       return { ...prev, [id]: { ...current, ...patch, employeeId: id, attendanceDate: date } };
     });
   };
@@ -54,8 +54,8 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
     return next;
   });
   const save = async () => {
-    const changed = visibleEmployees.filter(e => rows[Number(e.id)]).map(e => rows[Number(e.id)]);
-    if (!changed.length) { setMessage('Please mark attendance for at least one employee.'); return; }
+    const changed = visibleEmployees.filter(e => rows[Number(e.id)] && rows[Number(e.id)].status !== '').map(e => rows[Number(e.id)]);
+    if (!changed.length) { setMessage('Please select a Status for at least one employee before saving. Blank statuses will not be marked.'); return; }
     setSaving(true); setMessage('');
     try {
       const response = await apiFetch('/api/attendance/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attendanceDate: date, records: changed }) });
@@ -104,9 +104,9 @@ export function AttendanceAdmin({ canManage = true }: { canManage?: boolean }) {
         <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Employee</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Remarks</th></tr></thead>
         <tbody className="divide-y divide-slate-100">
           {loading ? <tr><td colSpan={3} className="p-8 text-center text-slate-500">Loading attendance…</td></tr> : visibleEmployees.length ? visibleEmployees.map(e => {
-            const id = Number(e.id); const r = rows[id] || { employeeId: id, attendanceDate: date, status: 'PRESENT' as Status, checkIn: null, checkOut: null, remarks: '' };
+            const id = Number(e.id); const r = rows[id] || { employeeId: id, attendanceDate: date, status: '' as Status, checkIn: null, checkOut: null, remarks: '' };
             return <tr key={id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="font-semibold text-slate-900">{e.employeeName || e.fullName || 'Employee'}</div><div className="text-xs text-slate-500">{e.employeeCode || e.employeeId || ''}</div></td>
-              <td className="px-4 py-3">{canManage ? <select value={r.status} onChange={ev => update(e, { status: ev.target.value as Status })} className={inputClass}>{STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select> : <span className="font-medium">{rows[id] ? r.status.replace('_', ' ') : 'Not Marked'}</span>}</td>
+              <td className="px-4 py-3">{canManage ? <select value={r.status} onChange={ev => update(e, { status: ev.target.value as Status })} className={inputClass}><option value="">Select status</option>{STATUSES.filter(s => s.value !== '').map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select> : <span className="font-medium">{rows[id] ? r.status.replace('_', ' ') : 'Not Marked'}</span>}</td>
               <td className="px-4 py-3">{canManage ? <input value={r.remarks || ''} onChange={ev => update(e, { remarks: ev.target.value })} maxLength={500} placeholder="Optional" className={inputClass}/> : (r.remarks || '—')}</td></tr>;
           }) : <tr><td colSpan={3} className="p-8 text-center text-slate-500">No employees found.</td></tr>}
         </tbody>
