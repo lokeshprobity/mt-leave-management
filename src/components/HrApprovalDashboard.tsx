@@ -201,7 +201,7 @@ export function HrApprovalDashboard() {
   const reviewedCount = requests.filter((r) => r.hrDecision !== 'PENDING').length;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col space-y-6">
       {/* Header Banner — Purple/Indigo Visual Identity */}
       <div className={`${MT_COLOR_CARDS.purple} p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}>
         <div>
@@ -267,7 +267,7 @@ export function HrApprovalDashboard() {
       </div>
 
       {filterStatus !== 'TOP_MGMT_OVERVIEW' && fallbackRequests.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+        <div className="order-last bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
           <div>
             <h3 className="text-sm font-bold text-amber-950">Stage 1 — Reporting Person Unavailable</h3>
             <p className="text-xs text-amber-900 mt-1">
