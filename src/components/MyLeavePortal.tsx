@@ -27,6 +27,7 @@ import {
   getLeaveTypeBadgeClasses,
 } from '../utils/theme.ts';
 import { LeaveAttachmentBox } from './LeaveAttachmentBox.tsx';
+import { validateMeaningfulLeaveReason } from '../utils/leaveReasonValidation.ts';
 import { Employee360Link } from './Employee360Trigger.tsx';
 import {
   LeaveRequestDto,
@@ -215,6 +216,11 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    const reasonError = validateMeaningfulLeaveReason(formReason);
+    if (reasonError) {
+      setFormError(reasonError);
+      return;
+    }
     setSubmittingApply(true);
 
     try {
@@ -297,8 +303,32 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
     }
   };
 
+  const handleReapplyReturnedRequest = async (request: LeaveRequestDto) => {
+    const reason = window.prompt(
+      `Request ${request.requestNumber} was returned for correction.\nReturn comment: ${request.returnReason || 'Please provide a meaningful reason.'}\n\nEnter the corrected leave reason (at least 10 characters and two meaningful words):`,
+      request.reason || ''
+    );
+    if (reason === null) return;
+    const reasonError = validateMeaningfulLeaveReason(reason);
+    if (reasonError) {
+      setError(reasonError);
+      return;
+    }
+    try {
+      const res = await apiFetch(`/api/leave-requests/${request.id}/reapply`, {
+        method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const data = await parseApiJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to re-submit corrected leave request');
+      setError(null);
+      await fetchMyRequests();
+    } catch (err: any) {
+      setError(err.message || 'Failed to re-submit corrected leave request');
+    }
+  };
+
   const getFinalStatusBadge = (r: LeaveRequestDto) => {
-    const status = r.finalStatus || r.status;
+    const status = r.status === 'RETURNED_FOR_CORRECTION' ? r.status : r.finalStatus || r.status;
     switch (status) {
       case 'APPROVED':
         return (
@@ -312,6 +342,13 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold ${getStatusBadgeClasses('REJECTED')}`}>
             <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             <span>{r.teamLeaderDecision === 'REJECTED' ? 'Team Leader Rejected' : r.approvalStageLabel || 'Rejected'}</span>
+          </span>
+        );
+      case 'RETURNED_FOR_CORRECTION':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>Returned for Reason Correction</span>
           </span>
         );
       case 'CANCELLED':
@@ -718,6 +755,15 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                       <span className="font-semibold text-neutral-900">Reason: </span>
                       <span>{r.reason}</span>
                     </div>
+                    {r.status === 'RETURNED_FOR_CORRECTION' && (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+                        <p className="font-semibold text-amber-900">Reason correction required</p>
+                        <p className="text-amber-900">{r.returnReason || 'Please submit a more meaningful leave reason.'}</p>
+                        <button type="button" onClick={() => handleReapplyReturnedRequest(r)} className="min-h-[44px] px-4 py-2 rounded-lg bg-amber-700 text-white font-semibold hover:bg-amber-800">
+                          Correct Reason & Reapply
+                        </button>
+                      </div>
+                    )}
                     {(r.attachmentName || r.attachmentPath) && (
                       <LeaveAttachmentBox
                         requestId={r.id}

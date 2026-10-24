@@ -557,6 +557,8 @@ export const leaveRequests = pgTable(
     halfDayPeriod: text('half_day_period'), // 'FIRST_HALF' | 'SECOND_HALF' | null
     reasonCategory: text('reason_category'), // 'MEDICAL_EMERGENCY' | 'FAMILY_EMERGENCY' | 'ACCIDENT_OR_TRAVEL_EMERGENCY' | 'OTHER'
     reason: text('reason').notNull(),
+    returnReason: text('return_reason'),
+    returnedAt: timestamp('returned_at', { withTimezone: true }),
     requestClassification: text('request_classification').notNull(), // 'NORMAL_LEAVE_REQUEST' | 'LATE_LEAVE_REQUEST' | 'POST_START_LEAVE_REQUEST'
     applicationTimestamp: timestamp('application_timestamp', { withTimezone: true })
       .defaultNow()

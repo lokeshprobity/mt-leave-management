@@ -111,6 +111,33 @@ export function ManagementApprovalDashboard() {
     }
   };
 
+  const handleReturnForCorrection = async () => {
+    if (!activeDetails) return;
+    const comments = window.prompt(
+      `Return ${activeDetails.request.requestNumber} to the employee for reason correction.\\nEnter a clear explanation (minimum 10 characters):`
+    );
+    if (comments === null) return;
+    if (comments.trim().length < 10) {
+      setDecisionError('Please enter a clear return comment of at least 10 characters.');
+      return;
+    }
+    setSubmittingDecision(true);
+    setDecisionError(null);
+    try {
+      const res = await apiFetch(`/api/management/leave-requests/${activeDetails.request.id}/return-for-correction`, {
+        method: 'POST', body: JSON.stringify({ comments: comments.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to return leave for correction');
+      setActiveDetails(null);
+      await fetchManagementRequests();
+    } catch (err: any) {
+      setDecisionError(err.message || 'Failed to return leave for correction');
+    } finally {
+      setSubmittingDecision(false);
+    }
+  };
+
   const handleDecisionSubmit = async (decision: 'APPROVED' | 'REJECTED') => {
     if (!activeDetails) return;
     setDecisionError(null);
@@ -750,6 +777,15 @@ export function ManagementApprovalDashboard() {
                     className="px-4 py-2.5 min-h-[44px] rounded-xl border border-neutral-200 sm:border-transparent text-xs font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer"
                   >
                     Cancel
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-mgmt-return-for-correction"
+                    disabled={submittingDecision}
+                    onClick={handleReturnForCorrection}
+                    className="px-4 py-2.5 min-h-[44px] text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 rounded-xl hover:bg-amber-200 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Return to Employee for Reason Correction
                   </button>
                   <button
                     type="button"

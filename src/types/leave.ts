@@ -185,7 +185,7 @@ export interface LeaveBalanceTransactionDto {
 
 export type ApprovalDecision = 'PENDING' | 'APPROVED' | 'REJECTED' | 'NOT_REQUIRED' | 'SKIPPED';
 export type FinalLeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
-export type LeaveRequestStatus = FinalLeaveStatus;
+export type LeaveRequestStatus = FinalLeaveStatus | 'RETURNED_FOR_CORRECTION';
 export type DayType = 'FULL_DAY' | 'HALF_DAY';
 export type HalfDayPeriod = 'FIRST_HALF' | 'SECOND_HALF';
 export type ReasonCategory =
@@ -217,6 +217,8 @@ export interface LeaveRequestDto {
   halfDayPeriod?: HalfDayPeriod | null;
   reasonCategory?: ReasonCategory | string | null;
   reason: string;
+  returnReason?: string | null;
+  returnedAt?: string | Date | null;
   requestClassification: RequestClassification;
   applicationTimestamp: string | Date;
   status: LeaveRequestStatus;

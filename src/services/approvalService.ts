@@ -6,6 +6,7 @@ import {
   leaveRequestEvents,
   leaveRequests,
   leaveTypes,
+  systemSettings,
   users,
 } from '../db/schema.ts';
 import {
@@ -1242,6 +1243,8 @@ export class ApprovalService {
     const filtered: LeaveRequestDto[] = [];
 
     for (const r of requests) {
+      // Returned requests belong to the employee until they correct and re-submit.
+      if (r.status === 'RETURNED_FOR_CORRECTION') continue;
       const routing = await this.resolveRequestRoutingInfo(r);
       const isSelfByEmp =
         Boolean(actor.employeeId) && Number(r.employeeId) === Number(actor.employeeId);
@@ -1503,6 +1506,117 @@ export class ApprovalService {
   /**
    * Retrieves full details for approver review (includes employee history and balances)
    */
+
+  /**
+   * Return a pending management-stage request to the employee for reason correction.
+   * This is not a rejection: it does not finalize the request or deduct leave balance.
+   */
+  public static async returnLeaveForReasonCorrection(
+    leaveRequestId: number,
+    input: { comments?: string; reason?: string },
+    actor: AuthContext,
+    auditMeta?: { ipAddress?: string; userAgent?: string }
+  ): Promise<LeaveRequestDto> {
+    if (!actor?.role) throw new Error('Unauthorized: Authentication required');
+    let allowedRoleValue = UserService.getSystemSettings([{
+      settingKey: 'leave_return_allowed_roles',
+      settingValue: 'TOP_MANAGEMENT,SUPER_ADMIN',
+      description: 'Roles allowed to return a pending leave request to the employee for correction',
+    }]).find((item) => item.settingKey === 'leave_return_allowed_roles')?.settingValue || 'TOP_MANAGEMENT,SUPER_ADMIN';
+    // Read the persisted database value as the authoritative setting after server restarts.
+    if (isDbConfigured()) {
+      const db = getDb();
+      if (db) {
+        const [savedSetting] = await db.select().from(systemSettings)
+          .where(eq(systemSettings.settingKey, 'leave_return_allowed_roles')).limit(1);
+        if (savedSetting?.settingValue) allowedRoleValue = savedSetting.settingValue;
+      }
+    }
+    const allowedRoles = String(allowedRoleValue)
+      .split(',').map((role) => role.trim().toUpperCase()).filter(Boolean);
+    if (!allowedRoles.includes(actor.role)) {
+      throw new Error('Forbidden: Your role is not allowed to return leave requests for correction');
+    }
+    const comments = String(input.comments || input.reason || '').trim();
+    if (comments.length < 10) {
+      throw new ValidationError('Please enter a clear return reason of at least 10 characters');
+    }
+    const details = await LeaveRequestService.getLeaveRequestById(leaveRequestId, actor);
+    if (!details?.request) throw new ValidationError('Leave request not found');
+    const req = details.request;
+    if (req.finalStatus !== 'PENDING' || req.status === 'CANCELLED' || req.status === 'APPROVED' ||
+      req.status === 'REJECTED' || req.managementDecision !== 'PENDING' || req.balancePosted) {
+      throw new ValidationError('Only a pending, not-yet-finalized leave request can be returned');
+    }
+    if (req.teamLeaderDecision === 'PENDING') {
+      throw new ValidationError('This request has not completed Reporting Person review yet');
+    }
+    if (req.hrDecision === 'PENDING') {
+      throw new ValidationError('This request is still awaiting HR review and cannot be returned from the final stage yet');
+    }
+
+    const now = new Date();
+    if (isDbConfigured()) {
+      const db = getDb();
+      if (db) {
+        return await db.transaction(async (tx) => {
+          const updated = await tx.update(leaveRequests).set({
+            status: 'RETURNED_FOR_CORRECTION',
+            returnReason: comments,
+            returnedAt: now,
+            currentApprovalStage: 'RETURNED_TO_EMPLOYEE',
+            approvalStageLabel: 'Returned to Employee for Reason Correction',
+            updatedAt: now,
+          }).where(and(
+            eq(leaveRequests.id, leaveRequestId),
+            eq(leaveRequests.managementDecision, 'PENDING'),
+            eq(leaveRequests.finalStatus, 'PENDING'),
+            sql`${leaveRequests.balancePosted} = false`
+          )).returning();
+          if (!updated.length) throw new ValidationError('This request has already been processed and cannot be returned');
+          await tx.insert(leaveRequestEvents).values({
+            leaveRequestId,
+            eventType: 'LEAVE_RETURNED_FOR_CORRECTION',
+            action: 'LEAVE_RETURNED_FOR_CORRECTION',
+            previousStatus: 'PENDING',
+            newStatus: 'RETURNED_FOR_CORRECTION',
+            actorId: actor.userId || null,
+            actorRole: actor.role,
+            remarks: comments,
+            comments,
+            ipAddress: auditMeta?.ipAddress || null,
+            userAgent: auditMeta?.userAgent || null,
+          });
+          return {
+            ...req,
+            status: 'RETURNED_FOR_CORRECTION',
+            returnReason: comments,
+            returnedAt: now.toISOString(),
+            currentApprovalStage: 'RETURNED_TO_EMPLOYEE',
+            approvalStageLabel: 'Returned to Employee for Reason Correction',
+            updatedAt: now.toISOString(),
+          };
+        });
+      }
+    }
+    Object.assign(req, {
+      status: 'RETURNED_FOR_CORRECTION',
+      returnReason: comments,
+      returnedAt: now.toISOString(),
+      currentApprovalStage: 'RETURNED_TO_EMPLOYEE',
+      approvalStageLabel: 'Returned to Employee for Reason Correction',
+      updatedAt: now.toISOString(),
+    });
+    LeaveRequestService.addMemoryEvent({
+      leaveRequestId, eventType: 'LEAVE_RETURNED_FOR_CORRECTION',
+      action: 'LEAVE_RETURNED_FOR_CORRECTION', previousStatus: 'PENDING',
+      newStatus: 'RETURNED_FOR_CORRECTION', actorId: actor.userId || null,
+      actorRole: actor.role, actorName: actor.username, remarks: comments, comments,
+      ipAddress: auditMeta?.ipAddress, userAgent: auditMeta?.userAgent, createdAt: now.toISOString(),
+    });
+    return req;
+  }
+
   public static async getApprovalDetails(
     id: number,
     actor: AuthContext

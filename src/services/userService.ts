@@ -7513,6 +7513,13 @@ export class UserService {
         description: 'Standard configured daily work hours (08:30-17:30 = 9 hours)',
       });
     }
+    if (!mergedMap.has('leave_return_allowed_roles')) {
+      mergedMap.set('leave_return_allowed_roles', {
+        settingKey: 'leave_return_allowed_roles',
+        settingValue: 'TOP_MANAGEMENT,SUPER_ADMIN',
+        description: 'Roles allowed to return pending leave requests to employees for reason correction. Use TOP_MANAGEMENT and/or SUPER_ADMIN, comma-separated.',
+      });
+    }
 
     return Array.from(mergedMap.values());
   }
@@ -7540,6 +7547,12 @@ export class UserService {
       const lower = cleanVal.toLowerCase();
       if (lower !== 'true' && lower !== 'false' && lower !== 'on' && lower !== 'off') {
         throw new ValidationError('HR Approval Required must be boolean (true/false or ON/OFF).');
+      }
+    } else if (cleanKey === 'leave_return_allowed_roles') {
+      const allowed = new Set(['TOP_MANAGEMENT', 'SUPER_ADMIN']);
+      const roles = cleanVal.split(',').map((role) => role.trim().toUpperCase()).filter(Boolean);
+      if (roles.length === 0 || roles.some((role) => !allowed.has(role))) {
+        throw new ValidationError('Leave return permission must contain TOP_MANAGEMENT and/or SUPER_ADMIN, comma-separated.');
       }
     } else if (cleanKey === 'working_days_per_week') {
       const num = Number(cleanVal);

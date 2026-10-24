@@ -1537,6 +1537,50 @@ export function registerApiRoutes(app: express.Express) {
     }
   );
 
+  // Return a pending final-stage request to the employee for reason correction.
+  app.post(
+    '/api/management/leave-requests/:id/return-for-correction',
+    requireRole(['SUPER_ADMIN', 'TOP_MANAGEMENT']),
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid leave request ID' });
+        const auditMeta = {
+          ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent'],
+        };
+        const leaveRequest = await ApprovalService.returnLeaveForReasonCorrection(id, req.body || {}, req.user!, auditMeta);
+        res.json({ success: true, leaveRequest });
+      } catch (err: any) {
+        if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message || 'Failed to return leave request' });
+      }
+    }
+  );
+
+  // Employee re-submits the same returned request after correcting its reason.
+  app.post(
+    '/api/leave-requests/:id/reapply',
+    requireRole(['SUPER_ADMIN', 'EMPLOYEE']),
+    async (req: Request, res: Response) => {
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid leave request ID' });
+        const auditMeta = {
+          ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent'],
+        };
+        const leaveRequest = await LeaveRequestService.reapplyReturnedLeaveRequest(id, String(req.body?.reason || ''), req.user!, auditMeta);
+        res.json({ success: true, leaveRequest });
+      } catch (err: any) {
+        if (err instanceof ValidationError) return res.status(400).json({ error: err.message, fieldErrors: err.fieldErrors });
+        if (err.message?.includes('Forbidden')) return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: err.message || 'Failed to re-submit leave request' });
+      }
+    }
+  );
+
   // 21. Employee Leave History & Profile Statistics
   app.get(
     '/api/employees/:id/leave-history',

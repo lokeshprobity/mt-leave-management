@@ -227,11 +227,24 @@ export function AdminSystemSettings() {
                   </span>
                   <p className="text-xs text-slate-700">
                     {item.description || 'System configuration parameter'}
+                  {item.settingKey === 'leave_return_allowed_roles' && (
+                    <p className="text-xs font-semibold text-indigo-800">Allowed values: TOP_MANAGEMENT, SUPER_ADMIN (one or both, comma-separated).</p>
+                  )}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {item.settingValue === 'true' || item.settingValue === 'false' ? (
+                  {item.settingKey === 'leave_return_allowed_roles' ? (
+                    <select
+                      value={editedValues[item.settingKey] ?? item.settingValue}
+                      onChange={(e) => setEditedValues((prev) => ({ ...prev, [item.settingKey]: e.target.value }))}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-neutral-900 bg-white"
+                    >
+                      <option value="SUPER_ADMIN">Super Admin only</option>
+                      <option value="TOP_MANAGEMENT">Top Management only</option>
+                      <option value="TOP_MANAGEMENT,SUPER_ADMIN">Top Management + Super Admin</option>
+                    </select>
+                  ) : item.settingValue === 'true' || item.settingValue === 'false' ? (
                     <select
                       value={editedValues[item.settingKey] ?? item.settingValue}
                       onChange={(e) =>

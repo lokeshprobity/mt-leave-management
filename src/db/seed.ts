@@ -158,6 +158,11 @@ export const INITIAL_SYSTEM_SETTINGS = [
     settingValue: 'Asia/Kolkata',
     description: 'Operational timezone for Maestro Leave Management calculation and cutoff checks',
   },
+  {
+    settingKey: 'leave_return_allowed_roles',
+    settingValue: 'TOP_MANAGEMENT,SUPER_ADMIN',
+    description: 'Roles allowed to return pending leave requests to employees for reason correction. Use TOP_MANAGEMENT and/or SUPER_ADMIN, comma-separated.',
+  },
 ];
 
 export async function seedDatabase() {
