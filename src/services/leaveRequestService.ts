@@ -215,6 +215,7 @@ export class LeaveRequestService {
   }
 
   public static computeApprovalStageLabel(r: Partial<LeaveRequestDto>): string {
+    if (r.status === 'RETURNED_FOR_CORRECTION') return 'Returned to Employee for Reason Correction';
     const finalStatus = r.finalStatus || r.status || 'PENDING';
     const tl = r.teamLeaderDecision || 'PENDING';
     const hr = r.hrDecision || 'PENDING';
