@@ -227,6 +227,9 @@ export function AdminSystemSettings() {
                   </span>
                   <p className="text-xs text-slate-700">
                     {item.description || 'System configuration parameter'}
+                  {item.settingKey === 'leave_return_allowed_roles' && (
+                    <p className="text-xs font-semibold text-indigo-800">Allowed values: TOP_MANAGEMENT, SUPER_ADMIN (one or both, comma-separated).</p>
+                  )}
                   </p>
                 </div>
 
