@@ -33,6 +33,19 @@ import {
   EmployeeLeaveHistoryDto,
 } from '../types/leave.ts';
 
+// Keep requests requiring a later approval stage at the top of the queue.
+function prioritizeApprovalQueue(requests: LeaveRequestDto[]): LeaveRequestDto[] {
+  const stageOnePending = (r: LeaveRequestDto) => r.teamLeaderDecision === 'PENDING';
+  return [...requests].sort((a, b) => {
+    const priorityA = stageOnePending(a) ? 1 : 0;
+    const priorityB = stageOnePending(b) ? 1 : 0;
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    const dateA = new Date(a.applicationTimestamp || a.createdAt).getTime();
+    const dateB = new Date(b.applicationTimestamp || b.createdAt).getTime();
+    return dateB - dateA;
+  });
+}
+
 export function HrApprovalDashboard() {
   const [requests, setRequests] = useState<LeaveRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,11 +96,11 @@ export function HrApprovalDashboard() {
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch HR leave requests queue');
       }
-      setRequests(data.leaveRequests || []);
+      setRequests(prioritizeApprovalQueue(data.leaveRequests || []));
       const fallbackRes = await apiFetch(`/api/hr/stage1-fallback-requests?${queryParams.toString()}`);
       const fallbackData = await fallbackRes.json();
       if (!fallbackRes.ok) throw new Error(fallbackData.error || 'Failed to fetch Reporting Person fallback queue');
-      setFallbackRequests(fallbackData.leaveRequests || []);
+      setFallbackRequests(prioritizeApprovalQueue(fallbackData.leaveRequests || []));
     } catch (err: any) {
       setError(err.message);
     } finally {
