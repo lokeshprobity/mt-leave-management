@@ -305,7 +305,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
 
   const handleReapplyReturnedRequest = async (request: LeaveRequestDto) => {
     const reason = window.prompt(
-      `Request ${request.requestNumber} was returned for correction.\\nReturn comment: ${request.returnReason || 'Please provide a meaningful reason.'}\\n\\nEnter the corrected leave reason (at least 10 characters and two meaningful words):`,
+      `Request ${request.requestNumber} was returned for correction.\nReturn comment: ${request.returnReason || 'Please provide a meaningful reason.'}\n\nEnter the corrected leave reason (at least 10 characters and two meaningful words):`,
       request.reason || ''
     );
     if (reason === null) return;
