@@ -1242,6 +1242,8 @@ export class ApprovalService {
     const filtered: LeaveRequestDto[] = [];
 
     for (const r of requests) {
+      // Returned requests belong to the employee until they correct and re-submit.
+      if (r.status === 'RETURNED_FOR_CORRECTION') continue;
       const routing = await this.resolveRequestRoutingInfo(r);
       const isSelfByEmp =
         Boolean(actor.employeeId) && Number(r.employeeId) === Number(actor.employeeId);
