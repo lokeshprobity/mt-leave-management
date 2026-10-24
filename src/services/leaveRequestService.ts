@@ -34,6 +34,7 @@ import { ShiftService } from './shiftService.ts';
 import { UserService } from './userService.ts';
 import { AttachmentService } from './attachmentService.ts';
 import { TeamLeaderRotationService } from './teamLeaderRotationService.ts';
+import { validateMeaningfulLeaveReason } from '../utils/leaveReasonValidation.ts';
 
 // In-memory store fallback for standalone / unit testing
 let memoryLeaveRequests: LeaveRequestDto[] = [];
@@ -76,6 +77,8 @@ export class LeaveRequestService {
       halfDayPeriod: (r.halfDayPeriod as any) || null,
       reasonCategory: (r.reasonCategory as any) || null,
       reason: r.reason,
+      returnReason: (r as any).returnReason ?? null,
+      returnedAt: (r as any).returnedAt ? new Date((r as any).returnedAt).toISOString() : null,
       requestClassification: r.requestClassification as any,
       applicationTimestamp: r.applicationTimestamp
         ? new Date(r.applicationTimestamp).toISOString()
@@ -1490,11 +1493,10 @@ export class LeaveRequestService {
       }
     }
 
-    // Reason validation (general)
-    if (!input.reason || !input.reason.trim()) {
-      throw new ValidationError('Reason for leave is required', {
-        reason: 'Reason cannot be empty',
-      });
+    // Meaningful reason validation (server-side; cannot be bypassed by direct API calls).
+    const reasonValidationError = validateMeaningfulLeaveReason(input.reason || '');
+    if (reasonValidationError) {
+      throw new ValidationError(reasonValidationError, { reason: reasonValidationError });
     }
 
     // Document requirement validation (Section 14)
@@ -1918,6 +1920,127 @@ export class LeaveRequestService {
   /**
    * Retrieves all leave requests for a specific employee
    */
+
+  /**
+   * Employee re-submission after a leave request is returned for reason correction.
+   * Keeps the original request ID and audit history, resets approval decisions to Stage 1,
+   * and never posts/deducts leave balance during re-submission.
+   */
+  public static async reapplyReturnedLeaveRequest(
+    id: number,
+    reason: string,
+    actor: AuthContext,
+    auditMeta?: { ipAddress?: string; userAgent?: string }
+  ): Promise<LeaveRequestDto> {
+    if (!actor?.role) throw new ValidationError('Authentication required');
+    if (actor.role !== 'SUPER_ADMIN' &&
+      (actor.role !== 'EMPLOYEE' || Number(actor.employeeId) !== Number((await this.getLeaveRequestById(id, actor))?.request?.employeeId))) {
+      throw new Error('Forbidden: Only the employee who owns this returned request can reapply it');
+    }
+    const reasonError = validateMeaningfulLeaveReason(reason);
+    if (reasonError) throw new ValidationError(reasonError, { reason: reasonError });
+
+    const details = await this.getLeaveRequestById(id, actor);
+    if (!details?.request) throw new ValidationError('Leave request not found');
+    const req = details.request;
+    if (req.status !== 'RETURNED_FOR_CORRECTION' || req.finalStatus !== 'PENDING') {
+      throw new ValidationError('Only a leave request returned for correction can be re-submitted');
+    }
+    if (req.balancePosted) throw new ValidationError('This request has already posted leave balance and cannot be re-submitted');
+
+    const now = new Date();
+    const hrDecision = req.hrDecision === 'NOT_REQUIRED' || req.hrDecision === 'SKIPPED' ? req.hrDecision : 'PENDING';
+    if (isDbConfigured()) {
+      const db = getDb();
+      if (db) {
+        return await db.transaction(async (tx) => {
+          const updated = await tx.update(leaveRequests).set({
+            reason: reason.trim(),
+            returnReason: null,
+            returnedAt: null,
+            status: 'PENDING',
+            finalStatus: 'PENDING',
+            teamLeaderDecision: 'PENDING',
+            teamLeaderDecidedBy: null,
+            teamLeaderDecidedAt: null,
+            teamLeaderRemarks: null,
+            hrDecision,
+            hrDecidedBy: null,
+            hrDecidedAt: null,
+            hrRemarks: null,
+            managementDecision: 'PENDING',
+            managementDecidedBy: null,
+            managementDecidedAt: null,
+            managementRemarks: null,
+            currentApprovalStage: 'STAGE_1_TEAM_LEADER',
+            approvalStageLabel: 'Pending Reporting Person',
+            updatedAt: now,
+          }).where(and(
+            eq(leaveRequests.id, id),
+            eq(leaveRequests.status, 'RETURNED_FOR_CORRECTION'),
+            eq(leaveRequests.finalStatus, 'PENDING')
+          )).returning();
+          if (!updated.length) throw new ValidationError('This returned request has already been re-submitted');
+          await tx.insert(leaveRequestEvents).values({
+            leaveRequestId: id,
+            eventType: 'LEAVE_REAPPLIED',
+            action: 'LEAVE_REAPPLIED',
+            previousStatus: 'RETURNED_FOR_CORRECTION',
+            newStatus: 'PENDING',
+            actorId: actor.userId || null,
+            actorRole: actor.role,
+            remarks: 'Employee corrected the reason and re-submitted the leave request to Stage 1',
+            comments: reason.trim(),
+            ipAddress: auditMeta?.ipAddress || null,
+            userAgent: auditMeta?.userAgent || null,
+          });
+          return {
+            ...req,
+            reason: reason.trim(),
+            returnReason: null,
+            returnedAt: null,
+            status: 'PENDING',
+            finalStatus: 'PENDING',
+            teamLeaderDecision: 'PENDING',
+            teamLeaderDecidedBy: null,
+            teamLeaderDecidedAt: null,
+            teamLeaderRemarks: null,
+            hrDecision,
+            hrDecidedBy: null,
+            hrDecidedAt: null,
+            hrRemarks: null,
+            managementDecision: 'PENDING',
+            managementDecidedBy: null,
+            managementDecidedAt: null,
+            managementRemarks: null,
+            currentApprovalStage: 'STAGE_1_TEAM_LEADER',
+            approvalStageLabel: 'Pending Reporting Person',
+            updatedAt: now.toISOString(),
+          };
+        });
+      }
+    }
+
+    Object.assign(req, {
+      reason: reason.trim(), returnReason: null, returnedAt: null, status: 'PENDING',
+      finalStatus: 'PENDING', teamLeaderDecision: 'PENDING', teamLeaderDecidedBy: null,
+      teamLeaderDecidedAt: null, teamLeaderRemarks: null, hrDecision, hrDecidedBy: null,
+      hrDecidedAt: null, hrRemarks: null, managementDecision: 'PENDING',
+      managementDecidedBy: null, managementDecidedAt: null, managementRemarks: null,
+      currentApprovalStage: 'STAGE_1_TEAM_LEADER',
+      approvalStageLabel: 'Pending Reporting Person', updatedAt: now.toISOString(),
+    });
+    this.addMemoryEvent({
+      leaveRequestId: id, eventType: 'LEAVE_REAPPLIED', action: 'LEAVE_REAPPLIED',
+      previousStatus: 'RETURNED_FOR_CORRECTION', newStatus: 'PENDING',
+      actorId: actor.userId || null, actorRole: actor.role, actorName: actor.username,
+      remarks: 'Employee corrected the reason and re-submitted the leave request to Stage 1',
+      comments: reason.trim(), ipAddress: auditMeta?.ipAddress, userAgent: auditMeta?.userAgent,
+      createdAt: now.toISOString(),
+    });
+    return req;
+  }
+
   public static async getEmployeeRequests(employeeId: number | string): Promise<LeaveRequestDto[]> {
     const resolvedEmp = UserService.resolveEmployeeRecordSync(employeeId);
     const targetEmpId = resolvedEmp?.employeeId ?? Number(employeeId);
