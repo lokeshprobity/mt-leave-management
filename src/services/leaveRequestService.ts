@@ -2488,6 +2488,11 @@ export class LeaveRequestService {
       throw new ValidationError(`Leave request #${id} not found`);
     }
 
+    if (input.reason !== undefined) {
+      const reasonError = validateMeaningfulLeaveReason(input.reason);
+      if (reasonError) throw new ValidationError(reasonError, { reason: reasonError });
+    }
+
     const current = details.request;
     const now = new Date();
 
