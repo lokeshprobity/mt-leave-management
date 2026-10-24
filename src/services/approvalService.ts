@@ -6,6 +6,7 @@ import {
   leaveRequestEvents,
   leaveRequests,
   leaveTypes,
+  systemSettings,
   users,
 } from '../db/schema.ts';
 import {
@@ -1517,12 +1518,21 @@ export class ApprovalService {
     auditMeta?: { ipAddress?: string; userAgent?: string }
   ): Promise<LeaveRequestDto> {
     if (!actor?.role) throw new Error('Unauthorized: Authentication required');
-    const allowedSetting = UserService.getSystemSettings([{
+    let allowedRoleValue = UserService.getSystemSettings([{
       settingKey: 'leave_return_allowed_roles',
       settingValue: 'TOP_MANAGEMENT,SUPER_ADMIN',
       description: 'Roles allowed to return a pending leave request to the employee for correction',
-    }]).find((item) => item.settingKey === 'leave_return_allowed_roles');
-    const allowedRoles = String(allowedSetting?.settingValue || 'TOP_MANAGEMENT,SUPER_ADMIN')
+    }]).find((item) => item.settingKey === 'leave_return_allowed_roles')?.settingValue || 'TOP_MANAGEMENT,SUPER_ADMIN';
+    // Read the persisted database value as the authoritative setting after server restarts.
+    if (isDbConfigured()) {
+      const db = getDb();
+      if (db) {
+        const [savedSetting] = await db.select().from(systemSettings)
+          .where(eq(systemSettings.settingKey, 'leave_return_allowed_roles')).limit(1);
+        if (savedSetting?.settingValue) allowedRoleValue = savedSetting.settingValue;
+      }
+    }
+    const allowedRoles = String(allowedRoleValue)
       .split(',').map((role) => role.trim().toUpperCase()).filter(Boolean);
     if (!allowedRoles.includes(actor.role)) {
       throw new Error('Forbidden: Your role is not allowed to return leave requests for correction');
