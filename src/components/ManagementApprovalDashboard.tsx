@@ -32,6 +32,19 @@ import {
   EmployeeLeaveHistoryDto,
 } from '../types/leave.ts';
 
+// Keep requests requiring a later approval stage at the top of the queue.
+function prioritizeApprovalQueue(requests: LeaveRequestDto[]): LeaveRequestDto[] {
+  const stageOnePending = (r: LeaveRequestDto) => r.teamLeaderDecision === 'PENDING';
+  return [...requests].sort((a, b) => {
+    const priorityA = stageOnePending(a) ? 1 : 0;
+    const priorityB = stageOnePending(b) ? 1 : 0;
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    const dateA = new Date(a.applicationTimestamp || a.createdAt).getTime();
+    const dateB = new Date(b.applicationTimestamp || b.createdAt).getTime();
+    return dateB - dateA;
+  });
+}
+
 export function ManagementApprovalDashboard() {
   const [requests, setRequests] = useState<LeaveRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +76,7 @@ export function ManagementApprovalDashboard() {
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch Top Management queue');
       }
-      setRequests(data.leaveRequests || []);
+      setRequests(prioritizeApprovalQueue(data.leaveRequests || []));
     } catch (err: any) {
       setError(err.message);
     } finally {
