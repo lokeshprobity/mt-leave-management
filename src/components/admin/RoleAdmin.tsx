@@ -955,7 +955,7 @@ export function RoleAdmin() {
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-neutral-100">
+              <div className="flex flex-col-reverse sm:flex-row-reverse justify-end gap-2 pt-3 border-t border-neutral-100">
                 <button
                   type="button"
                   onClick={closeRoleFormModal}
@@ -1235,7 +1235,7 @@ export function RoleAdmin() {
                 </div>
               )}
 
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-neutral-100">
+              <div className="flex flex-col-reverse sm:flex-row-reverse justify-end gap-2 pt-3 border-t border-neutral-100">
                 <button
                   type="button"
                   onClick={() => {
