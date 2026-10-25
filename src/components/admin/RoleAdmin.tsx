@@ -1261,8 +1261,8 @@ export function RoleAdmin() {
                     {savingPerms
                       ? 'Saving...'
                       : confirmRevoke
-                      ? 'Confirm & Save Permissions'
-                      : 'Save Permissions'}
+                      ? 'Confirm & Save and Close'
+                      : 'Save and Close'}
                   </span>
                 </button>
               </div>
