@@ -1540,9 +1540,11 @@ export function registerApiRoutes(app: express.Express) {
   // Return a pending final-stage request to the employee for reason correction.
   app.post(
     '/api/management/leave-requests/:id/return-for-correction',
-    requireRole(['SUPER_ADMIN', 'TOP_MANAGEMENT']),
     async (req: Request, res: Response) => {
       try {
+        if (!(await UserService.hasPermission(req.user, 'LEAVE_RETURN_FOR_CORRECTION'))) {
+          return res.status(403).json({ error: 'Forbidden: LEAVE_RETURN_FOR_CORRECTION permission is required for your role.' });
+        }
         const id = Number(req.params.id);
         if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid leave request ID' });
         const auditMeta = {
