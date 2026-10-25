@@ -116,11 +116,10 @@ export function HrApprovalDashboard() {
       const role = getActiveRole();
       if (role === 'SUPER_ADMIN') { setCanReturnForCorrection(true); return; }
       try {
-        const res = await apiFetch('/api/roles');
+        const res = await apiFetch('/api/roles/my-permissions');
         const data = await res.json();
-        const matched = (data.roles || []).find((item: any) => String(item.code || item.name || '').toUpperCase() === role);
-        if (!cancelled) setCanReturnForCorrection(Array.isArray(matched?.permissions) &&
-          (matched.permissions.includes('ALL_PERMISSIONS') || matched.permissions.includes('LEAVE_RETURN_FOR_CORRECTION')));
+        if (!res.ok) throw new Error(data.error || 'Unable to check role permission');
+        if (!cancelled) setCanReturnForCorrection(data.canReturnForCorrection === true);
       } catch { if (!cancelled) setCanReturnForCorrection(false); }
     };
     loadReturnPermission();
@@ -943,11 +942,15 @@ export function HrApprovalDashboard() {
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-2">
-                  {canReturnForCorrection && activeDetails.request.finalStatus === 'PENDING' &&
-                    activeDetails.request.managementDecision === 'PENDING' &&
+                  {canReturnForCorrection &&
+                    (activeDetails.request.finalStatus == null || activeDetails.request.finalStatus === 'PENDING') &&
+                    activeDetails.request.managementDecision !== 'APPROVED' &&
+                    activeDetails.request.managementDecision !== 'REJECTED' &&
+                    activeDetails.request.status !== 'APPROVED' &&
+                    activeDetails.request.status !== 'REJECTED' &&
+                    activeDetails.request.status !== 'CANCELLED' &&
                     activeDetails.request.balancePosted !== true &&
-                    activeDetails.request.teamLeaderDecision === 'APPROVED' &&
-                    activeDetails.request.hrDecision === 'PENDING' && (
+                    activeDetails.request.teamLeaderDecision === 'APPROVED' && (
                     <button
                       type="button"
                       id="btn-hr-return-for-correction"

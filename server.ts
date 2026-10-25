@@ -526,6 +526,25 @@ export function registerApiRoutes(app: express.Express) {
   });
 
   app.get(
+    '/api/roles/my-permissions',
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.user?.role) return res.status(401).json({ error: 'Authentication required' });
+        const permissions = await UserService.getRolePermissions(req.user.role);
+        const userHasPermission = await UserService.hasPermission(req.user, 'LEAVE_RETURN_FOR_CORRECTION');
+        return res.json({
+          success: true,
+          role: req.user.role,
+          permissions,
+          canReturnForCorrection: userHasPermission,
+        });
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message || 'Unable to load current role permissions' });
+      }
+    }
+  );
+
+  app.get(
     '/api/roles/permissions-catalog',
     requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT']),
     async (_req: Request, res: Response) => {
