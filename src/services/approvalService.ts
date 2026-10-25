@@ -1508,7 +1508,7 @@ export class ApprovalService {
    */
 
   /**
-   * Return a pending management-stage request to the employee for reason correction.
+   * Return a pending, not-yet-finalized request from an authorized review stage to the employee for reason correction.
    * This is not a rejection: it does not finalize the request or deduct leave balance.
    */
   public static async returnLeaveForReasonCorrection(
@@ -1534,9 +1534,6 @@ export class ApprovalService {
     }
     if (req.teamLeaderDecision === 'PENDING') {
       throw new ValidationError('This request has not completed Reporting Person review yet');
-    }
-    if (req.hrDecision === 'PENDING') {
-      throw new ValidationError('This request is still awaiting HR review and cannot be returned from the final stage yet');
     }
 
     const now = new Date();
