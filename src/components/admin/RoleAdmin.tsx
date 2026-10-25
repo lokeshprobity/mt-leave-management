@@ -974,8 +974,8 @@ export function RoleAdmin() {
                     {savingRoleForm
                       ? 'Saving...'
                       : roleFormMode === 'create'
-                      ? 'Create Role'
-                      : 'Save Role Changes'}
+                      ? 'Create Role and Close'
+                      : 'Save and Close'}
                   </span>
                 </button>
               </div>
