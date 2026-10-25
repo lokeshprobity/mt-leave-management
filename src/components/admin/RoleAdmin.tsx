@@ -955,13 +955,13 @@ export function RoleAdmin() {
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row-reverse justify-end gap-2 pt-3 border-t border-neutral-100">
+              <div className="flex flex-col sm:flex-row justify-start gap-2 pt-3 border-t border-neutral-100">
                 <button
                   type="button"
                   onClick={closeRoleFormModal}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 px-4 py-2 border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50 font-medium cursor-pointer"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 px-4 py-2 bg-slate-600 hover:bg-slate-700 border border-slate-700 rounded-lg text-white font-semibold transition-colors cursor-pointer"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="submit"
@@ -1235,16 +1235,16 @@ export function RoleAdmin() {
                 </div>
               )}
 
-              <div className="flex flex-col-reverse sm:flex-row-reverse justify-end gap-2 pt-3 border-t border-neutral-100">
+              <div className="flex flex-col sm:flex-row justify-start gap-2 pt-3 border-t border-neutral-100">
                 <button
                   type="button"
                   onClick={() => {
                     setEditingRole(null);
                     setConfirmRevoke(false);
                   }}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 px-4 py-2 border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50 font-medium cursor-pointer"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 px-4 py-2 bg-slate-600 hover:bg-slate-700 border border-slate-700 rounded-lg text-white font-semibold transition-colors cursor-pointer"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="submit"
