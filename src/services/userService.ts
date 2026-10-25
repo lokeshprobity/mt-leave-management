@@ -557,6 +557,7 @@ export const ALL_SYSTEM_PERMISSIONS: Array<{
   { code: 'LEAVE_TEAM_LEADER_APPROVE', label: 'Stage 1: Team Leader Leave Approval', category: 'Leave & Approvals' },
   { code: 'LEAVE_HR_APPROVE', label: 'Stage 2: HR Leave Review & Approval', category: 'Leave & Approvals' },
   { code: 'LEAVE_FINAL_APPROVE', label: 'Stage 3: Top Management Final Approval', category: 'Leave & Approvals' },
+  { code: 'LEAVE_RETURN_FOR_CORRECTION', label: 'Return Leave to Employee for Reason Correction', category: 'Leave & Approvals' },
   { code: 'HOLIDAY_MANAGE', label: 'Manage Holiday Calendar', category: 'Calendar & Shifts' },
   { code: 'WORKING_DAYS_MANAGE', label: 'Manage Working Days & Office Timing', category: 'Calendar & Shifts' },
   { code: 'WEEKLY_OFF_MANAGE', label: 'Manage Weekly-Off Configurations', category: 'Calendar & Shifts' },

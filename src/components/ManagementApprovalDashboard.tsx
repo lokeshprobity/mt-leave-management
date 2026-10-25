@@ -16,7 +16,7 @@ import {
   CheckCheck,
   ArrowRight,
 } from 'lucide-react';
-import { apiFetch } from '../lib/api.ts';
+import { apiFetch, getActiveRole } from '../lib/api.ts';
 import { formatDate } from '../utils/dateFormat.ts';
 import {
   MT_COLOR_CARDS,
@@ -62,6 +62,7 @@ export function ManagementApprovalDashboard() {
   const [decisionComment, setDecisionComment] = useState('');
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [canReturnForCorrection, setCanReturnForCorrection] = useState(getActiveRole() === 'SUPER_ADMIN');
 
   const fetchManagementRequests = async () => {
     setLoading(true);
@@ -87,6 +88,30 @@ export function ManagementApprovalDashboard() {
   useEffect(() => {
     fetchManagementRequests();
   }, [filterStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadReturnPermission = async () => {
+      const role = getActiveRole();
+      if (role === 'SUPER_ADMIN') {
+        setCanReturnForCorrection(true);
+        return;
+      }
+      try {
+        const res = await apiFetch('/api/roles');
+        const data = await res.json();
+        const matched = (data.roles || []).find((item: any) => String(item.code || item.name || '').toUpperCase() === role);
+        if (!cancelled) {
+          setCanReturnForCorrection(Array.isArray(matched?.permissions) &&
+            (matched.permissions.includes('ALL_PERMISSIONS') || matched.permissions.includes('LEAVE_RETURN_FOR_CORRECTION')));
+        }
+      } catch {
+        if (!cancelled) setCanReturnForCorrection(false);
+      }
+    };
+    loadReturnPermission();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -778,6 +803,7 @@ export function ManagementApprovalDashboard() {
                   >
                     Cancel
                   </button>
+                  {canReturnForCorrection && (
                   <button
                     type="button"
                     id="btn-mgmt-return-for-correction"
@@ -787,6 +813,7 @@ export function ManagementApprovalDashboard() {
                   >
                     Return to Employee for Reason Correction
                   </button>
+                  )}
                   <button
                     type="button"
                     id="btn-mgmt-final-reject"

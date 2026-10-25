@@ -1537,6 +1537,9 @@ export class ApprovalService {
     if (!allowedRoles.includes(actor.role)) {
       throw new Error('Forbidden: Your role is not allowed to return leave requests for correction');
     }
+    if (!(await UserService.hasPermission(actor, 'LEAVE_RETURN_FOR_CORRECTION'))) {
+      throw new Error('Forbidden: LEAVE_RETURN_FOR_CORRECTION permission is required for your role');
+    }
     const comments = String(input.comments || input.reason || '').trim();
     if (comments.length < 10) {
       throw new ValidationError('Please enter a clear return reason of at least 10 characters');
