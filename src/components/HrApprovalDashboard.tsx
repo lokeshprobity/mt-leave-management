@@ -17,7 +17,7 @@ import {
   User,
   PieChart,
 } from 'lucide-react';
-import { apiFetch } from '../lib/api.ts';
+import { apiFetch, getActiveRole } from '../lib/api.ts';
 import { formatDate, formatDateTime } from '../utils/dateFormat.ts';
 import {
   MT_COLOR_CARDS,
@@ -56,6 +56,8 @@ export function HrApprovalDashboard() {
   const [loadingTopMgmt, setLoadingTopMgmt] = useState(false);
   const [fallbackRequests, setFallbackRequests] = useState<LeaveRequestDto[]>([]);
   const [fallbackBusyId, setFallbackBusyId] = useState<number | null>(null);
+  const [canReturnForCorrection, setCanReturnForCorrection] = useState(getActiveRole() === 'SUPER_ADMIN');
+  const [returningRequest, setReturningRequest] = useState(false);
 
   // Review Modal State
   const [activeDetails, setActiveDetails] = useState<{
@@ -107,6 +109,23 @@ export function HrApprovalDashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadReturnPermission = async () => {
+      const role = getActiveRole();
+      if (role === 'SUPER_ADMIN') { setCanReturnForCorrection(true); return; }
+      try {
+        const res = await apiFetch('/api/roles');
+        const data = await res.json();
+        const matched = (data.roles || []).find((item: any) => String(item.code || item.name || '').toUpperCase() === role);
+        if (!cancelled) setCanReturnForCorrection(Array.isArray(matched?.permissions) &&
+          (matched.permissions.includes('ALL_PERMISSIONS') || matched.permissions.includes('LEAVE_RETURN_FOR_CORRECTION')));
+      } catch { if (!cancelled) setCanReturnForCorrection(false); }
+    };
+    loadReturnPermission();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (filterStatus === 'TOP_MGMT_OVERVIEW') {
@@ -162,6 +181,31 @@ export function HrApprovalDashboard() {
       setError(err.message || 'Reporting Person fallback approval failed');
     } finally {
       setFallbackBusyId(null);
+    }
+  };
+
+  const handleReturnForCorrection = async () => {
+    if (!activeDetails) return;
+    const comments = window.prompt(`Return ${activeDetails.request.requestNumber} to the employee for reason correction. Enter a clear explanation (minimum 10 characters):`);
+    if (comments === null) return;
+    if (comments.trim().length < 10) {
+      setDecisionError('Please enter a clear return comment of at least 10 characters.');
+      return;
+    }
+    setReturningRequest(true);
+    setDecisionError(null);
+    try {
+      const res = await apiFetch(`/api/hr/leave-requests/${activeDetails.request.id}/return-for-correction`, {
+        method: 'POST', body: JSON.stringify({ comments: comments.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to return leave for correction');
+      setActiveDetails(null);
+      await fetchHrRequests();
+    } catch (err: any) {
+      setDecisionError(err.message || 'Failed to return leave for correction');
+    } finally {
+      setReturningRequest(false);
     }
   };
 
@@ -899,6 +943,21 @@ export function HrApprovalDashboard() {
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-2">
+                  {canReturnForCorrection && activeDetails.request.finalStatus === 'PENDING' &&
+                    activeDetails.request.managementDecision === 'PENDING' &&
+                    activeDetails.request.balancePosted !== true &&
+                    activeDetails.request.teamLeaderDecision === 'APPROVED' &&
+                    activeDetails.request.hrDecision === 'PENDING' && (
+                    <button
+                      type="button"
+                      id="btn-hr-return-for-correction"
+                      disabled={returningRequest || submittingDecision}
+                      onClick={handleReturnForCorrection}
+                      className="px-4 py-2.5 min-h-[44px] text-xs font-bold bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {returningRequest ? 'Returning…' : 'Return to Employee for Reason Correction'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setActiveDetails(null)}
