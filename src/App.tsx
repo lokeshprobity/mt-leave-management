@@ -267,46 +267,72 @@ export default function App() {
     return () => { document.removeEventListener('pointerdown', handlePointerDown); document.removeEventListener('keydown', handleKeyDown); };
   }, []);
 
-  // Keep navigation badges synchronized with the actual pending approval queues.
+  // Keep navigation badges synchronized without continuously querying queues users cannot act on.
   useEffect(() => {
     if (!isAuthenticatedState) {
       setApprovalCounts({ teamLeader: 0, hr: 0, management: 0 });
       return;
     }
     let cancelled = false;
+    const queueRole = String(viewingUser?.role || activeRole || '').trim().toUpperCase();
+    const allQueues = [
+      { key: 'teamLeader' as const, endpoint: '/api/team-leader/leave-requests?status=PENDING' },
+      { key: 'hr' as const, endpoint: '/api/hr/leave-requests?status=PENDING' },
+      { key: 'management' as const, endpoint: '/api/management/leave-requests?status=PENDING' },
+    ];
+    // HR can handle reporting-person queues as a fallback; other roles only load their own stage.
+    const relevantQueues = queueRole === 'SUPER_ADMIN'
+      ? allQueues
+      : queueRole === 'HR'
+        ? allQueues.filter((queue) => queue.key === 'teamLeader' || queue.key === 'hr')
+        : queueRole === 'TEAM_LEADER' || queueRole === 'REPORTING_PERSON'
+          ? allQueues.filter((queue) => queue.key === 'teamLeader')
+          : queueRole === 'TOP_MANAGEMENT' || queueRole === 'MANAGEMENT'
+            ? allQueues.filter((queue) => queue.key === 'management')
+            : queueRole === 'EMPLOYEE'
+              ? []
+              : allQueues;
     const refreshApprovalCounts = async () => {
+      if (cancelled || document.visibilityState === 'hidden') return;
       try {
-        const endpoints = [
-          '/api/team-leader/leave-requests?status=PENDING',
-          '/api/hr/leave-requests?status=PENDING',
-          '/api/management/leave-requests?status=PENDING',
-        ];
-        const results = await Promise.all(endpoints.map(async (endpoint) => {
+        const results = await Promise.all(relevantQueues.map(async ({ key, endpoint }) => {
           const response = await apiFetch(endpoint, { cache: 'no-store' });
-          if (!response.ok) return [];
+          if (!response.ok) return { key, requests: [] as any[] };
           const payload = await response.json();
-          return Array.isArray(payload.leaveRequests) ? payload.leaveRequests :
+          const requests = Array.isArray(payload.leaveRequests) ? payload.leaveRequests :
             Array.isArray(payload.requests) ? payload.requests : [];
+          return { key, requests };
         }));
+        const nextCounts = { teamLeader: 0, hr: 0, management: 0 };
         const isPending = (request: any) => String(request.finalStatus || 'PENDING').toUpperCase() === 'PENDING';
-        const nextCounts = {
-          teamLeader: results[0].filter((request: any) => isPending(request) && String(request.teamLeaderDecision || 'PENDING').toUpperCase() === 'PENDING').length,
-          hr: results[1].filter((request: any) => isPending(request) && String(request.hrDecision || 'PENDING').toUpperCase() === 'PENDING' && String(request.teamLeaderDecision || 'PENDING').toUpperCase() !== 'REJECTED').length,
-          management: results[2].filter((request: any) => isPending(request) && String(request.managementDecision || 'PENDING').toUpperCase() === 'PENDING').length,
-        };
+        for (const { key, requests } of results) {
+          if (key === 'teamLeader') {
+            nextCounts.teamLeader = requests.filter((request: any) => isPending(request) && String(request.teamLeaderDecision || 'PENDING').toUpperCase() === 'PENDING').length;
+          } else if (key === 'hr') {
+            nextCounts.hr = requests.filter((request: any) => isPending(request) && String(request.hrDecision || 'PENDING').toUpperCase() === 'PENDING' && String(request.teamLeaderDecision || 'PENDING').toUpperCase() !== 'REJECTED').length;
+          } else {
+            nextCounts.management = requests.filter((request: any) => isPending(request) && String(request.managementDecision || 'PENDING').toUpperCase() === 'PENDING').length;
+          }
+        }
         if (!cancelled) setApprovalCounts(nextCounts);
       } catch {
         // Keep the last successfully loaded counts if a temporary network error occurs.
       }
     };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshApprovalCounts();
+    };
     void refreshApprovalCounts();
-    const intervalId = window.setInterval(() => void refreshApprovalCounts(), 10000);
+    // Counts refresh immediately on focus/actions, and every minute while the tab is visible.
+    const intervalId = window.setInterval(() => void refreshApprovalCounts(), 60000);
     window.addEventListener('focus', refreshApprovalCounts);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('leave-approval-queue-updated', refreshApprovalCounts);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
       window.removeEventListener('focus', refreshApprovalCounts);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('leave-approval-queue-updated', refreshApprovalCounts);
     };
   }, [isAuthenticatedState, activeRole, currentUserProfile, viewingUser]);
