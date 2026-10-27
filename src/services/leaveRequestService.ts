@@ -1518,8 +1518,6 @@ export class LeaveRequestService {
       }
     }
 
-    }
-
     // Meaningful reason validation (server-side; cannot be bypassed by direct API calls).
     const reasonValidationError = validateMeaningfulLeaveReason(input.reason || '');
     if (reasonValidationError) {
