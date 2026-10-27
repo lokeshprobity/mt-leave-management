@@ -1230,7 +1230,7 @@ export class LeaveService {
           if (input.adjustmentType === 'SET_OPENING') delta = qty - oldOpening;
           if (input.adjustmentType === 'SET_USED') delta = oldUsed - qty;
           const newOpening = input.adjustmentType === 'SET_OPENING' ? qty : oldOpening;
-          const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : oldAlloc + delta;
+          const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : input.adjustmentType === 'SET_USED' ? oldAlloc : oldAlloc + delta;
           const newUsed = input.adjustmentType === 'SET_USED' ? qty : debitAsUsage ? oldUsed + qty : oldUsed;
           const newAdj = debitAsUsage || input.adjustmentType === 'SET_USED' ? Number(row.adjustments || 0) : Number(row.adjustments || 0) + delta;
           if (debitAsUsage && newUsed + Number(row.reserved || 0) > Number(row.openingBalance || 0) + newAlloc + Number(row.carryForward || 0)) {
@@ -1376,7 +1376,7 @@ export class LeaveService {
       if (input.adjustmentType === 'SET_OPENING') delta = qty - oldOpening;
       if (input.adjustmentType === 'SET_USED') delta = oldUsed - qty;
       const newOpening = input.adjustmentType === 'SET_OPENING' ? qty : oldOpening;
-      const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : oldAlloc + delta;
+      const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : input.adjustmentType === 'SET_USED' ? oldAlloc : oldAlloc + delta;
       const newUsed = input.adjustmentType === 'SET_USED' ? qty : debitAsUsage ? oldUsed + qty : oldUsed;
       const newAdj = debitAsUsage || input.adjustmentType === 'SET_USED' ? Number(memBal.adjustments || 0) : Number(memBal.adjustments || 0) + delta;
       const newEntitlement = Number(memBal.openingBalance || 0) + newAlloc + Number(memBal.carryForward || 0);
