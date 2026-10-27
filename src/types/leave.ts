@@ -273,6 +273,7 @@ export interface LeaveRequestDto {
 export interface CreateLeaveRequestInput {
   employeeId?: number | string;
   employeeCode?: string;
+  submittedOnBehalfOf?: boolean;
   leaveTypeId: number;
   isPaid?: boolean;
   startDate: string; // 'YYYY-MM-DD'
