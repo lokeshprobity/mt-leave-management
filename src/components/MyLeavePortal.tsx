@@ -17,7 +17,7 @@ import {
   User,
   Trash2,
 } from 'lucide-react';
-import { apiFetch, getActiveEmployeeId, parseApiJson } from '../lib/api.ts';
+import { apiFetch, getActiveEmployeeId, getActiveRole, parseApiJson } from '../lib/api.ts';
 import { formatDate, formatDateTime } from '../utils/dateFormat.ts';
 import {
   MT_THEME,
@@ -55,6 +55,9 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const isSuperAdmin = getActiveRole() === 'SUPER_ADMIN';
+  const [adminEmployees, setAdminEmployees] = useState<Array<{ id: number; employeeCode: string; employeeName: string; role?: string }>>([]);
+  const [selectedAdminEmployeeId, setSelectedAdminEmployeeId] = useState<number | ''>(targetEmployeeId ?? '');
   const [selectedRequestEvents, setSelectedRequestEvents] = useState<{
     request: LeaveRequestDto;
     events: LeaveRequestEventDto[];
@@ -93,12 +96,20 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const selectedFormLeaveType = leaveTypes.find((lt) => lt.id === Number(formLeaveTypeId));
   const isCasualLeave = selectedFormLeaveType?.code?.trim().toUpperCase() === 'CL';
+  const effectiveTargetEmployeeId =
+    targetEmployeeId ?? (isSuperAdmin && selectedAdminEmployeeId !== '' ? Number(selectedAdminEmployeeId) : undefined);
+  const canOverrideDateRestrictions = isSuperAdmin && Boolean(effectiveTargetEmployeeId);
 
   const fetchMyRequests = async () => {
+    if (isSuperAdmin && !effectiveTargetEmployeeId) {
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const requestUrl = targetEmployeeId ? `/api/leave-requests/my?employeeId=${encodeURIComponent(String(targetEmployeeId))}` : '/api/leave-requests/my';
+      const requestUrl = effectiveTargetEmployeeId ? `/api/leave-requests/my?employeeId=${encodeURIComponent(String(effectiveTargetEmployeeId))}` : '/api/leave-requests/my';
       const res = await apiFetch(requestUrl);
       const data = await res.json();
       if (!res.ok) {
@@ -127,9 +138,31 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   };
 
   useEffect(() => {
+    if (!isSuperAdmin || targetEmployeeId) return;
+    let cancelled = false;
+    const loadEmployees = async () => {
+      try {
+        const res = await apiFetch('/api/employees');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load employees');
+        const rows = (data.employees || [])
+          .filter((employee: any) => String(employee.role || '').toUpperCase() !== 'SUPER_ADMIN')
+          .sort((a: any, b: any) =>
+            String(a.employeeCode || '').localeCompare(String(b.employeeCode || ''), undefined, { numeric: true, sensitivity: 'base' })
+          );
+        if (!cancelled) setAdminEmployees(rows);
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || 'Unable to load employee list');
+      }
+    };
+    loadEmployees();
+    return () => { cancelled = true; };
+  }, [isSuperAdmin, targetEmployeeId]);
+
+  useEffect(() => {
     fetchMyRequests();
     fetchLeaveTypes();
-  }, [targetEmployeeId]);
+  }, [effectiveTargetEmployeeId, isSuperAdmin]);
 
   useEffect(() => {
     const effectiveEnd = formDayType === 'HALF_DAY' ? formStartDate : formEndDate;
@@ -144,7 +177,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
         const res = await apiFetch('/api/leave-requests/calculate', {
           method: 'POST',
           body: JSON.stringify({
-            ...(targetEmployeeId ? { employeeId: targetEmployeeId, submittedOnBehalfOf: true } : {}),
+            ...(effectiveTargetEmployeeId ? { employeeId: effectiveTargetEmployeeId, submittedOnBehalfOf: true } : {}),
             leaveTypeId: Number(formLeaveTypeId),
             startDate: formStartDate,
             endDate: effectiveEnd,
@@ -170,7 +203,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
     };
   }, [
     showApplyModal,
-    targetEmployeeId,
+    effectiveTargetEmployeeId,
     formLeaveTypeId,
     formStartDate,
     formEndDate,
@@ -220,6 +253,10 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    if (isSuperAdmin && !effectiveTargetEmployeeId) {
+      setFormError('Select an employee before submitting a leave application.');
+      return;
+    }
     const reasonError = validateMeaningfulLeaveReason(formReason);
     if (reasonError) {
       setFormError(reasonError);
@@ -263,8 +300,8 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
         ['MEDICAL_EMERGENCY', 'FAMILY_EMERGENCY', 'ACCIDENT_OR_TRAVEL_EMERGENCY'].includes(formReasonCategory);
 
       const payload = {
-        employeeId: targetEmployeeId ?? getActiveEmployeeId(),
-        ...(targetEmployeeId ? { submittedOnBehalfOf: true } : {}),
+        employeeId: effectiveTargetEmployeeId ?? getActiveEmployeeId(),
+        ...(effectiveTargetEmployeeId ? { submittedOnBehalfOf: true } : {}),
         leaveTypeId: Number(formLeaveTypeId),
         isPaid: selectedLeaveType?.code?.trim().toUpperCase() === 'CL' ? true : formIsPaid,
         leaveType: selectedLeaveType?.code || String(formLeaveTypeId),
@@ -1265,6 +1302,35 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
             )}
 
             <form onSubmit={handleApplySubmit} className="space-y-4 min-w-0">
+              {isSuperAdmin && !targetEmployeeId && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 space-y-2">
+                  <label htmlFor="select-admin-leave-employee" className="block text-xs font-bold text-indigo-950">
+                    Apply Leave on Behalf of Employee <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    id="select-admin-leave-employee"
+                    value={selectedAdminEmployeeId}
+                    onChange={(e) => setSelectedAdminEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                    required
+                    className="w-full min-h-[44px] rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                  >
+                    <option value="">Select employee</option>
+                    {adminEmployees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.employeeCode} — {employee.employeeName}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] leading-4 text-indigo-900">
+                    Super Admin may submit for a past date. Employee cutoff rules remain unchanged for all other users; normal balance, overlap and approval checks still apply.
+                  </p>
+                </div>
+              )}
+              {canOverrideDateRestrictions && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                  Super Admin exception is active for the selected employee. Choose the actual leave date; the request will still follow the normal approval workflow.
+                </div>
+              )}
               {/* Section 1: Leave Type Selection */}
               <div
                 id="leave-form-section-type"
@@ -1407,8 +1473,8 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                     id="input-start-date"
                     type="date"
                     required
-                    min={formDayType === 'HALF_DAY' ? toDateInputValue(new Date()) : undefined}
-                    max={formDayType === 'HALF_DAY' ? (() => { const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + 30); return toDateInputValue(maxDate); })() : undefined}
+                    min={formDayType === 'HALF_DAY' && !canOverrideDateRestrictions ? toDateInputValue(new Date()) : undefined}
+                    max={formDayType === 'HALF_DAY' && !canOverrideDateRestrictions ? (() => { const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + 30); return toDateInputValue(maxDate); })() : undefined}
                     value={formStartDate}
                     onChange={(e) => setFormStartDate(e.target.value)}
                     className="w-full min-h-[44px] md:min-h-0 text-xs p-2.5 bg-white rounded-xl md:rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700/20 focus:border-red-700"
