@@ -1601,21 +1601,54 @@ export class LeaveService {
         }
         const tx = rows[0];
 
-        // If it was an adjustment, revert it from the balance
+        // Reverse only the field changed by this transaction, then recompute Remaining.
         if (tx.transactionType === 'ADJUSTMENT' && tx.leaveBalanceId) {
           const balRows = await db.select().from(leaveBalances).where(eq(leaveBalances.id, tx.leaveBalanceId));
           if (balRows.length > 0) {
             const bal = balRows[0];
             const qty = Number(tx.quantity || 0);
-            const newAdj = Number(bal.adjustments || 0) - qty;
-            const newAlloc = Number(bal.allocated || 0) - qty;
-            const newAvail = Number(bal.available || 0) - qty;
+            let opening = Number(bal.openingBalance || 0);
+            let allocated = Number(bal.allocated || 0);
+            let used = Number(bal.used || 0);
+            let adjustments = Number(bal.adjustments || 0);
+            switch (tx.referenceType) {
+              case 'MANUAL_ALLOCATION_CREDIT':
+              case 'MANUAL_ALLOCATION_SET':
+                allocated -= qty;
+                break;
+              case 'MANUAL_USED_DEBIT':
+              case 'MANUAL_USED_LEAVE_SET_V2':
+                used -= qty;
+                break;
+              case 'MANUAL_CL_CONSUMPTION':
+              case 'MANUAL_USED_LEAVE_SET':
+                // Legacy rows stored Used changes with the opposite sign.
+                used += qty;
+                break;
+              case 'MANUAL_OPENING_BALANCE_SET':
+                opening -= qty;
+                break;
+              case 'MANUAL_ADJUSTMENT':
+              default:
+                // Legacy manual adjustments changed both Allocated and Adjustments.
+                allocated -= qty;
+                adjustments -= qty;
+                break;
+            }
+            if (allocated < 0 || used < 0) {
+              throw new ValidationError('This transaction cannot be safely reversed because it would make Allocated or Used negative.');
+            }
+            const available =
+              opening + allocated + Number(bal.carryForward || 0) + adjustments -
+              used - Number(bal.reserved || 0);
             await db
               .update(leaveBalances)
               .set({
-                allocated: String(newAlloc.toFixed(2)),
-                adjustments: String(newAdj.toFixed(2)),
-                available: String(newAvail.toFixed(2)),
+                openingBalance: String(opening.toFixed(2)),
+                allocated: String(allocated.toFixed(2)),
+                used: String(used.toFixed(2)),
+                adjustments: String(adjustments.toFixed(2)),
+                available: String(available.toFixed(2)),
                 updatedAt: new Date(),
               })
               .where(eq(leaveBalances.id, bal.id));
@@ -1653,9 +1686,43 @@ export class LeaveService {
       const memBal = memoryLeaveBalances.find((b) => b.id === memTx.leaveBalanceId);
       if (memBal) {
         const qty = Number(memTx.quantity || 0);
-        memBal.allocated = (Number(memBal.allocated || 0) - qty).toFixed(2);
-        memBal.adjustments = (Number(memBal.adjustments || 0) - qty).toFixed(2);
-        memBal.available = (Number(memBal.available || 0) - qty).toFixed(2);
+        let opening = Number(memBal.openingBalance || 0);
+        let allocated = Number(memBal.allocated || 0);
+        let used = Number(memBal.used || 0);
+        let adjustments = Number(memBal.adjustments || 0);
+        switch (memTx.referenceType) {
+          case 'MANUAL_ALLOCATION_CREDIT':
+          case 'MANUAL_ALLOCATION_SET':
+            allocated -= qty;
+            break;
+          case 'MANUAL_USED_DEBIT':
+          case 'MANUAL_USED_LEAVE_SET_V2':
+            used -= qty;
+            break;
+          case 'MANUAL_CL_CONSUMPTION':
+          case 'MANUAL_USED_LEAVE_SET':
+            used += qty;
+            break;
+          case 'MANUAL_OPENING_BALANCE_SET':
+            opening -= qty;
+            break;
+          case 'MANUAL_ADJUSTMENT':
+          default:
+            allocated -= qty;
+            adjustments -= qty;
+            break;
+        }
+        if (allocated < 0 || used < 0) {
+          throw new ValidationError('This transaction cannot be safely reversed because it would make Allocated or Used negative.');
+        }
+        memBal.openingBalance = opening.toFixed(2);
+        memBal.allocated = allocated.toFixed(2);
+        memBal.used = used.toFixed(2);
+        memBal.adjustments = adjustments.toFixed(2);
+        memBal.available = (
+          opening + allocated + Number(memBal.carryForward || 0) + adjustments -
+          used - Number(memBal.reserved || 0)
+        ).toFixed(2);
       }
     }
 
