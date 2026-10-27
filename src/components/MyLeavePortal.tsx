@@ -1027,6 +1027,15 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                   <div>
                     <span className="font-semibold text-neutral-900">Reason:</span> {r.reason}
                   </div>
+                  {r.status === 'RETURNED_FOR_CORRECTION' && (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+                      <p className="font-semibold text-amber-900">Reason correction required</p>
+                      <p className="text-amber-900">{r.returnReason || 'Please submit a more meaningful leave reason.'}</p>
+                      <button type="button" onClick={() => openReturnedRequestEditor(r)} className="min-h-[44px] px-4 py-2 rounded-lg bg-amber-700 text-white font-semibold hover:bg-amber-800">
+                        Correct Reason & Reapply
+                      </button>
+                    </div>
+                  )}
                   {(r.attachmentName || r.attachmentPath) && (
                     <LeaveAttachmentBox
                       requestId={r.id}
