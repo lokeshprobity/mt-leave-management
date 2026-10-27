@@ -1207,7 +1207,7 @@ export class LeaveService {
     }
     // Keep manual balance operations single-purpose:
     // CREDIT changes Allocated only; DEBIT consumes Used only; SET/SET_USED set one field.
-    let delta = input.adjustmentType === 'CREDIT' || input.adjustmentType === 'SET_OPENING' ? qty : -qty;
+    let delta = input.adjustmentType === 'CREDIT' || input.adjustmentType === 'SET' || input.adjustmentType === 'SET_OPENING' ? qty : -qty;
     let transactionQuantity = qty;
     const transactionReferenceType =
       input.adjustmentType === 'CREDIT' ? 'MANUAL_ALLOCATION_CREDIT' :
