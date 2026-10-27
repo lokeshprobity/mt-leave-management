@@ -1488,6 +1488,8 @@ export class LeaveRequestService {
       }
     }
 
+    }
+
     // 10. Late & Post-Start Request Rules & Emergency Reason Validation
     if (classification === 'LATE_LEAVE_REQUEST') {
       if (!effectiveReasonCategory) {
