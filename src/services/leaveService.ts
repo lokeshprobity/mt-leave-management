@@ -1170,7 +1170,7 @@ export class LeaveService {
       employeeCode?: string;
       leaveTypeId: number;
       year: number;
-      adjustmentType: 'CREDIT' | 'DEBIT' | 'SET' | 'SET_OPENING';
+      adjustmentType: 'CREDIT' | 'DEBIT' | 'SET' | 'SET_OPENING' | 'SET_USED';
       quantity?: number;
       amount?: number;
       remarks?: string;
@@ -1185,11 +1185,11 @@ export class LeaveService {
     const rawEmp = input.employeeId ?? input.employeeCode;
     const resolvedEmp = UserService.resolveEmployeeRecordSync(rawEmp);
     const numericEmpId = resolvedEmp?.employeeId ?? Number(rawEmp);
-    if ((input.adjustmentType === 'SET' || input.adjustmentType === 'SET_OPENING') && actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can set an employee leave allocation.');
+    if ((input.adjustmentType === 'SET' || input.adjustmentType === 'SET_OPENING' || input.adjustmentType === 'SET_USED') && actor.role !== 'SUPER_ADMIN') {
+      throw new Error('Forbidden: Only Super Admin can set an employee leave allocation or used leave.');
     }
     const qty = Number(input.quantity ?? input.amount);
-    if (isNaN(qty) || qty < 0 || (qty === 0 && input.adjustmentType !== 'SET' && input.adjustmentType !== 'SET_OPENING')) {
+    if (isNaN(qty) || qty < 0 || (qty === 0 && input.adjustmentType !== 'SET' && input.adjustmentType !== 'SET_OPENING' && input.adjustmentType !== 'SET_USED')) {
       throw new ValidationError('Quantity must be valid; allocation may be set to zero.');
     }
     const remarkText = (input.remarks ?? input.reason ?? '').trim();
@@ -1228,10 +1228,11 @@ export class LeaveService {
           const oldUsed = Number(row.used || 0);
           if (input.adjustmentType === 'SET') delta = qty - oldAlloc;
           if (input.adjustmentType === 'SET_OPENING') delta = qty - oldOpening;
+          if (input.adjustmentType === 'SET_USED') delta = oldUsed - qty;
           const newOpening = input.adjustmentType === 'SET_OPENING' ? qty : oldOpening;
-          const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : oldAlloc + delta;
-          const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
-          const newAdj = debitAsUsage ? Number(row.adjustments || 0) : Number(row.adjustments || 0) + delta;
+          const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : input.adjustmentType === 'SET_USED' ? oldAlloc : oldAlloc + delta;
+          const newUsed = input.adjustmentType === 'SET_USED' ? qty : debitAsUsage ? oldUsed + qty : oldUsed;
+          const newAdj = debitAsUsage || input.adjustmentType === 'SET_USED' ? Number(row.adjustments || 0) : Number(row.adjustments || 0) + delta;
           if (debitAsUsage && newUsed + Number(row.reserved || 0) > Number(row.openingBalance || 0) + newAlloc + Number(row.carryForward || 0)) {
             throw new ValidationError('CL debit exceeds the employee’s remaining balance.');
           }
@@ -1264,6 +1265,9 @@ export class LeaveService {
         } else {
           // A CL consumption debit must use an existing entitlement/balance record.
           // Never create a negative or zero entitlement to represent consumption.
+          if (input.adjustmentType === 'SET_USED') {
+            throw new ValidationError('Cannot set Used Leave because this employee has no initialized balance record for the selected year and leave type.');
+          }
           if (delta < 0 && input.adjustmentType !== 'SET_OPENING') {
             throw new ValidationError('Cannot deduct from an uninitialized balance record (0 Days).');
           }
@@ -1295,7 +1299,7 @@ export class LeaveService {
           leaveBalanceId: balId,
           transactionType: debitAsUsage ? 'ADJUSTMENT' : 'ADJUSTMENT',
           quantity: String(delta.toFixed(2)),
-          referenceType: input.adjustmentType === 'SET_OPENING' ? 'MANUAL_OPENING_BALANCE_SET' : debitAsUsage ? 'MANUAL_CL_CONSUMPTION' : 'MANUAL_ADJUSTMENT',
+          referenceType: input.adjustmentType === 'SET_USED' ? 'MANUAL_USED_LEAVE_SET' : input.adjustmentType === 'SET_OPENING' ? 'MANUAL_OPENING_BALANCE_SET' : debitAsUsage ? 'MANUAL_CL_CONSUMPTION' : 'MANUAL_ADJUSTMENT',
           referenceId: `ADJ_${Date.now()}`,
           remarks: remarkText,
           createdBy: actor.userId || null,
@@ -1339,6 +1343,9 @@ export class LeaveService {
     );
 
     if (!memBal) {
+      if (input.adjustmentType === 'SET_USED') {
+        throw new ValidationError('Cannot set Used Leave because this employee has no initialized balance record for the selected year and leave type.');
+      }
       if (delta < 0 && input.adjustmentType !== 'SET_OPENING') {
         throw new ValidationError('Cannot deduct from an uninitialized balance record (0 Days).');
       }
@@ -1367,10 +1374,11 @@ export class LeaveService {
       const oldUsed = Number(memBal.used || 0);
       if (input.adjustmentType === 'SET') delta = qty - oldAlloc;
       if (input.adjustmentType === 'SET_OPENING') delta = qty - oldOpening;
+      if (input.adjustmentType === 'SET_USED') delta = oldUsed - qty;
       const newOpening = input.adjustmentType === 'SET_OPENING' ? qty : oldOpening;
-      const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : oldAlloc + delta;
-      const newUsed = debitAsUsage ? oldUsed + qty : oldUsed;
-      const newAdj = debitAsUsage ? Number(memBal.adjustments || 0) : Number(memBal.adjustments || 0) + delta;
+      const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : input.adjustmentType === 'SET_USED' ? oldAlloc : oldAlloc + delta;
+      const newUsed = input.adjustmentType === 'SET_USED' ? qty : debitAsUsage ? oldUsed + qty : oldUsed;
+      const newAdj = debitAsUsage || input.adjustmentType === 'SET_USED' ? Number(memBal.adjustments || 0) : Number(memBal.adjustments || 0) + delta;
       const newEntitlement = Number(memBal.openingBalance || 0) + newAlloc + Number(memBal.carryForward || 0);
       if (debitAsUsage && newUsed + Number(memBal.reserved || 0) > newEntitlement) {
         throw new ValidationError('CL debit exceeds the employee’s remaining balance.');

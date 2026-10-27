@@ -128,7 +128,7 @@ export function AdminLeaveBalance() {
   const [adjustEmpId, setAdjustEmpId] = useState<number | string>('');
   const [adjustYear, setAdjustYear] = useState<number>(selectedYear);
   const [adjustLeaveTypeId, setAdjustLeaveTypeId] = useState<number>(1);
-  const [adjustType, setAdjustType] = useState<'CREDIT' | 'DEBIT' | 'SET' | 'SET_OPENING'>('CREDIT');
+  const [adjustType, setAdjustType] = useState<'CREDIT' | 'DEBIT' | 'SET' | 'SET_OPENING' | 'SET_USED'>('CREDIT');
   const [adjustQuantity, setAdjustQuantity] = useState<string>('0');
   const [adjustReason, setAdjustReason] = useState<string>('');
   const [adjustSaving, setAdjustSaving] = useState(false);
@@ -309,7 +309,10 @@ export function AdminLeaveBalance() {
     let newAlloc = alloc;
     let newUsed = used;
 
-    if (adjustType === 'SET_OPENING') {
+    if (adjustType === 'SET_USED') {
+      delta = used - qty;
+      newUsed = qty;
+    } else if (adjustType === 'SET_OPENING') {
       const opening = parseFloat(currentAdjustBalance?.openingBalance || '0') || 0;
       delta = qty - opening;
       newAlloc = alloc;
@@ -357,7 +360,7 @@ export function AdminLeaveBalance() {
     }
     const quantityText = adjustQuantity.trim();
     const qty = Number(quantityText);
-    if (!/^\d+(?:\.\d+)?$/.test(quantityText) || !Number.isFinite(qty) || qty < 0 || (qty === 0 && adjustType !== 'SET' && adjustType !== 'SET_OPENING')) {
+    if (!/^\d+(?:\.\d+)?$/.test(quantityText) || !Number.isFinite(qty) || qty < 0 || (qty === 0 && adjustType !== 'SET' && adjustType !== 'SET_OPENING' && adjustType !== 'SET_USED')) {
       setAdjustError('Please enter a valid quantity. Allocation can be set to 0; credit and debit adjustments must be greater than 0.');
       return;
     }
@@ -1575,9 +1578,26 @@ export function AdminLeaveBalance() {
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-neutral-200">
                     <span className="text-[10px] text-amber-600 block">Used</span>
-                    <span className="text-xs font-bold text-amber-800">
-                      {currentAdjustStats.currentUsed.toFixed(1)} Days
-                    </span>
+                    <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                      <span className="text-xs font-bold text-amber-800">
+                        {currentAdjustStats.currentUsed.toFixed(1)} Days
+                      </span>
+                      {isSuperAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdjustType('SET_USED');
+                            setAdjustQuantity(currentAdjustStats.currentUsed.toFixed(2));
+                            setAdjustError(null);
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 hover:bg-amber-100"
+                          title="Edit used leave for the selected employee, year and leave type"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200">
                     <span className="text-[10px] text-emerald-700 block">Remaining</span>
@@ -1589,7 +1609,7 @@ export function AdminLeaveBalance() {
               </div>
 
               {/* 5. Adjustment Direction: Addition vs. Deduction */}
-              <div>
+              {adjustType !== 'SET_USED' && <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1.5">
                   5. Adjustment Direction <span className="text-rose-600">*</span>
                 </label>
@@ -1632,12 +1652,12 @@ export function AdminLeaveBalance() {
                     </div>
                   </button>
                 </div>
-              </div>
+              </div>}
 
               {/* 6. Adjustment Amount */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1">
-                  6. New Allocation / Adjustment Amount (in Days) <span className="text-rose-600">*</span>
+                  6. {adjustType === 'SET_USED' ? 'New Used Leave' : 'New Allocation / Adjustment Amount'} (in Days) <span className="text-rose-600">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -1656,7 +1676,7 @@ export function AdminLeaveBalance() {
                         : raw.slice(0, dotIndex + 1) + raw.slice(dotIndex + 1).replace(/\./g, '');
                       setAdjustQuantity(numericOnly);
                     }}
-                    placeholder={adjustType === 'SET' || adjustType === 'SET_OPENING' ? "e.g. 0, 4, or 12" : "e.g. 4 or 0.5"}
+                    placeholder={adjustType === 'SET' || adjustType === 'SET_OPENING' || adjustType === 'SET_USED' ? "e.g. 0, 4, or 12" : "e.g. 4 or 0.5"}
                     className="w-full text-xs font-mono font-bold p-2.5 bg-white rounded-lg border border-neutral-300 focus:outline-none focus:ring-1 focus:ring-red-700 focus:border-red-700"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400 font-semibold pointer-events-none">
@@ -1692,7 +1712,7 @@ export function AdminLeaveBalance() {
                     {currentAdjustStats.newAllocated.toFixed(1)} Days
                   </span>
                 </div>
-                {currentAdjustStats.isCasualLeave && (
+                {(currentAdjustStats.isCasualLeave || adjustType === 'SET_USED') && (
                   <div className="flex items-center justify-between text-neutral-700 mt-1">
                     <span>New Used:</span>
                     <span className="font-bold font-mono text-amber-800">
