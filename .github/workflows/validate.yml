@@ -19,6 +19,8 @@ jobs:
       - name: TypeScript check
         run: npm run lint
       - name: Production build
+        if: always()
         run: npm run build
       - name: Regression and project tests
+        if: always()
         run: npm test
