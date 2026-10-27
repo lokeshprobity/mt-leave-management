@@ -62,6 +62,10 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [submittingCancel, setSubmittingCancel] = useState(false);
+  const [returnedEditRequest, setReturnedEditRequest] = useState<LeaveRequestDto | null>(null);
+  const [returnedEditReason, setReturnedEditReason] = useState('');
+  const [returnedEditError, setReturnedEditError] = useState<string | null>(null);
+  const [submittingReturnedEdit, setSubmittingReturnedEdit] = useState(false);
 
   // Form State
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeDto[]>([]);
@@ -303,27 +307,39 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
     }
   };
 
-  const handleReapplyReturnedRequest = async (request: LeaveRequestDto) => {
-    const reason = window.prompt(
-      `Request ${request.requestNumber} was returned for correction.\nReturn comment: ${request.returnReason || 'Please provide a meaningful reason.'}\n\nEnter the corrected leave reason (at least 10 characters and two meaningful words):`,
-      request.reason || ''
-    );
-    if (reason === null) return;
+  const openReturnedRequestEditor = (request: LeaveRequestDto) => {
+    setReturnedEditRequest(request);
+    setReturnedEditReason(request.reason || '');
+    setReturnedEditError(null);
+  };
+
+  const handleReapplyReturnedRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!returnedEditRequest) return;
+    const reason = returnedEditReason.trim();
     const reasonError = validateMeaningfulLeaveReason(reason);
     if (reasonError) {
-      setError(reasonError);
+      setReturnedEditError(reasonError);
       return;
     }
+
+    setSubmittingReturnedEdit(true);
+    setReturnedEditError(null);
     try {
-      const res = await apiFetch(`/api/leave-requests/${request.id}/reapply`, {
-        method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
+      const res = await apiFetch(`/api/leave-requests/${returnedEditRequest.id}/reapply`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
       });
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to re-submit corrected leave request');
+      setReturnedEditRequest(null);
+      setReturnedEditReason('');
       setError(null);
       await fetchMyRequests();
     } catch (err: any) {
-      setError(err.message || 'Failed to re-submit corrected leave request');
+      setReturnedEditError(err.message || 'Failed to re-submit corrected leave request');
+    } finally {
+      setSubmittingReturnedEdit(false);
     }
   };
 
@@ -759,7 +775,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
                         <p className="font-semibold text-amber-900">Reason correction required</p>
                         <p className="text-amber-900">{r.returnReason || 'Please submit a more meaningful leave reason.'}</p>
-                        <button type="button" onClick={() => handleReapplyReturnedRequest(r)} className="min-h-[44px] px-4 py-2 rounded-lg bg-amber-700 text-white font-semibold hover:bg-amber-800">
+                        <button type="button" onClick={() => openReturnedRequestEditor(r)} className="min-h-[44px] px-4 py-2 rounded-lg bg-amber-700 text-white font-semibold hover:bg-amber-800">
                           Correct Reason & Reapply
                         </button>
                       </div>
@@ -1178,6 +1194,37 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
       )}
 
       {/* Apply Leave Modal (Mobile App-Like Form <768px & Preserved Desktop Modal >=768px) */}
+      {returnedEditRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-3 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="returned-leave-edit-title">
+          <form onSubmit={handleReapplyReturnedRequest} className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-neutral-200">
+            <div className="p-5 border-b border-neutral-200 bg-amber-50">
+              <h2 id="returned-leave-edit-title" className="text-lg font-bold text-neutral-900">Correct and Resubmit Leave</h2>
+              <p className="mt-1 text-sm text-neutral-700">Request {returnedEditRequest.requestNumber} was returned for correction. Update the leave reason below and resubmit it for approval from Stage 1.</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">Return comment</p>
+                <p className="mt-1 text-sm text-amber-950">{returnedEditRequest.returnReason || 'Please provide a meaningful leave reason.'}</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div><span className="text-neutral-500">Leave type</span><p className="font-semibold text-neutral-900">{returnedEditRequest.leaveTypeName || returnedEditRequest.leaveTypeCode || 'Leave'}</p></div>
+                <div><span className="text-neutral-500">Dates</span><p className="font-semibold text-neutral-900">{formatDate(returnedEditRequest.startDate)} – {formatDate(returnedEditRequest.endDate)}</p></div>
+              </div>
+              <div>
+                <label htmlFor="returned-leave-reason" className="block text-sm font-semibold text-neutral-900 mb-1.5">Corrected leave reason <span className="text-rose-600">*</span></label>
+                <textarea id="returned-leave-reason" value={returnedEditReason} onChange={(e) => setReturnedEditReason(e.target.value)} rows={4} maxLength={1000} required className="w-full rounded-xl border border-neutral-300 p-3 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="Explain the actual reason for your leave in clear words." />
+                <p className="mt-1 text-xs text-neutral-500">Enter at least 10 characters and two meaningful words.</p>
+              </div>
+              {returnedEditError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{returnedEditError}</p>}
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 p-4 border-t border-neutral-200">
+              <button type="button" disabled={submittingReturnedEdit} onClick={() => { setReturnedEditRequest(null); setReturnedEditError(null); }} className="min-h-[44px] rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 disabled:opacity-50">Cancel</button>
+              <button type="submit" disabled={submittingReturnedEdit} className="min-h-[44px] rounded-lg bg-amber-700 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50">{submittingReturnedEdit ? 'Resubmitting…' : 'Save Correction & Resubmit'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {showApplyModal && (
         <div
           id="leave-application-modal"
