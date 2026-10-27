@@ -295,59 +295,48 @@ export function AdminLeaveBalance() {
 
   const currentAdjustStats = useMemo(() => {
     const alloc = parseFloat(currentAdjustBalance?.allocated || '0') || 0;
+    const opening = parseFloat(currentAdjustBalance?.openingBalance || '0') || 0;
+    const carryForward = parseFloat(currentAdjustBalance?.carryForward || '0') || 0;
+    const adjustments = parseFloat(currentAdjustBalance?.adjustments || '0') || 0;
     const used = parseFloat(currentAdjustBalance?.used || '0') || 0;
-    const remaining =
-      currentAdjustBalance?.available !== undefined && currentAdjustBalance?.available !== null
-        ? parseFloat(currentAdjustBalance.available)
-        : Math.max(0, alloc - used);
+    const reserved = parseFloat(currentAdjustBalance?.reserved || '0') || 0;
+    const remaining = opening + alloc + carryForward + adjustments - used - reserved;
 
     const qty = parseFloat(adjustQuantity) || 0;
     const targetTypeNumeric = Number(adjustLeaveTypeId);
     const selectedLeaveType = leaveTypes.find((type) => Number(type.id) === targetTypeNumeric);
     const isCasualLeave = String(selectedLeaveType?.code || '').toUpperCase() === 'CL';
-    let delta = 0;
+    let newOpening = opening;
     let newAlloc = alloc;
     let newUsed = used;
 
     if (adjustType === 'SET_USED') {
-      delta = used - qty;
       newUsed = qty;
     } else if (adjustType === 'SET_OPENING') {
-      const opening = parseFloat(currentAdjustBalance?.openingBalance || '0') || 0;
-      delta = qty - opening;
-      newAlloc = alloc;
+      newOpening = qty;
     } else if (adjustType === 'CREDIT') {
-      delta = qty;
       newAlloc = alloc + qty;
     } else if (adjustType === 'DEBIT') {
-      delta = -qty;
-      if (isCasualLeave) {
-        // CL debit is consumption, not an entitlement reduction.
-        newAlloc = alloc;
-        newUsed = used + qty;
-      } else {
-        newAlloc = Math.max(0, alloc - qty);
-      }
+      // Debit consumes leave; it never reduces Allocated.
+      newUsed = used + qty;
     } else {
-      // SET
+      // SET: directly set Allocated without changing Used or adjustments.
       newAlloc = qty;
-      delta = newAlloc - alloc;
     }
 
-    const newRemaining = remaining + delta;
-
+    const newRemaining = newOpening + newAlloc + carryForward + adjustments - newUsed - reserved;
     return {
       currentAllocated: alloc,
       currentUsed: used,
       currentRemaining: remaining,
-      delta,
+      delta: newRemaining - remaining,
       newAllocated: newAlloc,
       newUsed,
       newRemaining,
       isNegative: newRemaining < 0,
       isCasualLeave,
     };
-  }, [currentAdjustBalance, adjustQuantity, adjustType, leaveTypes]);
+  }, [currentAdjustBalance, adjustQuantity, adjustType, leaveTypes, adjustLeaveTypeId]);
 
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
