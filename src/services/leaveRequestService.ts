@@ -464,6 +464,7 @@ export class LeaveRequestService {
     input: {
       employeeId?: number | string;
       employeeCode?: string;
+      submittedOnBehalfOf?: boolean;
       leaveTypeId: number;
       startDate: string;
       endDate: string;
