@@ -771,7 +771,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                       <span className="font-semibold text-neutral-900">Reason: </span>
                       <span>{r.reason}</span>
                     </div>
-                    {r.status === 'RETURNED_FOR_CORRECTION' && (
+                    {(r.status === 'RETURNED_FOR_CORRECTION' || r.finalStatus === 'RETURNED_FOR_CORRECTION') && (
                       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
                         <p className="font-semibold text-amber-900">Reason correction required</p>
                         <p className="text-amber-900">{r.returnReason || 'Please submit a more meaningful leave reason.'}</p>
@@ -1027,7 +1027,7 @@ export function MyLeavePortal({ targetEmployeeId }: MyLeavePortalProps = {}) {
                   <div>
                     <span className="font-semibold text-neutral-900">Reason:</span> {r.reason}
                   </div>
-                  {r.status === 'RETURNED_FOR_CORRECTION' && (
+                  {(r.status === 'RETURNED_FOR_CORRECTION' || r.finalStatus === 'RETURNED_FOR_CORRECTION') && (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
                       <p className="font-semibold text-amber-900">Reason correction required</p>
                       <p className="text-amber-900">{r.returnReason || 'Please submit a more meaningful leave reason.'}</p>
