@@ -1196,12 +1196,17 @@ export class LeaveService {
     if (!remarkText) {
       throw new ValidationError('A reason / remark is mandatory for balance adjustments');
     }
-    const leaveType = await this.getLeaveTypeById(input.leaveTypeId);
-    const isCasualLeave = String(leaveType?.code || '').toUpperCase() === 'CL';
-    // For CL, DEBIT means consumed leave: keep annual allocation unchanged and increase used.
-    // CREDIT remains an entitlement adjustment; non-CL adjustment behavior remains unchanged.
-    const debitAsUsage = isCasualLeave && input.adjustmentType === 'DEBIT';
+    // Keep manual balance operations single-purpose:
+    // CREDIT changes Allocated only; DEBIT consumes Used only; SET/SET_USED set one field.
     let delta = input.adjustmentType === 'CREDIT' || input.adjustmentType === 'SET_OPENING' ? qty : -qty;
+    let transactionQuantity = qty;
+    const debitAsUsage = input.adjustmentType === 'DEBIT';
+    const transactionReferenceType =
+      input.adjustmentType === 'CREDIT' ? 'MANUAL_ALLOCATION_CREDIT' :
+      input.adjustmentType === 'DEBIT' ? 'MANUAL_USED_DEBIT' :
+      input.adjustmentType === 'SET' ? 'MANUAL_ALLOCATION_SET' :
+      input.adjustmentType === 'SET_USED' ? 'MANUAL_USED_LEAVE_SET_V2' :
+      'MANUAL_OPENING_BALANCE_SET';
 
     if (isDbConfigured()) {
       const db = getDb();
@@ -1226,20 +1231,37 @@ export class LeaveService {
           const oldAlloc = Number(row.allocated || 0);
           const oldOpening = Number(row.openingBalance || 0);
           const oldUsed = Number(row.used || 0);
-          if (input.adjustmentType === 'SET') delta = qty - oldAlloc;
-          if (input.adjustmentType === 'SET_OPENING') delta = qty - oldOpening;
-          if (input.adjustmentType === 'SET_USED') delta = oldUsed - qty;
+          const oldAdjustments = Number(row.adjustments || 0);
+          if (input.adjustmentType === 'SET') {
+            delta = qty - oldAlloc;
+            transactionQuantity = delta;
+          }
+          if (input.adjustmentType === 'SET_OPENING') {
+            delta = qty - oldOpening;
+            transactionQuantity = delta;
+          }
+          if (input.adjustmentType === 'SET_USED') {
+            delta = oldUsed - qty;
+            transactionQuantity = qty - oldUsed;
+          }
           const newOpening = input.adjustmentType === 'SET_OPENING' ? qty : oldOpening;
-          const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : input.adjustmentType === 'SET_USED' ? oldAlloc : oldAlloc + delta;
-          const newUsed = input.adjustmentType === 'SET_USED' ? qty : debitAsUsage ? oldUsed + qty : oldUsed;
-          const newAdj = debitAsUsage || input.adjustmentType === 'SET_USED' ? Number(row.adjustments || 0) : Number(row.adjustments || 0) + delta;
-          if (debitAsUsage && newUsed + Number(row.reserved || 0) > Number(row.openingBalance || 0) + newAlloc + Number(row.carryForward || 0)) {
-            throw new ValidationError('CL debit exceeds the employee’s remaining balance.');
+          const newAlloc =
+            input.adjustmentType === 'SET' ? qty :
+            input.adjustmentType === 'CREDIT' ? oldAlloc + qty : oldAlloc;
+          const newUsed =
+            input.adjustmentType === 'SET_USED' ? qty :
+            input.adjustmentType === 'DEBIT' ? oldUsed + qty : oldUsed;
+          // Manual add/debit/set operations do not mutate the independent adjustments field.
+          const newAdj = oldAdjustments;
+          const entitlement = newOpening + newAlloc + Number(row.carryForward || 0) + newAdj;
+          if (newUsed + Number(row.reserved || 0) > entitlement) {
+            throw new ValidationError('Debit / used leave cannot exceed the employee’s remaining entitlement.');
           }
           const newAvail =
             newOpening +
             newAlloc +
-            Number(row.carryForward || 0) -
+            Number(row.carryForward || 0) +
+            newAdj -
             newUsed -
             Number(row.reserved || 0);
 
@@ -1263,16 +1285,12 @@ export class LeaveService {
             .returning();
           updatedRow = u;
         } else {
-          // A CL consumption debit must use an existing entitlement/balance record.
-          // Never create a negative or zero entitlement to represent consumption.
-          if (input.adjustmentType === 'SET_USED') {
-            throw new ValidationError('Cannot set Used Leave because this employee has no initialized balance record for the selected year and leave type.');
-          }
-          if (delta < 0 && input.adjustmentType !== 'SET_OPENING') {
-            throw new ValidationError('Cannot deduct from an uninitialized balance record (0 Days).');
+          // Consumption or setting Used requires an initialized entitlement row.
+          if (input.adjustmentType === 'DEBIT' || input.adjustmentType === 'SET_USED') {
+            throw new ValidationError('Cannot debit or set Used Leave because this employee has no initialized balance record for the selected year and leave type.');
           }
           const initialOpening = input.adjustmentType === 'SET_OPENING' ? qty : 0;
-          const initialAllocation = input.adjustmentType === 'SET_OPENING' ? 0 : delta;
+          const initialAllocation = input.adjustmentType === 'SET_OPENING' ? 0 : qty;
           const [ins] = await db
             .insert(leaveBalances)
             .values({
@@ -1282,7 +1300,7 @@ export class LeaveService {
               openingBalance: String(initialOpening.toFixed(2)),
               allocated: String(initialAllocation.toFixed(2)),
               carryForward: '0.00',
-              adjustments: String((input.adjustmentType === 'SET_OPENING' ? 0 : delta).toFixed(2)),
+              adjustments: '0.00',
               used: '0.00',
               reserved: '0.00',
               available: String((initialOpening + initialAllocation).toFixed(2)),
@@ -1298,8 +1316,8 @@ export class LeaveService {
           leaveTypeId: input.leaveTypeId,
           leaveBalanceId: balId,
           transactionType: debitAsUsage ? 'ADJUSTMENT' : 'ADJUSTMENT',
-          quantity: String(delta.toFixed(2)),
-          referenceType: input.adjustmentType === 'SET_USED' ? 'MANUAL_USED_LEAVE_SET' : input.adjustmentType === 'SET_OPENING' ? 'MANUAL_OPENING_BALANCE_SET' : debitAsUsage ? 'MANUAL_CL_CONSUMPTION' : 'MANUAL_ADJUSTMENT',
+          quantity: String(transactionQuantity.toFixed(2)),
+          referenceType: transactionReferenceType,
           referenceId: `ADJ_${Date.now()}`,
           remarks: remarkText,
           createdBy: actor.userId || null,
@@ -1372,21 +1390,36 @@ export class LeaveService {
       const oldAlloc = Number(memBal.allocated || 0);
       const oldOpening = Number(memBal.openingBalance || 0);
       const oldUsed = Number(memBal.used || 0);
-      if (input.adjustmentType === 'SET') delta = qty - oldAlloc;
-      if (input.adjustmentType === 'SET_OPENING') delta = qty - oldOpening;
-      if (input.adjustmentType === 'SET_USED') delta = oldUsed - qty;
+      const oldAdjustments = Number(memBal.adjustments || 0);
+      if (input.adjustmentType === 'SET') {
+        delta = qty - oldAlloc;
+        transactionQuantity = delta;
+      }
+      if (input.adjustmentType === 'SET_OPENING') {
+        delta = qty - oldOpening;
+        transactionQuantity = delta;
+      }
+      if (input.adjustmentType === 'SET_USED') {
+        delta = oldUsed - qty;
+        transactionQuantity = qty - oldUsed;
+      }
       const newOpening = input.adjustmentType === 'SET_OPENING' ? qty : oldOpening;
-      const newAlloc = debitAsUsage ? oldAlloc : input.adjustmentType === 'SET' ? qty : input.adjustmentType === 'SET_USED' ? oldAlloc : oldAlloc + delta;
-      const newUsed = input.adjustmentType === 'SET_USED' ? qty : debitAsUsage ? oldUsed + qty : oldUsed;
-      const newAdj = debitAsUsage || input.adjustmentType === 'SET_USED' ? Number(memBal.adjustments || 0) : Number(memBal.adjustments || 0) + delta;
-      const newEntitlement = Number(memBal.openingBalance || 0) + newAlloc + Number(memBal.carryForward || 0);
-      if (debitAsUsage && newUsed + Number(memBal.reserved || 0) > newEntitlement) {
-        throw new ValidationError('CL debit exceeds the employee’s remaining balance.');
+      const newAlloc =
+        input.adjustmentType === 'SET' ? qty :
+        input.adjustmentType === 'CREDIT' ? oldAlloc + qty : oldAlloc;
+      const newUsed =
+        input.adjustmentType === 'SET_USED' ? qty :
+        input.adjustmentType === 'DEBIT' ? oldUsed + qty : oldUsed;
+      const newAdj = oldAdjustments;
+      const entitlement = newOpening + newAlloc + Number(memBal.carryForward || 0) + newAdj;
+      if (newUsed + Number(memBal.reserved || 0) > entitlement) {
+        throw new ValidationError('Debit / used leave cannot exceed the employee’s remaining entitlement.');
       }
       const newAvail =
         newOpening +
         newAlloc +
-        Number(memBal.carryForward || 0) -
+        Number(memBal.carryForward || 0) +
+        newAdj -
         newUsed -
         Number(memBal.reserved || 0);
 
@@ -1410,8 +1443,8 @@ export class LeaveService {
       leaveTypeId: input.leaveTypeId,
       leaveBalanceId: memBal.id,
       transactionType: 'ADJUSTMENT',
-      quantity: delta.toFixed(2),
-      referenceType: input.adjustmentType === 'SET_OPENING' ? 'MANUAL_OPENING_BALANCE_SET' : debitAsUsage ? 'MANUAL_CL_CONSUMPTION' : 'MANUAL_ADJUSTMENT',
+      quantity: transactionQuantity.toFixed(2),
+      referenceType: transactionReferenceType,
       referenceId: `ADJ_${Date.now()}`,
       remarks: remarkText,
       createdBy: actor.userId || null,
