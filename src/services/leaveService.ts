@@ -767,8 +767,17 @@ export class LeaveService {
     const lt = typeMap?.get(b.leaveTypeId) || memoryLeaveTypes.find((t) => t.id === b.leaveTypeId);
     const emp = b.employeeId ? UserService.resolveEmployeeRecordSync(b.employeeId) : null;
     const dept = emp?.departmentId ? UserService.getDepartmentByIdSync(emp.departmentId) : null;
+    const calculatedAvailable =
+      Number(b.openingBalance || 0) +
+      Number(b.allocated || 0) +
+      Number(b.carryForward || 0) +
+      Number(b.adjustments || 0) -
+      Number(b.used || 0) -
+      Number(b.reserved || 0);
     return {
       ...b,
+      // Always expose Remaining from the canonical formula instead of trusting a stale stored value.
+      available: calculatedAvailable.toFixed(2),
       employeeCode: emp?.employeeCode || b.employeeCode,
       employeeName: emp ? (emp.employeeName || emp.username) : b.employeeName,
       departmentId: emp?.departmentId ?? b.departmentId ?? null,
@@ -1200,7 +1209,6 @@ export class LeaveService {
     // CREDIT changes Allocated only; DEBIT consumes Used only; SET/SET_USED set one field.
     let delta = input.adjustmentType === 'CREDIT' || input.adjustmentType === 'SET_OPENING' ? qty : -qty;
     let transactionQuantity = qty;
-    const debitAsUsage = input.adjustmentType === 'DEBIT';
     const transactionReferenceType =
       input.adjustmentType === 'CREDIT' ? 'MANUAL_ALLOCATION_CREDIT' :
       input.adjustmentType === 'DEBIT' ? 'MANUAL_USED_DEBIT' :
@@ -1315,7 +1323,7 @@ export class LeaveService {
           employeeId: numericEmpId,
           leaveTypeId: input.leaveTypeId,
           leaveBalanceId: balId,
-          transactionType: debitAsUsage ? 'ADJUSTMENT' : 'ADJUSTMENT',
+          transactionType: 'ADJUSTMENT',
           quantity: String(transactionQuantity.toFixed(2)),
           referenceType: transactionReferenceType,
           referenceId: `ADJ_${Date.now()}`,
