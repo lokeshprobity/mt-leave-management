@@ -596,7 +596,7 @@ export class LeaveRequestService {
     }
 
     // Notice & Authoritative Cutoff Rule Checks
-    if (policy) {
+    if (!isSuperAdminOnBehalf && policy) {
       if (classificationResult.isSameDay && !policy.sameDayAllowed) {
         validationErrors.push(`Same-day leave is not allowed for policy '${policy.policyName}'`);
       }
@@ -1386,7 +1386,6 @@ export class LeaveRequestService {
     const isSameDay = classificationResult.isSameDay;
 
     if (!isSuperAdminOnBehalf) {
-    if (!isSuperAdminOnBehalf) {
     // Check same-day policy
     // Same-day half-day requests are allowed; the dedicated half-day cutoff rule below still applies.
     // Keep sameDayAllowed enforcement for full-day requests.
@@ -1517,8 +1516,6 @@ export class LeaveRequestService {
           { reason: 'Detailed reason is required for post-start leave applications' }
         );
       }
-    }
-
     }
 
     }
