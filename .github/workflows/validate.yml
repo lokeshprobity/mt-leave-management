@@ -1,0 +1,29 @@
+name: Validate Leave Management
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/super-admin-backdated-leave]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript check
+        run: npm run lint
+      - name: Production build
+        if: always()
+        run: npm run build
+      - name: Focused backdated-leave regression
+        if: always()
+        run: npx tsx src/test/super-admin-backdated-leave.test.ts
+      - name: Existing project test suite
+        if: always()
+        run: npm test

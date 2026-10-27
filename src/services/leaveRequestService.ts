@@ -464,6 +464,7 @@ export class LeaveRequestService {
     input: {
       employeeId?: number | string;
       employeeCode?: string;
+      submittedOnBehalfOf?: boolean;
       leaveTypeId: number;
       startDate: string;
       endDate: string;
@@ -499,6 +500,12 @@ export class LeaveRequestService {
 
     const validationErrors: string[] = [];
     const warnings: string[] = [];
+    // Only authenticated Super Admin requests explicitly marked as on-behalf submissions
+    // may bypass date/cutoff rules. The actual submit endpoint independently validates the target.
+    const isSuperAdminOnBehalf =
+      actor.role === 'SUPER_ADMIN' &&
+      Boolean((input as any).submittedOnBehalfOf) &&
+      Boolean(input.employeeId ?? input.employeeCode);
 
     if (!leaveType) {
       validationErrors.push('Selected leave type does not exist');
@@ -590,7 +597,7 @@ export class LeaveRequestService {
     }
 
     // Notice & Authoritative Cutoff Rule Checks
-    if (policy) {
+    if (!isSuperAdminOnBehalf && policy) {
       if (classificationResult.isSameDay && !policy.sameDayAllowed) {
         validationErrors.push(`Same-day leave is not allowed for policy '${policy.policyName}'`);
       }
@@ -1194,6 +1201,23 @@ export class LeaveRequestService {
       }
     }
 
+    const isSuperAdminOnBehalf =
+      actor.role === 'SUPER_ADMIN' &&
+      Boolean((input as any).submittedOnBehalfOf) &&
+      rawRequestedEmp !== undefined &&
+      rawRequestedEmp !== null &&
+      String(rawRequestedEmp).trim() !== '';
+
+    if (isSuperAdminOnBehalf) {
+      const targetHierarchy = await UserService.getEmployeeRoleAndHierarchy(employeeId);
+      if (!targetHierarchy.employeeExists) {
+        throw new ValidationError('Selected employee was not found.', { employeeId: 'Select a valid employee.' });
+      }
+      if (String(targetHierarchy.role || '').toUpperCase() === 'SUPER_ADMIN') {
+        throw new ValidationError('Super Admin cannot be selected as an employee leave applicant.', { employeeId: 'Select a regular employee.' });
+      }
+    }
+
     // 3. Read leave type (must be active)
     const leaveType = await LeaveService.getLeaveTypeById(input.leaveTypeId);
     if (!leaveType) {
@@ -1362,6 +1386,7 @@ export class LeaveRequestService {
     const classification = classificationResult.classification;
     const isSameDay = classificationResult.isSameDay;
 
+    if (!isSuperAdminOnBehalf) {
     // Check same-day policy
     // Same-day half-day requests are allowed; the dedicated half-day cutoff rule below still applies.
     // Keep sameDayAllowed enforcement for full-day requests.
@@ -1461,6 +1486,8 @@ export class LeaveRequestService {
           );
         }
       }
+    }
+
     }
 
     // 10. Late & Post-Start Request Rules & Emergency Reason Validation
@@ -1748,9 +1775,11 @@ export class LeaveRequestService {
             actorEmployeeCode: actor.employeeCode || resolvedEmpCode || null,
             actorRole: actor.role,
             actorName: actor.username || resolvedEmpName || 'Applicant',
-            remarks: emergencyWaiverApplicable
-              ? `Submitted emergency leave request for ${workingDaysResult.totalDays} day(s) [${classification}] with advance notice waiver requested under Emergency Exception clause`
-              : `Submitted leave request for ${workingDaysResult.totalDays} day(s) [${classification}]`,
+            remarks: isSuperAdminOnBehalf
+              ? `Submitted by Super Admin on behalf of ${resolvedEmpName} (${resolvedEmpCode}); date cutoff restrictions bypassed by Super Admin authority`
+              : emergencyWaiverApplicable
+                ? `Submitted emergency leave request for ${workingDaysResult.totalDays} day(s) [${classification}] with advance notice waiver requested under Emergency Exception clause`
+                : `Submitted leave request for ${workingDaysResult.totalDays} day(s) [${classification}]`,
             comments: input.reason.trim(),
             ipAddress: auditMeta?.ipAddress || null,
             userAgent: auditMeta?.userAgent || null,
@@ -1814,6 +1843,10 @@ export class LeaveRequestService {
               classification,
               stage: initialStageLabel,
               hasAttachment: resultDto.hasAttachment,
+              submittedOnBehalfOf: isSuperAdminOnBehalf,
+              dateCutoffOverrideUsed: isSuperAdminOnBehalf,
+              actingSuperAdminUserId: isSuperAdminOnBehalf ? actor.userId || null : null,
+              actingSuperAdminUsername: isSuperAdminOnBehalf ? actor.username || null : null,
               emergencyExceptionClause: emergencyWaiverApplicable,
               advanceNoticeWaiverRequested: Boolean(input.emergencyException),
             },
