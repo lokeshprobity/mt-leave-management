@@ -1617,7 +1617,7 @@ export function AdminLeaveBalance() {
                       <span>ADDITION (Credit)</span>
                     </div>
                     <div className="text-[10px] text-neutral-500 mt-0.5">
-                      Add previous / opening balance
+                      Increase Allocated only; Used remains unchanged
                     </div>
                   </button>
 
@@ -1635,9 +1635,7 @@ export function AdminLeaveBalance() {
                       <span>DEDUCTION (Debit)</span>
                     </div>
                     <div className="text-[10px] text-neutral-500 mt-0.5">
-                      {Number(adjustLeaveTypeId) === Number(leaveTypes.find((type) => type.code.toUpperCase() === 'CL')?.id)
-                        ? 'Record consumed CL as Used; annual allocation stays unchanged'
-                        : 'Deduct / correct excess entitlement'}
+                      Record consumed leave as Used; Allocated remains unchanged
                     </div>
                   </button>
                 </div>
@@ -1646,7 +1644,7 @@ export function AdminLeaveBalance() {
               {/* 6. Adjustment Amount */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1">
-                  6. {adjustType === 'SET_USED' ? 'New Used Leave' : 'New Allocation / Adjustment Amount'} (in Days) <span className="text-rose-600">*</span>
+                  6. {adjustType === 'SET_USED' ? 'New Used Leave' : adjustType === 'CREDIT' || adjustType === 'DEBIT' ? 'Days to Add / Debit' : adjustType === 'SET_OPENING' ? 'New Opening Balance' : 'New Allocated Leave'} <span className="text-rose-600">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -1701,7 +1699,7 @@ export function AdminLeaveBalance() {
                     {currentAdjustStats.newAllocated.toFixed(1)} Days
                   </span>
                 </div>
-                {(currentAdjustStats.isCasualLeave || adjustType === 'SET_USED') && (
+                {(adjustType === 'DEBIT' || adjustType === 'SET_USED') && (
                   <div className="flex items-center justify-between text-neutral-700 mt-1">
                     <span>New Used:</span>
                     <span className="font-bold font-mono text-amber-800">
