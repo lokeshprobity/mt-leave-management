@@ -342,7 +342,9 @@ async function hasCustomRoleRoutePermission(req: Request, allowedRoles: UserRole
     if (is(/\/api\/roles(?:\/[^/]+)?(?:\/permissions)?$/)) required = 'ROLE_ASSIGN';
     else if (is(/\/api\/users\/\d+\/(?:role|unassign-role)$/)) required = 'ROLE_ASSIGN';
     else if (is(/\/api\/users\/\d+\/reset-password$/) || is(/\/api\/reset-password(?:\/.*)?$/)) required = 'USER_RESET_PASSWORD';
+    else if (is(/\/api\/users\/\d+\/permissions$/)) required = 'USER_PERMISSION_MANAGE';
     else if (is(/\/api\/users\/\d+\/status$/)) required = 'USER_STATUS';
+    else if (is(/\/api\/employees\/\d+\/hr-approval-workflow$/)) required = 'HR_APPROVAL_WORKFLOW_MANAGE';
     else if (is(/\/api\/employees\/\d+\/status$/)) required = 'EMPLOYEE_STATUS';
     else if (is(/\/api\/users$/) && method === 'POST') required = 'USER_CREATE';
     else if (is(/\/api\/users(?:\/\d+)?$/) && method === 'GET') required = 'USER_VIEW';
