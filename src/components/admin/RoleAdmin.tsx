@@ -131,7 +131,7 @@ export function RoleAdmin() {
       const permissionRes = await apiFetch('/api/roles/my-permissions').catch(() => null);
       if (permissionRes?.ok) {
         const permissionData = await permissionRes.json().catch(() => ({}));
-        setCanManageRoles(Array.isArray(permissionData.permissions) && permissionData.permissions.includes('ROLE_ASSIGN'));
+        setCanManageRoles(isSuperAdmin || (Array.isArray(permissionData.permissions) && permissionData.permissions.includes('ROLE_ASSIGN')));
       } else {
         setCanManageRoles(isSuperAdmin);
       }
