@@ -7343,8 +7343,8 @@ export class UserService {
     },
     actor: AuthContext
   ): Promise<CompanyBrandingDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can upload or replace the company logo.');
+    if (!actor || !(await this.hasPermission(actor, 'SYSTEM_SETTINGS_MANAGE'))) {
+      throw new Error('Forbidden: SYSTEM_SETTINGS_MANAGE permission is required to upload or replace the company logo.');
     }
 
     const stored = AttachmentService.validateAndStoreImage({
@@ -7427,8 +7427,8 @@ export class UserService {
   }
 
   public static async removeCompanyLogo(actor: AuthContext): Promise<CompanyBrandingDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can remove the company logo.');
+    if (!actor || !(await this.hasPermission(actor, 'SYSTEM_SETTINGS_MANAGE'))) {
+      throw new Error('Forbidden: SYSTEM_SETTINGS_MANAGE permission is required to remove the company logo.');
     }
 
     const previousLogo = memoryCompanyLogo ? { ...memoryCompanyLogo } : null;
