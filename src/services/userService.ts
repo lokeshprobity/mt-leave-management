@@ -5333,6 +5333,16 @@ export class UserService {
       }
     }
 
+    if (
+      input.role !== undefined ||
+      input.roleId !== undefined ||
+      input.operationalRole !== undefined
+    ) {
+      if (!(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+        throw new Error('Forbidden: ROLE_ASSIGN permission is required to change a user role or operational role.');
+      }
+    }
+
     if (input.role || input.roleId) {
       const prevOp = this.resolveOperationalRoleForRecord(record);
       const roleInfo = input.roleId
