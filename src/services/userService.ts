@@ -1972,6 +1972,9 @@ export class UserService {
     }
 
     const normalizedCode = normalizeRoleCode(rawCodeInput);
+    if (normalizedCode === 'SUPER_ADMIN' || normalizeRoleCode(rawDisplayName) === 'SUPER_ADMIN') {
+      throw new ValidationError('This role code/name is reserved and cannot be created.');
+    }
     if (normalizedCode.length < 2 || !/^[A-Z][A-Z0-9_]*$/.test(normalizedCode)) {
       throw new ValidationError(
         'Role code must start with a letter and contain at least 2 valid alphanumeric characters.'
@@ -3005,6 +3008,10 @@ export class UserService {
       const mapped = this.mapRoleNameToId(targetRole);
       roleId = mapped.id;
       roleName = mapped.name;
+    }
+
+    if (String(roleName).toUpperCase() === 'SUPER_ADMIN' && !(actor.role === 'SUPER_ADMIN' && user.id === 1 && user.username === 'superadmin')) {
+      throw new ValidationError('The protected administrative role cannot be assigned to any user.');
     }
 
     if (user.id === 1 && user.username === 'superadmin' && roleName !== 'SUPER_ADMIN') {
