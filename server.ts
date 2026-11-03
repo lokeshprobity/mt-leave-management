@@ -386,10 +386,8 @@ export function registerApiRoutes(app: express.Express) {
   // Upload or Replace Company Logo (SUPER_ADMIN Only)
   const handleCompanyLogoUpload = async (req: Request, res: Response) => {
     try {
-      if (!req.user || req.user.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({
-          error: 'Forbidden: Only SUPER_ADMIN can upload or replace the company logo.',
-        });
+      if (!req.user || !(await UserService.hasPermission(req.user, 'SYSTEM_SETTINGS_MANAGE'))) {
+        return res.status(403).json({ error: 'Forbidden: SYSTEM_SETTINGS_MANAGE permission is required.' });
       }
       const { fileName, fileData, mimeType } = req.body || {};
       const branding = await UserService.uploadCompanyLogo(
@@ -415,10 +413,8 @@ export function registerApiRoutes(app: express.Express) {
   // Remove Company Logo and Restore Default Branding (SUPER_ADMIN Only)
   const handleCompanyLogoRemove = async (req: Request, res: Response) => {
     try {
-      if (!req.user || req.user.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({
-          error: 'Forbidden: Only SUPER_ADMIN can remove the company logo.',
-        });
+      if (!req.user || !(await UserService.hasPermission(req.user, 'SYSTEM_SETTINGS_MANAGE'))) {
+        return res.status(403).json({ error: 'Forbidden: SYSTEM_SETTINGS_MANAGE permission is required.' });
       }
       const branding = await UserService.removeCompanyLogo(req.user);
       return res.json({ success: true, branding });
@@ -509,13 +505,13 @@ export function registerApiRoutes(app: express.Express) {
     requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT']),
     async (_req: Request, res: Response) => {
     try {
-      const rolesList = await UserService.getRoles();
+      const rolesList = (await UserService.getRoles()).filter((role) => String(role.code || role.name).trim().toUpperCase() !== 'SUPER_ADMIN');
       const configured = isDbConfigured();
       return res.json({
         success: true,
         source: configured ? 'database' : 'default_config',
         roles: rolesList,
-        availablePermissions: UserService.getAvailablePermissions(),
+        availablePermissions: UserService.getAvailablePermissions().filter((permission) => permission.code !== 'ALL_PERMISSIONS'),
         isDbConnected: configured,
       });
     } catch (error: any) {
@@ -534,8 +530,8 @@ export function registerApiRoutes(app: express.Express) {
         const userHasPermission = await UserService.hasPermission(req.user, 'LEAVE_RETURN_FOR_CORRECTION');
         return res.json({
           success: true,
-          role: req.user.role,
-          permissions,
+          ...(req.user.role === 'SUPER_ADMIN' ? {} : { role: req.user.role }),
+          permissions: permissions.filter((permission: string) => permission !== 'ALL_PERMISSIONS'),
           canReturnForCorrection: userHasPermission,
         });
       } catch (err: any) {
@@ -550,7 +546,7 @@ export function registerApiRoutes(app: express.Express) {
     async (_req: Request, res: Response) => {
     return res.json({
       success: true,
-      permissions: UserService.getAvailablePermissions(),
+      permissions: UserService.getAvailablePermissions().filter((permission) => permission.code !== 'ALL_PERMISSIONS'),
     });
   });
 
@@ -563,13 +559,13 @@ export function registerApiRoutes(app: express.Express) {
         if (!rawParam) return res.status(400).json({ error: 'Invalid role ID or code' });
         const roleIdOrName = /^\d+$/.test(rawParam) ? Number(rawParam) : rawParam;
         const role = await UserService.getRoleByIdOrCode(roleIdOrName);
-        if (!role) {
+        if (!role || String(role.code || role.name).toUpperCase() === 'SUPER_ADMIN') {
           return res.status(404).json({ error: `Role '${rawParam}' not found.` });
         }
         return res.json({
           success: true,
           role,
-          availablePermissions: UserService.getAvailablePermissions(),
+          availablePermissions: UserService.getAvailablePermissions().filter((permission) => permission.code !== 'ALL_PERMISSIONS'),
         });
       } catch (err: any) {
         return res.status(500).json({ error: err.message || 'Failed to fetch role details' });
@@ -2567,9 +2563,7 @@ export function registerApiRoutes(app: express.Express) {
         const isActive = req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined;
         const search = req.query.search as string | undefined;
         const users = await UserService.getUsers({ role, isActive, search });
-        const visibleUsers = req.user?.role === 'SUPER_ADMIN'
-          ? users
-          : users.filter((user: any) => String(user.roleName || user.role || '').toUpperCase() !== 'SUPER_ADMIN');
+        const visibleUsers = users.filter((user: any) => String(user.roleName || user.role || '').trim().toUpperCase() !== 'SUPER_ADMIN');
         res.json({ success: true, users: visibleUsers });
       } catch (err: any) {
         res.status(500).json({ error: err.message });

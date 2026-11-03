@@ -24,6 +24,9 @@ jobs:
       - name: Focused backdated-leave regression
         if: always()
         run: npx tsx src/test/super-admin-backdated-leave.test.ts
+      - name: Admin granular permissions regression
+        if: always()
+        run: npx tsx src/test/admin-granular-permissions.test.ts
       - name: Existing project test suite
         if: always()
         run: npm test

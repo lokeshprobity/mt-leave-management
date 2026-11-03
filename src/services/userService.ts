@@ -534,11 +534,19 @@ export const ALL_SYSTEM_PERMISSIONS: Array<{
   category: string;
 }> = [
   { code: 'ALL_PERMISSIONS', label: 'All System Permissions (Full Control)', category: 'System & Security' },
+  { code: 'USER_VIEW', label: 'View User Accounts & Activity', category: 'User & Role Administration' },
+  { code: 'SYSTEM_SETTINGS_MANAGE', label: 'Manage System Settings & Company Branding', category: 'System & Security' },
+  { code: 'LEAVE_TYPE_MANAGE', label: 'Manage Leave Types', category: 'Leave & Approvals' },
+  { code: 'LEAVE_POLICY_MANAGE', label: 'Manage Leave Policies', category: 'Leave & Approvals' },
+  { code: 'LEAVE_ADMIN_EDIT', label: 'Edit Submitted Leave Requests', category: 'Leave & Approvals' },
+  { code: 'LEAVE_ADMIN_DELETE', label: 'Delete Leave Requests with Balance Reversal', category: 'Leave & Approvals' },
+  { code: 'HR_APPROVAL_WORKFLOW_MANAGE', label: 'Configure HR Approval Required Workflow', category: 'Leave & Approvals' },
   { code: 'USER_CREATE', label: 'Create User Accounts', category: 'User & Role Administration' },
   { code: 'USER_EDIT', label: 'Edit User Accounts', category: 'User & Role Administration' },
   { code: 'USER_DELETE', label: 'Delete User Accounts', category: 'User & Role Administration' },
   { code: 'USER_STATUS', label: 'Activate / Deactivate Users', category: 'User & Role Administration' },
   { code: 'USER_RESET_PASSWORD', label: 'Reset User Passwords', category: 'User & Role Administration' },
+  { code: 'USER_PERMISSION_MANAGE', label: 'Manage Individual User Permissions', category: 'User & Role Administration' },
   { code: 'ROLE_ASSIGN', label: 'Assign Roles & Configure Permissions', category: 'User & Role Administration' },
   { code: 'EMPLOYEE_VIEW', label: 'View Employee Directory', category: 'Employee Master' },
   { code: 'EMPLOYEE_CREATE', label: 'Create Employees', category: 'Employee Master' },
@@ -1944,8 +1952,8 @@ export class UserService {
     input: CreateRoleInput,
     actor: AuthContext
   ): Promise<RoleDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can create new system roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to create roles.');
     }
     this.ensureProductionDbGuard();
 
@@ -1965,6 +1973,9 @@ export class UserService {
     }
 
     const normalizedCode = normalizeRoleCode(rawCodeInput);
+    if (normalizedCode === 'SUPER_ADMIN' || normalizeRoleCode(rawDisplayName) === 'SUPER_ADMIN') {
+      throw new ValidationError('This role code/name is reserved and cannot be created.');
+    }
     if (normalizedCode.length < 2 || !/^[A-Z][A-Z0-9_]*$/.test(normalizedCode)) {
       throw new ValidationError(
         'Role code must start with a letter and contain at least 2 valid alphanumeric characters.'
@@ -2105,8 +2116,8 @@ export class UserService {
     input: UpdateRoleInput,
     actor: AuthContext
   ): Promise<RoleDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can edit or update roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to edit roles.');
     }
     this.ensureProductionDbGuard();
 
@@ -2350,8 +2361,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; deleted: boolean; role: RoleDto; message: string }> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can delete roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to delete roles.');
     }
     this.ensureProductionDbGuard();
 
@@ -2541,8 +2552,8 @@ export class UserService {
     input: { permissions: string[]; description?: string; isActive?: boolean },
     actor: AuthContext
   ): Promise<RoleDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can configure role permissions.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to configure role permissions.');
     }
 
     if (!Array.isArray(input.permissions)) {
@@ -2980,8 +2991,8 @@ export class UserService {
     targetRole: number | UserRole,
     actor: AuthContext
   ): Promise<UserDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can assign or change roles.');
+    if (!(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to assign or change roles.');
     }
 
     const user = memoryUsers.find((u) => u.id === Number(userId));
@@ -2998,6 +3009,10 @@ export class UserService {
       const mapped = this.mapRoleNameToId(targetRole);
       roleId = mapped.id;
       roleName = mapped.name;
+    }
+
+    if (String(roleName).toUpperCase() === 'SUPER_ADMIN' && !(actor.role === 'SUPER_ADMIN' && user.id === 1 && user.username === 'superadmin')) {
+      throw new ValidationError('The protected administrative role cannot be assigned to any user.');
     }
 
     if (user.id === 1 && user.username === 'superadmin' && roleName !== 'SUPER_ADMIN') {
@@ -3099,8 +3114,8 @@ export class UserService {
     fallbackRole: UserRole = 'EMPLOYEE',
     actor: AuthContext
   ): Promise<UserDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can unassign or change user roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to unassign or change user roles.');
     }
     const user = memoryUsers.find((u) => u.id === Number(userId));
     if (!user) {
@@ -3335,8 +3350,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete departments.');
+    if (!(await this.hasPermission(actor, 'DEPARTMENT_MANAGE'))) {
+      throw new Error('Forbidden: DEPARTMENT_MANAGE permission is required to delete departments.');
     }
     const resolved = this.resolveDepartmentRecordSync(id);
     const dept = resolved ? memoryDepartments.find((d) => d.id === resolved.id) : undefined;
@@ -3550,8 +3565,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete designations.');
+    if (!(await this.hasPermission(actor, 'DESIGNATION_MANAGE'))) {
+      throw new Error('Forbidden: DESIGNATION_MANAGE permission is required to delete designations.');
     }
     const desig = memoryDesignations.find((d) => d.id === Number(id));
     if (!desig) throw new ValidationError(`Designation with ID ${id} not found.`);
@@ -3786,8 +3801,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator has permission to delete branches.');
+    if (!(await this.hasPermission(actor, 'BRANCH_MANAGE'))) {
+      throw new Error('Forbidden: BRANCH_MANAGE permission is required to delete branches.');
     }
     const branch = memoryBranches.find((b) => b.id === Number(id));
     if (!branch) throw new ValidationError(`Branch with ID ${id} not found.`);
@@ -4678,8 +4693,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete employee records.');
+    if (!(await this.hasPermission(actor, 'EMPLOYEE_DELETE'))) {
+      throw new Error('Forbidden: EMPLOYEE_DELETE permission is required to delete employee records.');
     }
 
     const resolvedUser = this.resolveEmployeeRecordSync(id);
@@ -4854,8 +4869,8 @@ export class UserService {
   }
 
   public static async createUser(input: CreateUserInput, actor: AuthContext): Promise<UserDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can create users.');
+    if (!(await this.hasPermission(actor, 'USER_CREATE'))) {
+      throw new Error('Forbidden: USER_CREATE permission is required to create users.');
     }
 
     this.ensureProductionDbGuard();
@@ -5326,6 +5341,16 @@ export class UserService {
       }
     }
 
+    if (
+      input.role !== undefined ||
+      input.roleId !== undefined ||
+      input.operationalRole !== undefined
+    ) {
+      if (!(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+        throw new Error('Forbidden: ROLE_ASSIGN permission is required to change a user role or operational role.');
+      }
+    }
+
     if (input.role || input.roleId) {
       const prevOp = this.resolveOperationalRoleForRecord(record);
       const roleInfo = input.roleId
@@ -5383,8 +5408,8 @@ export class UserService {
     if (input.officeLocation !== undefined) record.officeLocation = input.officeLocation;
     if (input.remarks !== undefined) record.remarks = input.remarks;
     if (input.hrApprovalRequired !== undefined) {
-      if (actor.role !== 'SUPER_ADMIN') {
-        throw new Error('Forbidden: Only Super Administrator can configure an employee’s HR Approval Required workflow setting.');
+      if (!(await this.hasPermission(actor, 'HR_APPROVAL_WORKFLOW_MANAGE'))) {
+        throw new Error('Forbidden: HR_APPROVAL_WORKFLOW_MANAGE permission is required to configure the HR Approval Required workflow setting.');
       }
       record.hrApprovalRequired = Boolean(input.hrApprovalRequired);
     }
@@ -5565,8 +5590,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can delete users.');
+    if (!(await this.hasPermission(actor, 'USER_DELETE'))) {
+      throw new Error('Forbidden: USER_DELETE permission is required to delete users.');
     }
 
     if (actor.userId === id) {
@@ -5704,8 +5729,8 @@ export class UserService {
     permissions: string[],
     actor: AuthContext
   ): Promise<{ success: boolean; user: UserDto }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can configure individual user permissions.');
+    if (!actor || !(await this.hasPermission(actor, 'USER_PERMISSION_MANAGE'))) {
+      throw new Error('Forbidden: USER_PERMISSION_MANAGE permission is required to configure individual user permissions.');
     }
     const userRec = memoryUsers.find((u) => u.id === Number(userId));
     if (!userRec) throw new ValidationError(`User #${userId} not found.`);
@@ -6137,8 +6162,8 @@ export class UserService {
       actor = actorOrNone;
     }
 
-    if (actor && actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can perform administrative password reset.');
+    if (actor && !(await this.hasPermission(actor, 'USER_RESET_PASSWORD'))) {
+      throw new Error('Forbidden: USER_RESET_PASSWORD permission is required for administrative password reset.');
     }
 
     if (newPassword && newPassword.length < 6) {
@@ -7337,8 +7362,8 @@ export class UserService {
     },
     actor: AuthContext
   ): Promise<CompanyBrandingDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can upload or replace the company logo.');
+    if (!actor || !(await this.hasPermission(actor, 'SYSTEM_SETTINGS_MANAGE'))) {
+      throw new Error('Forbidden: SYSTEM_SETTINGS_MANAGE permission is required to upload or replace the company logo.');
     }
 
     const stored = AttachmentService.validateAndStoreImage({
@@ -7421,8 +7446,8 @@ export class UserService {
   }
 
   public static async removeCompanyLogo(actor: AuthContext): Promise<CompanyBrandingDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can remove the company logo.');
+    if (!actor || !(await this.hasPermission(actor, 'SYSTEM_SETTINGS_MANAGE'))) {
+      throw new Error('Forbidden: SYSTEM_SETTINGS_MANAGE permission is required to remove the company logo.');
     }
 
     const previousLogo = memoryCompanyLogo ? { ...memoryCompanyLogo } : null;
@@ -7601,8 +7626,8 @@ export class UserService {
     required: boolean,
     actor: AuthContext
   ): Promise<EmployeeDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can configure an employee’s HR Approval Required workflow setting.');
+    if (!actor || !(await this.hasPermission(actor, 'HR_APPROVAL_WORKFLOW_MANAGE'))) {
+      throw new Error('Forbidden: HR_APPROVAL_WORKFLOW_MANAGE permission is required to configure this employee workflow setting.');
     }
     return this.updateEmployee(
       employeeIdOrCode,
@@ -7615,8 +7640,8 @@ export class UserService {
     settingKey: string,
     actor: AuthContext
   ): Promise<{ success: boolean; settingKey: string; message: string }> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete system settings.');
+    if (!actor || !(await this.hasPermission(actor, 'SYSTEM_SETTINGS_MANAGE'))) {
+      throw new Error('Forbidden: SYSTEM_SETTINGS_MANAGE permission is required to delete system settings.');
     }
     const cleanKey = String(settingKey || '').trim();
     if (!cleanKey) {

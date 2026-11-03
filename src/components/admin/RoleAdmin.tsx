@@ -33,6 +33,12 @@ const BUILT_IN_ROLE_CODES = new Set([
   'EMPLOYEE',
 ]);
 
+function isAdminRole(role?: Pick<RoleDto, 'name' | 'code' | 'displayName'> | null): boolean {
+  if (!role) return false;
+  return [role.name, role.code, role.displayName]
+    .some((value) => String(value || '').trim().toUpperCase() === 'ADMIN');
+}
+
 function normalizeRoleCodeInput(raw: string): string {
   return String(raw || '')
     .trim()
@@ -45,6 +51,7 @@ export function RoleAdmin() {
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<PermissionCatalogItem[]>([]);
   const [users, setUsers] = useState<UserDto[]>([]);
+  const [canManageRoles, setCanManageRoles] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -96,7 +103,9 @@ export function RoleAdmin() {
       }
 
       const rawRoles = Array.isArray(rolesData.roles) ? rolesData.roles : [];
-      const normalizedRoles: RoleDto[] = rawRoles.map((r: any, idx: number) => {
+      const normalizedRoles: RoleDto[] = rawRoles
+        .filter((r: any) => String(r.code || r.name || '').trim().toUpperCase() !== 'SUPER_ADMIN')
+        .map((r: any, idx: number) => {
         const code = String(r.code || r.name || '').toUpperCase();
         const isSys = Boolean(r.isSystem ?? BUILT_IN_ROLE_CODES.has(code));
         return {
@@ -114,13 +123,22 @@ export function RoleAdmin() {
       });
       setRoles(normalizedRoles);
 
+
       if (Array.isArray(rolesData.availablePermissions)) {
         setAvailablePermissions(rolesData.availablePermissions);
       }
 
+      const permissionRes = await apiFetch('/api/roles/my-permissions').catch(() => null);
+      if (permissionRes?.ok) {
+        const permissionData = await permissionRes.json().catch(() => ({}));
+        setCanManageRoles(isSuperAdmin || (Array.isArray(permissionData.permissions) && permissionData.permissions.includes('ROLE_ASSIGN')));
+      } else {
+        setCanManageRoles(isSuperAdmin);
+      }
+
       if (usersRes && usersRes.ok) {
         const usersData = await usersRes.json().catch(() => ({}));
-        setUsers(Array.isArray(usersData.users) ? usersData.users : []);
+        setUsers((Array.isArray(usersData.users) ? usersData.users : []).filter((u: any) => String(u.role || u.roleName || '').trim().toUpperCase() !== 'SUPER_ADMIN'));
       } else {
         setUsers([]);
       }
@@ -207,6 +225,21 @@ export function RoleAdmin() {
     setSuccessMsg(null);
   };
 
+  // Give the custom ADMIN role the same granular permission coverage as Super Admin.
+  // ALL_PERMISSIONS is deliberately excluded so the Admin role remains explicitly configurable
+  // and does not receive the protected Super Admin wildcard.
+  const grantSuperAdminPermissionSet = (target: 'configure' | 'form') => {
+    const granularCodes = availablePermissions
+      .filter((permission) => permission.code !== 'ALL_PERMISSIONS')
+      .map((permission) => permission.code);
+    if (target === 'configure') {
+      setConfirmRevoke(false);
+      setSelectedPerms(granularCodes);
+    } else {
+      setFormRolePerms(granularCodes);
+    }
+  };
+
   const togglePermission = (code: string) => {
     setConfirmRevoke(false);
     setSelectedPerms((prev) =>
@@ -216,7 +249,7 @@ export function RoleAdmin() {
 
   const handleSelectAllConfigurePerms = (category?: string) => {
     setConfirmRevoke(false);
-    const isSuperAdminTarget = editingRole?.name === 'SUPER_ADMIN';
+    const isSuperAdminTarget = false;
     const codesToAdd = availablePermissions
       .filter((p) => (!category || p.category === category) && (isSuperAdminTarget || p.code !== 'ALL_PERMISSIONS'))
       .map((p) => p.code);
@@ -346,7 +379,7 @@ export function RoleAdmin() {
   };
 
   const handleSelectAllFormPerms = (category?: string) => {
-    const isSuperAdminTarget = roleFormTarget?.name === 'SUPER_ADMIN';
+    const isSuperAdminTarget = false;
     const codesToAdd = availablePermissions
       .filter((p) => (!category || p.category === category) && (isSuperAdminTarget || p.code !== 'ALL_PERMISSIONS'))
       .map((p) => p.code);
@@ -503,7 +536,7 @@ export function RoleAdmin() {
           </p>
         </div>
 
-        {isSuperAdmin && (
+        {canManageRoles && (
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0">
             <button
               type="button"
@@ -559,7 +592,7 @@ export function RoleAdmin() {
             No roles found.
           </div>
         ) : (
-          roles.map((r) => {
+          roles.filter((r) => String(r.code || r.name).toUpperCase() !== 'SUPER_ADMIN').map((r) => {
             const permissions = Array.isArray(r.permissions) ? r.permissions : [];
             const isActive = r.isActive ?? true;
             const userCount = typeof r.userCount === 'number' ? r.userCount : 0;
@@ -567,9 +600,7 @@ export function RoleAdmin() {
             const displayTitle = r.displayName && r.displayName !== r.name ? `${r.displayName} (${r.name})` : r.name;
 
             const roleCardTone =
-              r.name === 'SUPER_ADMIN'
-                ? MT_COLOR_CARDS.indigo
-                : r.name === 'TOP_MANAGEMENT'
+              r.name === 'TOP_MANAGEMENT'
                   ? MT_COLOR_CARDS.amber
                   : r.name === 'HR'
                     ? MT_COLOR_CARDS.purple
@@ -639,7 +670,7 @@ export function RoleAdmin() {
                             {userCount} User{userCount === 1 ? '' : 's'}
                           </span>
                         </div>
-                        {isSuperAdmin && (
+                        {canManageRoles && (
                           <button
                             type="button"
                             disabled={!isActive}
@@ -654,7 +685,7 @@ export function RoleAdmin() {
                           </button>
                         )}
                       </div>
-                      {isSuperAdmin && (
+                      {canManageRoles && (
                         <div className="flex flex-col sm:items-end gap-1.5 w-full min-w-0">
                           <div className="flex flex-wrap items-center justify-start sm:justify-end gap-1.5 w-full min-w-0">
                             <button
@@ -720,7 +751,7 @@ export function RoleAdmin() {
                           No permissions granted
                         </span>
                       ) : (
-                        permissions.map((perm) => (
+                        permissions.filter((perm) => perm !== 'ALL_PERMISSIONS').map((perm) => (
                           <span
                             key={perm}
                             className="px-2 py-0.5 bg-white/90 border border-slate-300 rounded text-[10px] font-mono font-medium text-slate-800 break-all max-w-full"
@@ -858,6 +889,17 @@ export function RoleAdmin() {
                     System Permissions ({formRolePerms.length} of {availablePermissions.length} selected)
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
+                    {isAdminRole(roleFormTarget || { name: formRoleCode, code: formRoleCode, displayName: formRoleName }) && (
+                      <button
+                        type="button"
+                        onClick={() => grantSuperAdminPermissionSet('form')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-800 text-[11px] font-semibold cursor-pointer border border-red-200"
+                        title="Select all available individual permissions for this role"
+                      >
+                        <Shield className="w-3 h-3 shrink-0" />
+                        <span>Grant Full Admin Access</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       id="btn-select-all-perms"
@@ -881,9 +923,7 @@ export function RoleAdmin() {
 
                 <div className="space-y-3 max-h-72 overflow-y-auto p-2.5 bg-neutral-50 rounded-lg border border-neutral-200 min-w-0">
                   {Object.entries(groupedPermissions).map(([category, perms]) => {
-                    const selectableInCat = perms.filter(
-                      (p) => roleFormTarget?.name === 'SUPER_ADMIN' || p.code !== 'ALL_PERMISSIONS'
-                    );
+                    const selectableInCat = perms.filter((p) => p.code !== 'ALL_PERMISSIONS');
                     const selectedInCatCount = perms.filter((p) => formRolePerms.includes(p.code)).length;
                     return (
                       <div key={category} className="space-y-1.5 min-w-0">
@@ -913,8 +953,7 @@ export function RoleAdmin() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                           {perms.map((perm) => {
-                            const isSuperAdminPerm =
-                              perm.code === 'ALL_PERMISSIONS' && roleFormTarget?.name !== 'SUPER_ADMIN';
+                            const isSuperAdminPerm = perm.code === 'ALL_PERMISSIONS';
                             const checked =
                               formRolePerms.includes(perm.code) ||
                               (roleFormTarget?.name === 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS');
@@ -1130,10 +1169,21 @@ export function RoleAdmin() {
                     Granted Permissions ({selectedPerms.length} selected)
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
-                    {editingRole.name === 'SUPER_ADMIN' && (
+                    {false && (
                       <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 break-words max-w-full">
-                        SUPER_ADMIN always retains ALL_PERMISSIONS
+Protected wildcard permission is unavailable for assignment
                       </span>
+                    )}
+                    {isAdminRole(editingRole) && (
+                      <button
+                        type="button"
+                        onClick={() => grantSuperAdminPermissionSet('configure')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-800 text-[11px] font-semibold cursor-pointer border border-red-200"
+                        title="Select every individual permission available to the Super Admin role"
+                      >
+                        <Shield className="w-3 h-3 shrink-0" />
+                        <span>Grant Super Admin Permissions</span>
+                      </button>
                     )}
                     <button
                       type="button"
@@ -1183,10 +1233,9 @@ export function RoleAdmin() {
                         {perms.map((perm) => {
                           const checked =
                             selectedPerms.includes(perm.code) ||
-                            (editingRole.name === 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS');
+                            false;
                           const disabled =
-                            (editingRole.name === 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS') ||
-                            (editingRole.name !== 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS');
+                            perm.code === 'ALL_PERMISSIONS';
                           return (
                             <label
                               key={perm.code}
@@ -1302,7 +1351,7 @@ export function RoleAdmin() {
                   <option value="" disabled>
                     -- Choose User --
                   </option>
-                  {users.map((u) => (
+                  {users.filter((u) => String(u.role || u.roleName || '').toUpperCase() !== 'SUPER_ADMIN').map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.fullName} (@{u.username}) — Current: {u.role}
                     </option>
@@ -1321,7 +1370,7 @@ export function RoleAdmin() {
                   className="w-full min-w-0 max-w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-700/20 focus:border-red-700 bg-white"
                 >
                   {roles
-                    .filter((r) => r.isActive !== false)
+                    .filter((r) => r.isActive !== false && String(r.code || r.name).toUpperCase() !== 'SUPER_ADMIN')
                     .map((r) => (
                       <option key={r.name} value={r.name}>
                         {r.displayName && r.displayName !== r.name

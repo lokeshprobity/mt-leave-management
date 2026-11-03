@@ -365,8 +365,8 @@ export class LeaveService {
     input: CreateLeaveTypeInput,
     actor: AuthContext
   ): Promise<LeaveTypeDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can create leave types');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_TYPE_MANAGE'))) {
+      throw new Error('Forbidden: LEAVE_TYPE_MANAGE permission is required to create leave types.');
     }
 
     validateLeaveType(input);
@@ -413,8 +413,8 @@ export class LeaveService {
     input: UpdateLeaveTypeInput,
     actor: AuthContext
   ): Promise<LeaveTypeDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can update leave types');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_TYPE_MANAGE'))) {
+      throw new Error('Forbidden: LEAVE_TYPE_MANAGE permission is required to update leave types.');
     }
 
     validateLeaveType(input, true);
@@ -462,8 +462,8 @@ export class LeaveService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can delete leave types');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_TYPE_MANAGE'))) {
+      throw new Error('Forbidden: LEAVE_TYPE_MANAGE permission is required to delete leave types.');
     }
 
     const existing = await this.getLeaveTypeById(id);
@@ -580,8 +580,8 @@ export class LeaveService {
     input: CreateLeavePolicyInput,
     actor: AuthContext
   ): Promise<LeavePolicyDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can configure leave policies');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_POLICY_MANAGE'))) {
+      throw new Error('Forbidden: LEAVE_POLICY_MANAGE permission is required to create leave policies.');
     }
 
     validateLeavePolicy(input);
@@ -645,8 +645,8 @@ export class LeaveService {
     input: UpdateLeavePolicyInput,
     actor: AuthContext
   ): Promise<LeavePolicyDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can update leave policies');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_POLICY_MANAGE'))) {
+      throw new Error('Forbidden: LEAVE_POLICY_MANAGE permission is required to update leave policies.');
     }
 
     validateLeavePolicy(input, true);
@@ -723,8 +723,8 @@ export class LeaveService {
     id: number,
     actor: AuthContext
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can delete leave policies');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_POLICY_MANAGE'))) {
+      throw new Error('Forbidden: LEAVE_POLICY_MANAGE permission is required to delete leave policies.');
     }
 
     const existing = await this.getLeavePolicyById(id);
@@ -1194,8 +1194,9 @@ export class LeaveService {
     const rawEmp = input.employeeId ?? input.employeeCode;
     const resolvedEmp = UserService.resolveEmployeeRecordSync(rawEmp);
     const numericEmpId = resolvedEmp?.employeeId ?? Number(rawEmp);
-    if ((input.adjustmentType === 'SET' || input.adjustmentType === 'SET_OPENING' || input.adjustmentType === 'SET_USED') && actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can set an employee leave allocation or used leave.');
+    if ((input.adjustmentType === 'SET' || input.adjustmentType === 'SET_OPENING' || input.adjustmentType === 'SET_USED') &&
+        !(await UserService.hasPermission(actor, 'LEAVE_BALANCE_ADJUST'))) {
+      throw new Error('Forbidden: LEAVE_BALANCE_ADJUST permission is required to set leave allocation or used leave.');
     }
     const qty = Number(input.quantity ?? input.amount);
     if (isNaN(qty) || qty < 0 || (qty === 0 && input.adjustmentType !== 'SET' && input.adjustmentType !== 'SET_OPENING' && input.adjustmentType !== 'SET_USED')) {
@@ -1489,8 +1490,8 @@ export class LeaveService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can delete leave balance records');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_BALANCE_ADJUST'))) {
+      throw new Error('Forbidden: LEAVE_BALANCE_ADJUST permission is required to delete leave balance records.');
     }
 
     if (isDbConfigured()) {
@@ -1596,8 +1597,8 @@ export class LeaveService {
     id: number,
     actor: AuthContext
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Admin can delete leave balance transactions');
+    if (!(await UserService.hasPermission(actor, 'LEAVE_BALANCE_ADJUST'))) {
+      throw new Error('Forbidden: LEAVE_BALANCE_ADJUST permission is required to delete leave balance transactions.');
     }
 
     if (isDbConfigured()) {
