@@ -505,13 +505,13 @@ export function registerApiRoutes(app: express.Express) {
     requireRole(['SUPER_ADMIN', 'HR', 'TOP_MANAGEMENT']),
     async (_req: Request, res: Response) => {
     try {
-      const rolesList = await UserService.getRoles();
+      const rolesList = (await UserService.getRoles()).filter((role) => String(role.code || role.name).trim().toUpperCase() !== 'SUPER_ADMIN');
       const configured = isDbConfigured();
       return res.json({
         success: true,
         source: configured ? 'database' : 'default_config',
         roles: rolesList,
-        availablePermissions: UserService.getAvailablePermissions(),
+        availablePermissions: UserService.getAvailablePermissions().filter((permission) => permission.code !== 'ALL_PERMISSIONS'),
         isDbConnected: configured,
       });
     } catch (error: any) {
@@ -530,8 +530,8 @@ export function registerApiRoutes(app: express.Express) {
         const userHasPermission = await UserService.hasPermission(req.user, 'LEAVE_RETURN_FOR_CORRECTION');
         return res.json({
           success: true,
-          role: req.user.role,
-          permissions,
+          ...(req.user.role === 'SUPER_ADMIN' ? {} : { role: req.user.role }),
+          permissions: permissions.filter((permission: string) => permission !== 'ALL_PERMISSIONS'),
           canReturnForCorrection: userHasPermission,
         });
       } catch (err: any) {
@@ -546,7 +546,7 @@ export function registerApiRoutes(app: express.Express) {
     async (_req: Request, res: Response) => {
     return res.json({
       success: true,
-      permissions: UserService.getAvailablePermissions(),
+      permissions: UserService.getAvailablePermissions().filter((permission) => permission.code !== 'ALL_PERMISSIONS'),
     });
   });
 
@@ -559,7 +559,7 @@ export function registerApiRoutes(app: express.Express) {
         if (!rawParam) return res.status(400).json({ error: 'Invalid role ID or code' });
         const roleIdOrName = /^\d+$/.test(rawParam) ? Number(rawParam) : rawParam;
         const role = await UserService.getRoleByIdOrCode(roleIdOrName);
-        if (!role) {
+        if (!role || String(role.code || role.name).toUpperCase() === 'SUPER_ADMIN') {
           return res.status(404).json({ error: `Role '${rawParam}' not found.` });
         }
         return res.json({
