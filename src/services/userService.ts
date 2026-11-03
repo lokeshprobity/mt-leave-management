@@ -540,6 +540,7 @@ export const ALL_SYSTEM_PERMISSIONS: Array<{
   { code: 'LEAVE_POLICY_MANAGE', label: 'Manage Leave Policies', category: 'Leave & Approvals' },
   { code: 'LEAVE_ADMIN_EDIT', label: 'Edit Submitted Leave Requests', category: 'Leave & Approvals' },
   { code: 'LEAVE_ADMIN_DELETE', label: 'Delete Leave Requests with Balance Reversal', category: 'Leave & Approvals' },
+  { code: 'HR_APPROVAL_WORKFLOW_MANAGE', label: 'Configure HR Approval Required Workflow', category: 'Leave & Approvals' },
   { code: 'USER_CREATE', label: 'Create User Accounts', category: 'User & Role Administration' },
   { code: 'USER_EDIT', label: 'Edit User Accounts', category: 'User & Role Administration' },
   { code: 'USER_DELETE', label: 'Delete User Accounts', category: 'User & Role Administration' },
@@ -3792,8 +3793,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator has permission to delete branches.');
+    if (!(await this.hasPermission(actor, 'BRANCH_MANAGE'))) {
+      throw new Error('Forbidden: BRANCH_MANAGE permission is required to delete branches.');
     }
     const branch = memoryBranches.find((b) => b.id === Number(id));
     if (!branch) throw new ValidationError(`Branch with ID ${id} not found.`);
@@ -5389,8 +5390,8 @@ export class UserService {
     if (input.officeLocation !== undefined) record.officeLocation = input.officeLocation;
     if (input.remarks !== undefined) record.remarks = input.remarks;
     if (input.hrApprovalRequired !== undefined) {
-      if (actor.role !== 'SUPER_ADMIN') {
-        throw new Error('Forbidden: Only Super Administrator can configure an employee’s HR Approval Required workflow setting.');
+      if (!(await this.hasPermission(actor, 'HR_APPROVAL_WORKFLOW_MANAGE'))) {
+        throw new Error('Forbidden: HR_APPROVAL_WORKFLOW_MANAGE permission is required to configure the HR Approval Required workflow setting.');
       }
       record.hrApprovalRequired = Boolean(input.hrApprovalRequired);
     }
