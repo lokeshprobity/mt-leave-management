@@ -1167,6 +1167,17 @@ export function RoleAdmin() {
                         SUPER_ADMIN always retains ALL_PERMISSIONS
                       </span>
                     )}
+                    {isAdminRole(editingRole) && (
+                      <button
+                        type="button"
+                        onClick={() => grantSuperAdminPermissionSet('configure')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-800 text-[11px] font-semibold cursor-pointer border border-red-200"
+                        title="Select every individual permission available to the Super Admin role"
+                      >
+                        <Shield className="w-3 h-3 shrink-0" />
+                        <span>Grant Super Admin Permissions</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleSelectAllConfigurePerms()}
