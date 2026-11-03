@@ -357,6 +357,7 @@ async function hasCustomRoleRoutePermission(req: Request, allowedRoles: UserRole
     else if (is(/\\/api\\/leave-balances(?:\\/\\d+|\\/adjust)?$/)) required = 'LEAVE_BALANCE_ADJUST';
     else if (is(/\\/api\\/leave-balance-transactions\\/\\d+$/)) required = 'LEAVE_BALANCE_ADJUST';
     else if (is(/\\/api\\/settings(?:\\/[^/]+)?$/) || is(/\\/api\\/company-logo(?:\\/image)?$/) || is(/\\/api\\/company-branding(?:\\/logo)?$/)) required = 'SYSTEM_SETTINGS_MANAGE';
+    else if (is(/\\/api\\/branches(?:\\/\\d+)?$/)) required = 'BRANCH_MANAGE';
     else if (is(/\\/api\\/departments(?:\\/\\d+)?$/)) required = 'DEPARTMENT_MANAGE';
     else if (is(/\\/api\\/designations(?:\\/\\d+)?$/)) required = 'DESIGNATION_MANAGE';
     else if (is(/\\/api\\/shifts(?:\\/.*)?$/)) required = method === 'GET' ? 'SHIFT_VIEW' : 'SHIFT_EDIT';
