@@ -415,10 +415,8 @@ export function registerApiRoutes(app: express.Express) {
   // Remove Company Logo and Restore Default Branding (SUPER_ADMIN Only)
   const handleCompanyLogoRemove = async (req: Request, res: Response) => {
     try {
-      if (!req.user || req.user.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({
-          error: 'Forbidden: Only SUPER_ADMIN can remove the company logo.',
-        });
+      if (!req.user || !(await UserService.hasPermission(req.user, 'SYSTEM_SETTINGS_MANAGE'))) {
+        return res.status(403).json({ error: 'Forbidden: SYSTEM_SETTINGS_MANAGE permission is required.' });
       }
       const branding = await UserService.removeCompanyLogo(req.user);
       return res.json({ success: true, branding });
