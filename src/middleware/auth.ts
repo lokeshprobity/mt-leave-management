@@ -330,50 +330,39 @@ async function hasCustomRoleRoutePermission(req: Request, allowedRoles: UserRole
     return true;
   }
 
-  // SUPER_ADMIN-only route declarations may be delegated through explicit,
-  // granular role permissions. Never delegate the protected ALL_PERMISSIONS wildcard.
+  // Delegate SUPER_ADMIN-only routes only through an explicit permission selected
+  // for this exact resource/action. Unknown routes remain denied by default.
   if (allowedRoles.length === 1 && allowedRoles[0] === 'SUPER_ADMIN') {
     const method = (req.method || 'GET').toUpperCase();
-    const pathLower = ((req.baseUrl || '') + (req.path || req.url || '')).toLowerCase();
-    const required = pathLower.includes('/roles')
-      ? 'ROLE_ASSIGN'
-      : pathLower.includes('/reset-password')
-        ? 'USER_RESET_PASSWORD'
-        : pathLower.includes('/status')
-          ? (pathLower.includes('/employees') ? 'EMPLOYEE_STATUS' : 'USER_STATUS')
-          : pathLower.includes('/users') && method === 'POST'
-            ? 'USER_CREATE'
-            : pathLower.includes('/users') && method === 'DELETE'
-              ? 'USER_DELETE'
-              : pathLower.includes('/users') && method === 'GET'
-                ? 'USER_VIEW'
-                : pathLower.includes('/users')
-                  ? 'USER_EDIT'
-                  : pathLower.includes('/employees') && method === 'DELETE'
-                    ? 'EMPLOYEE_DELETE'
-                    : pathLower.includes('/employees') && method === 'POST'
-                      ? 'EMPLOYEE_CREATE'
-                      : pathLower.includes('/employees')
-                        ? 'EMPLOYEE_EDIT'
-                        : pathLower.includes('/audit')
-                          ? 'AUDIT_LOG_VIEW'
-                          : pathLower.includes('/leave-types')
-                            ? 'LEAVE_TYPE_MANAGE'
-                            : pathLower.includes('/leave-policies')
-                              ? 'LEAVE_POLICY_MANAGE'
-                              : pathLower.includes('/leave-balances')
-                                ? 'LEAVE_BALANCE_ADJUST'
-                                : pathLower.includes('/settings') || pathLower.includes('/company-logo') || pathLower.includes('/company-branding')
-                                  ? 'SYSTEM_SETTINGS_MANAGE'
-                                  : pathLower.includes('/departments')
-                                    ? 'DEPARTMENT_MANAGE'
-                                    : pathLower.includes('/designations')
-                                      ? 'DESIGNATION_MANAGE'
-                                      : pathLower.includes('/shifts')
-                                        ? 'SHIFT_EDIT'
-                                        : pathLower.includes('/leave-requests')
-                                          ? 'LEAVE_VIEW_ALL'
-                                          : '';
+    const pathLower = ((req.baseUrl || '') + (req.path || req.url || '')).toLowerCase().split('?')[0].replace(/\\/+$/, '') || '/';
+    const is = (pattern: RegExp) => pattern.test(pathLower);
+    let required = '';
+
+    // Role Master and role assignment are separate capabilities from user CRUD.
+    if (is(/\\/api\\/roles(?:\\/[^/]+)?(?:\\/permissions)?$/)) required = 'ROLE_ASSIGN';
+    else if (is(/\\/api\\/users\\/\\d+\\/(?:role|unassign-role)$/)) required = 'ROLE_ASSIGN';
+    else if (is(/\\/api\\/users\\/\\d+\\/reset-password$/) || is(/\\/api\\/reset-password(?:\\/.*)?$/)) required = 'USER_RESET_PASSWORD';
+    else if (is(/\\/api\\/users(?:\\/\\d+)?\\/status$/)) required = 'USER_STATUS';
+    else if (is(/\\/api\\/employees(?:\\/\\d+)?\\/status$/)) required = 'EMPLOYEE_STATUS';
+    else if (is(/\\/api\\/users$/) && method === 'POST') required = 'USER_CREATE';
+    else if (is(/\\/api\\/users(?:\\/\\d+)?$/) && method === 'GET') required = 'USER_VIEW';
+    else if (is(/\\/api\\/users\\/\\d+$/) && method === 'DELETE') required = 'USER_DELETE';
+    else if (is(/\\/api\\/users\\/\\d+$/) && ['PUT', 'PATCH'].includes(method)) required = 'USER_EDIT';
+    else if (is(/\\/api\\/employees$/) && method === 'POST') required = 'EMPLOYEE_CREATE';
+    else if (is(/\\/api\\/employees(?:\\/\\d+)?$/) && method === 'DELETE') required = 'EMPLOYEE_DELETE';
+    else if (is(/\\/api\\/employees(?:\\/\\d+)?$/) && ['PUT', 'PATCH'].includes(method)) required = 'EMPLOYEE_EDIT';
+    else if (is(/\\/api\\/audit(?:-logs)?$/)) required = 'AUDIT_LOG_VIEW';
+    else if (is(/\\/api\\/leave-types(?:\\/\\d+)?$/)) required = 'LEAVE_TYPE_MANAGE';
+    else if (is(/\\/api\\/leave-policies(?:\\/\\d+)?$/)) required = 'LEAVE_POLICY_MANAGE';
+    else if (is(/\\/api\\/leave-balances(?:\\/\\d+|\\/adjust)?$/)) required = 'LEAVE_BALANCE_ADJUST';
+    else if (is(/\\/api\\/leave-balance-transactions\\/\\d+$/)) required = 'LEAVE_BALANCE_ADJUST';
+    else if (is(/\\/api\\/settings(?:\\/[^/]+)?$/) || is(/\\/api\\/company-logo(?:\\/image)?$/) || is(/\\/api\\/company-branding(?:\\/logo)?$/)) required = 'SYSTEM_SETTINGS_MANAGE';
+    else if (is(/\\/api\\/departments(?:\\/\\d+)?$/)) required = 'DEPARTMENT_MANAGE';
+    else if (is(/\\/api\\/designations(?:\\/\\d+)?$/)) required = 'DESIGNATION_MANAGE';
+    else if (is(/\\/api\\/shifts(?:\\/.*)?$/)) required = method === 'GET' ? 'SHIFT_VIEW' : 'SHIFT_EDIT';
+    else if (is(/\\/api\\/leave-requests\\/\\d+$/) && method === 'PUT') required = 'LEAVE_ADMIN_EDIT';
+    else if (is(/\\/api\\/leave-requests\\/\\d+$/) && method === 'DELETE') required = 'LEAVE_ADMIN_DELETE';
+
     return required ? UserService.hasPermission(user, required) : false;
   }
 
