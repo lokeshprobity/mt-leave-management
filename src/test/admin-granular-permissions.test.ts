@@ -122,6 +122,26 @@ async function run() {
 
     const catalog = await fetch(baseUrl + '/api/roles/permissions-catalog', { headers: adminHeaders });
     assert(catalog.status === 200, 'Admin can view permission catalog when role administration is granted');
+    const catalogBody = await catalog.json();
+    assert(!(catalogBody.permissions || []).some((permission: any) => permission.code === 'ALL_PERMISSIONS'),
+      'Permission catalog never exposes the protected wildcard');
+
+    const roleList = await fetch(baseUrl + '/api/roles', { headers: adminHeaders });
+    const roleListBody = await roleList.json();
+    assert(roleList.status === 200, 'Admin can load Role Master with ROLE_ASSIGN');
+    assert(!(roleListBody.roles || []).some((role: any) => String(role.code || role.name).toUpperCase() === 'SUPER_ADMIN'),
+      'Role Master API never exposes the protected administrative role');
+    assert(!(roleListBody.availablePermissions || []).some((permission: any) => permission.code === 'ALL_PERMISSIONS'),
+      'Role Master API never exposes the protected wildcard');
+
+    const hiddenRole = await fetch(baseUrl + '/api/roles/SUPER_ADMIN', { headers: adminHeaders });
+    assert(hiddenRole.status === 404, 'Protected administrative role detail is not available through the API');
+
+    const userList = await fetch(baseUrl + '/api/users', { headers: adminHeaders });
+    const userListBody = await userList.json();
+    assert(userList.status === 200, 'Admin can load the user directory with USER_VIEW');
+    assert(!(userListBody.users || []).some((user: any) => String(user.role || user.roleName || '').toUpperCase() === 'SUPER_ADMIN'),
+      'User directory API never exposes the protected administrative account');
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     UserService.resetMemoryStores();
