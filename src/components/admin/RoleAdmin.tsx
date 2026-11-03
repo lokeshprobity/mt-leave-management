@@ -249,7 +249,7 @@ export function RoleAdmin() {
 
   const handleSelectAllConfigurePerms = (category?: string) => {
     setConfirmRevoke(false);
-    const isSuperAdminTarget = editingRole?.name === 'SUPER_ADMIN';
+    const isSuperAdminTarget = false;
     const codesToAdd = availablePermissions
       .filter((p) => (!category || p.category === category) && (isSuperAdminTarget || p.code !== 'ALL_PERMISSIONS'))
       .map((p) => p.code);
@@ -379,7 +379,7 @@ export function RoleAdmin() {
   };
 
   const handleSelectAllFormPerms = (category?: string) => {
-    const isSuperAdminTarget = roleFormTarget?.name === 'SUPER_ADMIN';
+    const isSuperAdminTarget = false;
     const codesToAdd = availablePermissions
       .filter((p) => (!category || p.category === category) && (isSuperAdminTarget || p.code !== 'ALL_PERMISSIONS'))
       .map((p) => p.code);
@@ -751,7 +751,7 @@ export function RoleAdmin() {
                           No permissions granted
                         </span>
                       ) : (
-                        permissions.map((perm) => (
+                        permissions.filter((perm) => perm !== 'ALL_PERMISSIONS').map((perm) => (
                           <span
                             key={perm}
                             className="px-2 py-0.5 bg-white/90 border border-slate-300 rounded text-[10px] font-mono font-medium text-slate-800 break-all max-w-full"
@@ -1169,7 +1169,7 @@ export function RoleAdmin() {
                     Granted Permissions ({selectedPerms.length} selected)
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
-                    {false && editingRole.name === 'SUPER_ADMIN' && (
+                    {false && (
                       <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 break-words max-w-full">
 Protected wildcard permission is unavailable for assignment
                       </span>
