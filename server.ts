@@ -2563,9 +2563,7 @@ export function registerApiRoutes(app: express.Express) {
         const isActive = req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined;
         const search = req.query.search as string | undefined;
         const users = await UserService.getUsers({ role, isActive, search });
-        const visibleUsers = req.user?.role === 'SUPER_ADMIN'
-          ? users
-          : users.filter((user: any) => String(user.roleName || user.role || '').toUpperCase() !== 'SUPER_ADMIN');
+        const visibleUsers = users.filter((user: any) => String(user.roleName || user.role || '').trim().toUpperCase() !== 'SUPER_ADMIN');
         res.json({ success: true, users: visibleUsers });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
