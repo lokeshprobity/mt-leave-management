@@ -1950,8 +1950,8 @@ export class UserService {
     input: CreateRoleInput,
     actor: AuthContext
   ): Promise<RoleDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can create new system roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to create roles.');
     }
     this.ensureProductionDbGuard();
 
@@ -2111,8 +2111,8 @@ export class UserService {
     input: UpdateRoleInput,
     actor: AuthContext
   ): Promise<RoleDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can edit or update roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to edit roles.');
     }
     this.ensureProductionDbGuard();
 
@@ -2356,8 +2356,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; deleted: boolean; role: RoleDto; message: string }> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can delete roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to delete roles.');
     }
     this.ensureProductionDbGuard();
 
@@ -2547,8 +2547,8 @@ export class UserService {
     input: { permissions: string[]; description?: string; isActive?: boolean },
     actor: AuthContext
   ): Promise<RoleDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can configure role permissions.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to configure role permissions.');
     }
 
     if (!Array.isArray(input.permissions)) {
@@ -2986,8 +2986,8 @@ export class UserService {
     targetRole: number | UserRole,
     actor: AuthContext
   ): Promise<UserDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can assign or change roles.');
+    if (!(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to assign or change roles.');
     }
 
     const user = memoryUsers.find((u) => u.id === Number(userId));
@@ -4860,8 +4860,8 @@ export class UserService {
   }
 
   public static async createUser(input: CreateUserInput, actor: AuthContext): Promise<UserDto> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can create users.');
+    if (!(await this.hasPermission(actor, 'USER_CREATE'))) {
+      throw new Error('Forbidden: USER_CREATE permission is required to create users.');
     }
 
     this.ensureProductionDbGuard();
