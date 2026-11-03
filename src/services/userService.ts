@@ -546,6 +546,7 @@ export const ALL_SYSTEM_PERMISSIONS: Array<{
   { code: 'USER_DELETE', label: 'Delete User Accounts', category: 'User & Role Administration' },
   { code: 'USER_STATUS', label: 'Activate / Deactivate Users', category: 'User & Role Administration' },
   { code: 'USER_RESET_PASSWORD', label: 'Reset User Passwords', category: 'User & Role Administration' },
+  { code: 'USER_PERMISSION_MANAGE', label: 'Manage Individual User Permissions', category: 'User & Role Administration' },
   { code: 'ROLE_ASSIGN', label: 'Assign Roles & Configure Permissions', category: 'User & Role Administration' },
   { code: 'EMPLOYEE_VIEW', label: 'View Employee Directory', category: 'Employee Master' },
   { code: 'EMPLOYEE_CREATE', label: 'Create Employees', category: 'Employee Master' },
@@ -5728,8 +5729,8 @@ export class UserService {
     permissions: string[],
     actor: AuthContext
   ): Promise<{ success: boolean; user: UserDto }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can configure individual user permissions.');
+    if (!actor || !(await this.hasPermission(actor, 'USER_PERMISSION_MANAGE'))) {
+      throw new Error('Forbidden: USER_PERMISSION_MANAGE permission is required to configure individual user permissions.');
     }
     const userRec = memoryUsers.find((u) => u.id === Number(userId));
     if (!userRec) throw new ValidationError(`User #${userId} not found.`);
@@ -7625,8 +7626,8 @@ export class UserService {
     required: boolean,
     actor: AuthContext
   ): Promise<EmployeeDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can configure an employee’s HR Approval Required workflow setting.');
+    if (!actor || !(await this.hasPermission(actor, 'HR_APPROVAL_WORKFLOW_MANAGE'))) {
+      throw new Error('Forbidden: HR_APPROVAL_WORKFLOW_MANAGE permission is required to configure this employee workflow setting.');
     }
     return this.updateEmployee(
       employeeIdOrCode,
@@ -7639,8 +7640,8 @@ export class UserService {
     settingKey: string,
     actor: AuthContext
   ): Promise<{ success: boolean; settingKey: string; message: string }> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete system settings.');
+    if (!actor || !(await this.hasPermission(actor, 'SYSTEM_SETTINGS_MANAGE'))) {
+      throw new Error('Forbidden: SYSTEM_SETTINGS_MANAGE permission is required to delete system settings.');
     }
     const cleanKey = String(settingKey || '').trim();
     if (!cleanKey) {
