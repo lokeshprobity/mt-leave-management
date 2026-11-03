@@ -3105,8 +3105,8 @@ export class UserService {
     fallbackRole: UserRole = 'EMPLOYEE',
     actor: AuthContext
   ): Promise<UserDto> {
-    if (!actor || actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can unassign or change user roles.');
+    if (!actor || !(await this.hasPermission(actor, 'ROLE_ASSIGN'))) {
+      throw new Error('Forbidden: ROLE_ASSIGN permission is required to unassign or change user roles.');
     }
     const user = memoryUsers.find((u) => u.id === Number(userId));
     if (!user) {
