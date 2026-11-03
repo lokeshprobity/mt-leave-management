@@ -3341,8 +3341,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete departments.');
+    if (!(await this.hasPermission(actor, 'DEPARTMENT_MANAGE'))) {
+      throw new Error('Forbidden: DEPARTMENT_MANAGE permission is required to delete departments.');
     }
     const resolved = this.resolveDepartmentRecordSync(id);
     const dept = resolved ? memoryDepartments.find((d) => d.id === resolved.id) : undefined;
@@ -3556,8 +3556,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete designations.');
+    if (!(await this.hasPermission(actor, 'DESIGNATION_MANAGE'))) {
+      throw new Error('Forbidden: DESIGNATION_MANAGE permission is required to delete designations.');
     }
     const desig = memoryDesignations.find((d) => d.id === Number(id));
     if (!desig) throw new ValidationError(`Designation with ID ${id} not found.`);
@@ -4684,8 +4684,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only Super Administrator can delete employee records.');
+    if (!(await this.hasPermission(actor, 'EMPLOYEE_DELETE'))) {
+      throw new Error('Forbidden: EMPLOYEE_DELETE permission is required to delete employee records.');
     }
 
     const resolvedUser = this.resolveEmployeeRecordSync(id);
@@ -5571,8 +5571,8 @@ export class UserService {
     actor: AuthContext,
     force?: boolean
   ): Promise<{ success: boolean; message: string }> {
-    if (actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can delete users.');
+    if (!(await this.hasPermission(actor, 'USER_DELETE'))) {
+      throw new Error('Forbidden: USER_DELETE permission is required to delete users.');
     }
 
     if (actor.userId === id) {
@@ -6143,8 +6143,8 @@ export class UserService {
       actor = actorOrNone;
     }
 
-    if (actor && actor.role !== 'SUPER_ADMIN') {
-      throw new Error('Forbidden: Only SUPER_ADMIN can perform administrative password reset.');
+    if (actor && !(await this.hasPermission(actor, 'USER_RESET_PASSWORD'))) {
+      throw new Error('Forbidden: USER_RESET_PASSWORD permission is required for administrative password reset.');
     }
 
     if (newPassword && newPassword.length < 6) {
