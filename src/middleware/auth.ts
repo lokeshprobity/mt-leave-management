@@ -546,14 +546,9 @@ export function requirePermission(permissionCode: string, allowedRoles?: UserRol
         return next();
       }
 
-      if (allowedRoles && allowedRoles.length === 1 && allowedRoles[0] === 'SUPER_ADMIN') {
-        return res.status(403).json({
-          error: `Forbidden: Access denied. Required role(s): SUPER_ADMIN. Your active role: ${req.user.role}`,
-          activeRole: req.user.role,
-          requiredRoles: allowedRoles,
-        });
-      }
-
+      // A route declared SUPER_ADMIN-only may be delegated to a custom role
+      // only when that role has the exact granular permission required by this guard.
+      // The protected ALL_PERMISSIONS wildcard remains unavailable to custom roles.
       const permitted = await UserService.hasPermission(req.user, permissionCode);
       if (!permitted) {
         return res.status(403).json({
