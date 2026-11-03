@@ -33,6 +33,12 @@ const BUILT_IN_ROLE_CODES = new Set([
   'EMPLOYEE',
 ]);
 
+function isAdminRole(role?: Pick<RoleDto, 'name' | 'code' | 'displayName'> | null): boolean {
+  if (!role) return false;
+  return [role.name, role.code, role.displayName]
+    .some((value) => String(value || '').trim().toUpperCase() === 'ADMIN');
+}
+
 function normalizeRoleCodeInput(raw: string): string {
   return String(raw || '')
     .trim()
@@ -205,6 +211,21 @@ export function RoleAdmin() {
     setConfirmRevoke(false);
     setError(null);
     setSuccessMsg(null);
+  };
+
+  // Give the custom ADMIN role the same granular permission coverage as Super Admin.
+  // ALL_PERMISSIONS is deliberately excluded so the Admin role remains explicitly configurable
+  // and does not receive the protected Super Admin wildcard.
+  const grantSuperAdminPermissionSet = (target: 'configure' | 'form') => {
+    const granularCodes = availablePermissions
+      .filter((permission) => permission.code !== 'ALL_PERMISSIONS')
+      .map((permission) => permission.code);
+    if (target === 'configure') {
+      setConfirmRevoke(false);
+      setSelectedPerms(granularCodes);
+    } else {
+      setFormRolePerms(granularCodes);
+    }
   };
 
   const togglePermission = (code: string) => {
@@ -858,6 +879,17 @@ export function RoleAdmin() {
                     System Permissions ({formRolePerms.length} of {availablePermissions.length} selected)
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
+                    {isAdminRole(roleFormTarget || { name: formRoleCode, code: formRoleCode, displayName: formRoleName }) && (
+                      <button
+                        type="button"
+                        onClick={() => grantSuperAdminPermissionSet('form')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-800 text-[11px] font-semibold cursor-pointer border border-red-200"
+                        title="Select every individual permission available to the Super Admin role"
+                      >
+                        <Shield className="w-3 h-3 shrink-0" />
+                        <span>Grant Super Admin Permissions</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       id="btn-select-all-perms"
