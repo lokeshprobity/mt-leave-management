@@ -565,7 +565,7 @@ export function registerApiRoutes(app: express.Express) {
         return res.json({
           success: true,
           role,
-          availablePermissions: UserService.getAvailablePermissions(),
+          availablePermissions: UserService.getAvailablePermissions().filter((permission) => permission.code !== 'ALL_PERMISSIONS'),
         });
       } catch (err: any) {
         return res.status(500).json({ error: err.message || 'Failed to fetch role details' });
