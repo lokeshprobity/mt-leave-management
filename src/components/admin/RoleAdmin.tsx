@@ -95,7 +95,6 @@ export function RoleAdmin() {
       const [rolesRes, usersRes] = await Promise.all([
         apiFetch('/api/roles'),
         apiFetch('/api/users').catch(() => null),
-        apiFetch('/api/roles/my-permissions').catch(() => null),
       ]);
 
       const rolesData = await rolesRes.json().catch(() => ({}));
@@ -601,9 +600,7 @@ export function RoleAdmin() {
             const displayTitle = r.displayName && r.displayName !== r.name ? `${r.displayName} (${r.name})` : r.name;
 
             const roleCardTone =
-              r.name === 'SUPER_ADMIN'
-                ? MT_COLOR_CARDS.indigo
-                : r.name === 'TOP_MANAGEMENT'
+              r.name === 'TOP_MANAGEMENT'
                   ? MT_COLOR_CARDS.amber
                   : r.name === 'HR'
                     ? MT_COLOR_CARDS.purple
@@ -688,7 +685,7 @@ export function RoleAdmin() {
                           </button>
                         )}
                       </div>
-                      {isSuperAdmin && (
+                      {canManageRoles && (
                         <div className="flex flex-col sm:items-end gap-1.5 w-full min-w-0">
                           <div className="flex flex-wrap items-center justify-start sm:justify-end gap-1.5 w-full min-w-0">
                             <button
@@ -926,9 +923,7 @@ export function RoleAdmin() {
 
                 <div className="space-y-3 max-h-72 overflow-y-auto p-2.5 bg-neutral-50 rounded-lg border border-neutral-200 min-w-0">
                   {Object.entries(groupedPermissions).map(([category, perms]) => {
-                    const selectableInCat = perms.filter(
-                      (p) => roleFormTarget?.name === 'SUPER_ADMIN' || p.code !== 'ALL_PERMISSIONS'
-                    );
+                    const selectableInCat = perms.filter((p) => p.code !== 'ALL_PERMISSIONS');
                     const selectedInCatCount = perms.filter((p) => formRolePerms.includes(p.code)).length;
                     return (
                       <div key={category} className="space-y-1.5 min-w-0">
@@ -958,8 +953,7 @@ export function RoleAdmin() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                           {perms.map((perm) => {
-                            const isSuperAdminPerm =
-                              perm.code === 'ALL_PERMISSIONS' && roleFormTarget?.name !== 'SUPER_ADMIN';
+                            const isSuperAdminPerm = perm.code === 'ALL_PERMISSIONS';
                             const checked =
                               formRolePerms.includes(perm.code) ||
                               (roleFormTarget?.name === 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS');
@@ -1175,9 +1169,9 @@ export function RoleAdmin() {
                     Granted Permissions ({selectedPerms.length} selected)
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
-                    {editingRole.name === 'SUPER_ADMIN' && (
+                    {false && editingRole.name === 'SUPER_ADMIN' && (
                       <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 break-words max-w-full">
-                        SUPER_ADMIN always retains ALL_PERMISSIONS
+Protected wildcard permission is unavailable for assignment
                       </span>
                     )}
                     {isAdminRole(editingRole) && (
@@ -1239,10 +1233,9 @@ export function RoleAdmin() {
                         {perms.map((perm) => {
                           const checked =
                             selectedPerms.includes(perm.code) ||
-                            (editingRole.name === 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS');
+                            false;
                           const disabled =
-                            (editingRole.name === 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS') ||
-                            (editingRole.name !== 'SUPER_ADMIN' && perm.code === 'ALL_PERMISSIONS');
+                            perm.code === 'ALL_PERMISSIONS';
                           return (
                             <label
                               key={perm.code}
