@@ -330,9 +330,51 @@ async function hasCustomRoleRoutePermission(req: Request, allowedRoles: UserRole
     return true;
   }
 
-  // Strictly SUPER_ADMIN-only administrative authority routes
+  // SUPER_ADMIN-only route declarations may be delegated through explicit,
+  // granular role permissions. Never delegate the protected ALL_PERMISSIONS wildcard.
   if (allowedRoles.length === 1 && allowedRoles[0] === 'SUPER_ADMIN') {
-    return false;
+    const method = (req.method || 'GET').toUpperCase();
+    const pathLower = ((req.baseUrl || '') + (req.path || req.url || '')).toLowerCase();
+    const required = pathLower.includes('/roles')
+      ? 'ROLE_ASSIGN'
+      : pathLower.includes('/reset-password')
+        ? 'USER_RESET_PASSWORD'
+        : pathLower.includes('/status')
+          ? (pathLower.includes('/employees') ? 'EMPLOYEE_STATUS' : 'USER_STATUS')
+          : pathLower.includes('/users') && method === 'POST'
+            ? 'USER_CREATE'
+            : pathLower.includes('/users') && method === 'DELETE'
+              ? 'USER_DELETE'
+              : pathLower.includes('/users') && method === 'GET'
+                ? 'USER_VIEW'
+                : pathLower.includes('/users')
+                  ? 'USER_EDIT'
+                  : pathLower.includes('/employees') && method === 'DELETE'
+                    ? 'EMPLOYEE_DELETE'
+                    : pathLower.includes('/employees') && method === 'POST'
+                      ? 'EMPLOYEE_CREATE'
+                      : pathLower.includes('/employees')
+                        ? 'EMPLOYEE_EDIT'
+                        : pathLower.includes('/audit')
+                          ? 'AUDIT_LOG_VIEW'
+                          : pathLower.includes('/leave-types')
+                            ? 'LEAVE_TYPE_MANAGE'
+                            : pathLower.includes('/leave-policies')
+                              ? 'LEAVE_POLICY_MANAGE'
+                              : pathLower.includes('/leave-balances')
+                                ? 'LEAVE_BALANCE_ADJUST'
+                                : pathLower.includes('/settings') || pathLower.includes('/company-logo') || pathLower.includes('/company-branding')
+                                  ? 'SYSTEM_SETTINGS_MANAGE'
+                                  : pathLower.includes('/departments')
+                                    ? 'DEPARTMENT_MANAGE'
+                                    : pathLower.includes('/designations')
+                                      ? 'DESIGNATION_MANAGE'
+                                      : pathLower.includes('/shifts')
+                                        ? 'SHIFT_EDIT'
+                                        : pathLower.includes('/leave-requests')
+                                          ? 'LEAVE_VIEW_ALL'
+                                          : '';
+    return required ? UserService.hasPermission(user, required) : false;
   }
 
   const pathLower = ((req.baseUrl || '') + (req.path || req.url || '')).toLowerCase();
