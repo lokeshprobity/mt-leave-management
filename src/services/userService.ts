@@ -534,6 +534,12 @@ export const ALL_SYSTEM_PERMISSIONS: Array<{
   category: string;
 }> = [
   { code: 'ALL_PERMISSIONS', label: 'All System Permissions (Full Control)', category: 'System & Security' },
+  { code: 'USER_VIEW', label: 'View User Accounts & Activity', category: 'User & Role Administration' },
+  { code: 'SYSTEM_SETTINGS_MANAGE', label: 'Manage System Settings & Company Branding', category: 'System & Security' },
+  { code: 'LEAVE_TYPE_MANAGE', label: 'Manage Leave Types', category: 'Leave & Approvals' },
+  { code: 'LEAVE_POLICY_MANAGE', label: 'Manage Leave Policies', category: 'Leave & Approvals' },
+  { code: 'LEAVE_ADMIN_EDIT', label: 'Edit Submitted Leave Requests', category: 'Leave & Approvals' },
+  { code: 'LEAVE_ADMIN_DELETE', label: 'Delete Leave Requests with Balance Reversal', category: 'Leave & Approvals' },
   { code: 'USER_CREATE', label: 'Create User Accounts', category: 'User & Role Administration' },
   { code: 'USER_EDIT', label: 'Edit User Accounts', category: 'User & Role Administration' },
   { code: 'USER_DELETE', label: 'Delete User Accounts', category: 'User & Role Administration' },
