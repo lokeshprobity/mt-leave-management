@@ -386,10 +386,8 @@ export function registerApiRoutes(app: express.Express) {
   // Upload or Replace Company Logo (SUPER_ADMIN Only)
   const handleCompanyLogoUpload = async (req: Request, res: Response) => {
     try {
-      if (!req.user || req.user.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({
-          error: 'Forbidden: Only SUPER_ADMIN can upload or replace the company logo.',
-        });
+      if (!req.user || !(await UserService.hasPermission(req.user, 'SYSTEM_SETTINGS_MANAGE'))) {
+        return res.status(403).json({ error: 'Forbidden: SYSTEM_SETTINGS_MANAGE permission is required.' });
       }
       const { fileName, fileData, mimeType } = req.body || {};
       const branding = await UserService.uploadCompanyLogo(
